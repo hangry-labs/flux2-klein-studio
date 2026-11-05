@@ -194,6 +194,7 @@ def run(arguments):
         "prompt": arguments.prompt,
         "offloading": False,
         "mode": arguments.command,
+        "reduction": arguments.reduction,
     }
     write_json(report_path, report)
     try:
@@ -223,6 +224,15 @@ def run(arguments):
             ).to("cuda")
             torch.cuda.synchronize()
             report["loading_seconds"] = time.perf_counter() - start
+            if arguments.reduction == "ordered":
+                from .ordered_reduction import install_ordered_reduction
+
+                replaced = install_ordered_reduction(pipe.transformer)
+                if replaced != 100:
+                    raise RuntimeError(
+                        f"Expected 100 ordered SVDQ modules, got {replaced}"
+                    )
+                report["ordered_modules"] = replaced
             report["loading_memory"] = memory()
             report["placement"] = check_residency(pipe)
             report["quantization"] = check_quantization(pipe)
@@ -317,6 +327,7 @@ def run(arguments):
                             "height": 1024,
                             "steps": arguments.steps,
                             "guidance_scale": 1.0,
+                            "reduction": arguments.reduction,
                         }
                     ),
                 )
@@ -342,6 +353,10 @@ def run(arguments):
                     if item["label"].startswith("measured-")
                 )
                 if not report["same_seed_bit_exact"]:
+                    if arguments.reduction == "ordered":
+                        raise RuntimeError(
+                            "Ordered accumulation failed the same-seed pixel equality check"
+                        )
                     report["repeatability_note"] = (
                         "Repeated same-seed calls differ. The current SVDQ CUDA projection "
                         "was observed to vary for identical input. Exact image reproduction "

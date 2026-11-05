@@ -1,9 +1,46 @@
 # Validation
 
-Status: initial Docker operational qualification passed on 2026-11-05. Exact
-same-seed reproduction is not supported by the observed kernel behavior below.
+Status: the default ordered mode passed same-seed repeatability checks on an
+RTX 5070 Ti with the pinned software stack. The original native mode still varies.
 
-## Local results
+## Ordered reduction
+
+The default `--reduction ordered` replaces only the SVDQ low-rank side calculation.
+One Triton program owns each row/rank tile and combines 128-channel tensor-core
+partial products in a fixed sequence, without inter-program atomic additions.
+The native quantizer still produces the NVFP4 activations/scales and native GEMM
+performs the projection. Its nondeterministic low-rank side result is discarded
+and replaced by the ordered result computed from the current input and checkpoint
+weights. No activations are frozen and no dense model weights are substituted.
+
+This applies the fixed-order principle from [NVIDIA's CCCL article](https://developer.nvidia.com/blog/?p=113316)
+using the Triton runtime already included with PyTorch. It does not invoke CUB's
+API or provide GPU-to-GPU reproducibility.
+
+Paired 1024×1024 tests in the same Docker image, with four steps and no offloading:
+
+| Check | Native | Ordered |
+| --- | --- | --- |
+| Five measured calls, seed 12345 | Different pixel hashes | One identical pixel hash, including warmup |
+| Mean warmed latency | 1.433 seconds | 1.487 seconds |
+| Exact same-seed pixel comparison | Failed | Passed |
+| Extra resident allocation | Baseline | 33.75 MiB |
+
+The observed latency increase was 3.7% in this small test. Ordered mode also passed
+three measured calls with seed 54321 using a cold compiler cache; that seed
+produced a different image. A fresh container reproduced seed 12345's exact image.
+These tests used Docker networking disabled. Model, NF4 encoder and VAE remained
+on CUDA. Nine GPU-enabled tests passed, including six numerical shapes against a
+float64 reference, padded row counts and unsupported-dtype rejection.
+CPU-only test builds skip the two GPU-specific tests explicitly.
+
+See [ordered results](../benchmarks/ordered-1024.json). This establishes measured
+run-to-run behavior on this GPU and stack, not a guarantee across GPUs, compiler
+versions, precision profiles or future code changes. The ordered benchmark fails
+if its same-seed image hashes differ. The first inference may include compilation
+time; compiled kernels persist in the data volume.
+
+## Initial native-mode results
 
 Tested development image, RTX 5070 Ti (16303 MiB), driver 610.88, Docker
 Desktop Linux containers, with networking disabled and no source-code mount:
@@ -38,7 +75,7 @@ Use the committed dependency lock. Kernels 0.18.1 is required by this tested sta
 0.17.2 fails during kernel acquisition when telemetry is disabled because it
 constructs an invalid HTTP User-Agent header. The image keeps telemetry disabled.
 
-## Same-seed limitation
+## Original native-mode limitation
 
 Repeated calls with identical prompts and seeds produced different pixels in the
 initial successful run. A diagnostic found identical text-encoder embeddings but
@@ -60,7 +97,8 @@ varied by up to 4.77e-7. Holding that result fixed in a diagnostic-only intercep
 made the isolated projection bit-identical. Enabling PyTorch deterministic
 algorithms alone did not eliminate the low-rank variation. This further narrows
 the cause to that kernel calculation; freezing input-dependent activations is
-not a production fix. A deterministic accumulation path needs investigation.
+not a production fix. The ordered implementation above recomputes that result
+from each actual input using fixed-order accumulation.
 
 ## Reproduce the checks
 

@@ -5,9 +5,10 @@ Lite NVFP4 rank-32 transformer and an NF4 text encoder. The Docker CLI generates
 1024×1024 images with all model components on the GPU, without offloading.
 Browser UI and an HTTP API are planned.
 
-**Known issue:** the current CUDA kernel can produce visibly different images
-with the same prompt and seed. Exact image reproduction is unresolved. See
-[validation and investigation](docs/validation.md#same-seed-limitation).
+**Repeatability:** ordered low-rank accumulation is enabled by default. Repeated
+prompts and seeds produced pixel-identical images on the tested GPU and pinned
+stack, including after restarting the container. Other GPUs and software versions
+have not been qualified. See [validation](docs/validation.md#ordered-reduction).
 
 ## Run locally
 
@@ -64,9 +65,9 @@ success and exact same-seed pixel equality are reported separately.
 ## What the settings mean
 
 - **Prompt:** the written description of the picture.
-- **Seed:** the starting randomness. Default: `12345`. This kernel profile was
-  observed to produce different pixels even with the same prompt and seed in the
-  same process. Save the output image when you want to keep an exact result.
+- **Seed:** the starting randomness. Default: `12345`. Tested with exact
+  repeatability in ordered mode on the same GPU and stack. Hardware/software
+  changes can change the result; keep the image and metadata.
 - **Steps:** rounds of image refinement. This packaged model's initial profile
   uses four steps; more steps are not automatically better for a distilled model.
 - **NVFP4 / NF4:** different four-bit weight formats used by the transformer and
@@ -80,6 +81,19 @@ The initial runner fixes width/height to 1024×1024, batch size to one and guida
 to `1.0`. `--seed`, `--steps`, `--prompt` and `--output-dir` can be changed. The
 benchmark performs a warmup, three measured calls, then a changed-prompt call.
 Use `--runs` to change the number of measured calls.
+
+Ordered mode uses a GPU kernel with a fixed accumulation order for the low-rank
+correction. It preserves the model weights, NF4 encoder and no-offload profile.
+The first call compiles small Triton kernels; their cache is kept in the data
+volume. The image includes the required compiler. It does not require a host
+CUDA toolkit.
+
+For comparison with the original kernel, use `--reduction native`. Native mode
+was observed to produce different pixels with identical prompts and seeds:
+
+```shell
+docker compose run --rm studio benchmark --offline --reduction native
+```
 
 After one successful inference has populated both caches, use `--offline` with
 `generate` or `benchmark` for cached loading. Verify complete offline operation
@@ -103,6 +117,13 @@ validation records the selected model/kernel revisions and loaded kernel file ha
 To update the lock, use `uv pip compile requirements.txt --python-version 3.13 --python-platform x86_64-unknown-linux-gnu --index-strategy unsafe-best-match --emit-index-url --output-file requirements.lock`,
 then rebuild and repeat the GPU checks. The lock targets the Linux container,
 not the host operating system.
+
+Run the GPU numerical tests, including padded shapes and comparison against a
+float64 reference, after building the test image:
+
+```shell
+docker run --rm --gpus all --mount type=volume,source=flux2-klein-studio-data,target=/data --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
+```
 
 Model: [lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32](https://huggingface.co/lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32),
 based on Black Forest Labs FLUX.2 Klein 4B. Runtime: Hugging Face Diffusers,

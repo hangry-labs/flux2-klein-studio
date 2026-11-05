@@ -3,6 +3,8 @@
 !requirements.txt
 !requirements.lock
 !THIRD_PARTY.md
+!licenses/
+!licenses/**
 !src/
 !src/**
 !tests/

@@ -19,6 +19,7 @@ def versions():
             "transformers",
             "bitsandbytes",
             "kernels",
+            "triton",
             "accelerate",
             "huggingface-hub",
         )
@@ -64,6 +65,12 @@ def parser():
         command.add_argument("--steps", type=int, default=4)
         command.add_argument("--output-dir", type=Path, default=Path("/data/outputs"))
         command.add_argument("--offline", action="store_true")
+        command.add_argument(
+            "--reduction",
+            choices=("ordered", "native"),
+            default="ordered",
+            help="Ordered low-rank accumulation (default), or the original native kernel",
+        )
         if name == "benchmark":
             command.add_argument("--runs", type=int, default=3)
     return result

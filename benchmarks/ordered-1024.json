@@ -1,0 +1,169 @@
+{
+  "date": "2026-11-05",
+  "scope": "Run-to-run repeatability on one RTX 5070 Ti and this pinned software stack; no GPU-to-GPU guarantee",
+  "profile": {
+    "width": 1024,
+    "height": 1024,
+    "steps": 4,
+    "guidance_scale": 1.0,
+    "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+    "offloading": false
+  },
+  "environment": {
+    "versions": {
+      "torch": "2.14.0+cu130",
+      "diffusers": "0.42.1",
+      "transformers": "5.22.1",
+      "bitsandbytes": "0.50.2",
+      "kernels": "0.18.1",
+      "triton": "3.8.0",
+      "accelerate": "1.15.0",
+      "huggingface-hub": "2.4.0"
+    },
+    "cuda_runtime": "13.0",
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "capability": [
+      12,
+      0
+    ],
+    "total_vram_bytes": 17094475776,
+    "model": "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32",
+    "revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216"
+  },
+  "model_revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216",
+  "native_kernel_revision": "d04512b422d7c9d029ae760449687fb09f33bf58",
+  "ordered_source_sha256": "3a6b09bc8374545fe8bc5d9863ce475c6636f73f5cceb33b6a76c59cfeb12866",
+  "native": {
+    "seed": 12345,
+    "mean_seconds": 1.4333249940002133,
+    "stdev_seconds": 0.026159209312331132,
+    "same_seed_bit_exact": false,
+    "runs": [
+      {
+        "label": "warmup",
+        "seconds": 2.448305937999976,
+        "pixel_sha256": "af60ce8689d6b9489f6727c0e03ac67844bb7e5fcc6479215e273b1233d441ff"
+      },
+      {
+        "label": "measured-1",
+        "seconds": 1.484298282999589,
+        "pixel_sha256": "a0f73ff29632cbcacf026b385b41dbdecf7f3434ee71de45e2f37c0ae3bfcfbf"
+      },
+      {
+        "label": "measured-2",
+        "seconds": 1.4301951640009065,
+        "pixel_sha256": "aa2d577ed32cc5bdffbaa52e8c3cd3858cfbf011400f38d7ad2564a453e5e3e0"
+      },
+      {
+        "label": "measured-3",
+        "seconds": 1.4229502950001915,
+        "pixel_sha256": "489c4948f0c50ba4987ab15c8dbada6fa7222cf9aedbbd34c04c97091f34f36f"
+      },
+      {
+        "label": "measured-4",
+        "seconds": 1.4132012320005742,
+        "pixel_sha256": "b86d0fc37de5f6bddcbcb20b4282363fe9be738ab6fbe4f99214bec2b43479fc"
+      },
+      {
+        "label": "measured-5",
+        "seconds": 1.4159799959998054,
+        "pixel_sha256": "4b7172a46291f6a1b0e5debd1300f629e5d6272c14074de1d67949d9e1e1dfa1"
+      },
+      {
+        "label": "changed-prompt",
+        "seconds": 1.420771175999107,
+        "pixel_sha256": "c3369ad42efd5b524d95e11a17e7a219330a0af9f7d20f186f2b1e34f62ec6cc"
+      }
+    ],
+    "measured_calls": 5,
+    "allocated_peak_bytes": 7978863616,
+    "reserved_peak_bytes": 10515120128
+  },
+  "ordered": {
+    "seed": 12345,
+    "mean_seconds": 1.4869161864000489,
+    "stdev_seconds": 0.01842328138558081,
+    "same_seed_bit_exact": true,
+    "runs": [
+      {
+        "label": "warmup",
+        "seconds": 2.970929172999604,
+        "pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440"
+      },
+      {
+        "label": "measured-1",
+        "seconds": 1.5133607660009147,
+        "pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440"
+      },
+      {
+        "label": "measured-2",
+        "seconds": 1.5009414479991392,
+        "pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440"
+      },
+      {
+        "label": "measured-3",
+        "seconds": 1.4639130129999103,
+        "pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440"
+      },
+      {
+        "label": "measured-4",
+        "seconds": 1.485908605000077,
+        "pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440"
+      },
+      {
+        "label": "measured-5",
+        "seconds": 1.4704571000002034,
+        "pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440"
+      },
+      {
+        "label": "changed-prompt",
+        "seconds": 1.454384785000002,
+        "pixel_sha256": "b9523e21faee73665e14ac144bea53c5c824d3e8811a33cab1f20b46c0beb1cb"
+      }
+    ],
+    "measured_calls": 5,
+    "allocated_peak_bytes": 8014253056,
+    "reserved_peak_bytes": 10552868864
+  },
+  "second_seed_cold_compiler_cache": {
+    "seed": 54321,
+    "mean_seconds": 1.4277443313330878,
+    "stdev_seconds": 0.02841705683665898,
+    "same_seed_bit_exact": true,
+    "runs": [
+      {
+        "label": "warmup",
+        "seconds": 4.31265875400095,
+        "pixel_sha256": "22103b26136b5064d050e586e3e4f3a48f6a3ed56275bc588bcb2faae7780652"
+      },
+      {
+        "label": "measured-1",
+        "seconds": 1.3960475570002018,
+        "pixel_sha256": "22103b26136b5064d050e586e3e4f3a48f6a3ed56275bc588bcb2faae7780652"
+      },
+      {
+        "label": "measured-2",
+        "seconds": 1.4649885019989597,
+        "pixel_sha256": "22103b26136b5064d050e586e3e4f3a48f6a3ed56275bc588bcb2faae7780652"
+      },
+      {
+        "label": "measured-3",
+        "seconds": 1.4221969350001018,
+        "pixel_sha256": "22103b26136b5064d050e586e3e4f3a48f6a3ed56275bc588bcb2faae7780652"
+      },
+      {
+        "label": "changed-prompt",
+        "seconds": 1.395655460000853,
+        "pixel_sha256": "21deeec7db3e63bb85c69eea99462efce5592a135189372da594f1b5ad915e3d"
+      }
+    ],
+    "measured_calls": 3,
+    "allocated_peak_bytes": 8014253056,
+    "reserved_peak_bytes": 10552868864
+  },
+  "fresh_container_same_seed_match": true,
+  "fresh_container_pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440",
+  "relative_latency_increase_percent": 3.73894215367514,
+  "resident_allocation_increase_bytes": 35389440,
+  "numerical_tests": "Float64 reference, six shapes including padded rows and 12288 channels, plus unsupported dtype guard; 9 GPU-enabled tests passed"
+}

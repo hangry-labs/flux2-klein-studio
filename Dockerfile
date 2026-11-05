@@ -16,8 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 && rm 
 WORKDIR /app
 COPY requirements.txt requirements.lock ./
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirements.lock && python -m pip check
+# Triton's bundled CUDA compiler needs a C compiler for its small driver launcher.
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
+ENV TRITON_CACHE_DIR=/data/triton
 COPY src/ ./src/
 COPY THIRD_PARTY.md ./THIRD_PARTY.md
+COPY licenses/ ./licenses/
 ENTRYPOINT ["python", "-m", "flux2_klein_studio"]
 CMD ["doctor"]
 
