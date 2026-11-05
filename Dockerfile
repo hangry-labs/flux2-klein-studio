@@ -18,7 +18,8 @@ COPY requirements.txt requirements.lock ./
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirements.lock && python -m pip check
 # Triton's bundled CUDA compiler needs a C compiler for its small driver launcher.
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
-ENV TRITON_CACHE_DIR=/data/triton
+ENV TRITON_CACHE_DIR=/data/triton \
+    PYTORCH_ALLOC_CONF=expandable_segments:True
 COPY src/ ./src/
 COPY THIRD_PARTY.md ./THIRD_PARTY.md
 COPY licenses/ ./licenses/
@@ -27,4 +28,12 @@ CMD ["doctor"]
 
 FROM runtime AS test
 COPY tests/ ./tests/
+COPY tools/ ./tools/
 RUN python -m unittest discover -s tests -v
+
+FROM python:3.13-slim@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb AS tooling
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PYTHONDONTWRITEBYTECODE=1 MPLCONFIGDIR=/tmp/matplotlib
+COPY requirements-tools.txt /tmp/requirements-tools.txt
+RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r /tmp/requirements-tools.txt && python -m pip check
+WORKDIR /work
+ENTRYPOINT ["ruff"]

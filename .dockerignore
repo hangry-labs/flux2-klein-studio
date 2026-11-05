@@ -2,6 +2,7 @@
 !Dockerfile
 !requirements.txt
 !requirements.lock
+!requirements-tools.txt
 !THIRD_PARTY.md
 !licenses/
 !licenses/**
@@ -9,6 +10,8 @@
 !src/**
 !tests/
 !tests/**
+!tools/
+!tools/**
 **/__pycache__/
 **/*.py[cod]
 **/AGENTS.md

@@ -1,0 +1,151 @@
+version: '3'
+
+vars:
+  WIDTH: '1024'
+  HEIGHT: '1024'
+  SEED: '12345'
+  STEPS: '4'
+  RUNS: '5'
+  WARMUPS: '2'
+  TIMEOUT: '180'
+  SUITE: 'speed'
+  SUMMARY: 'latest'
+  SEED_RESOLUTIONS: '512x512,1024x1024,1536x1536'
+  PLAN_RESOLUTIONS: '{{if eq .SUITE "fixed-seed"}}{{.SEED_RESOLUTIONS}}{{else}}{{.RESOLUTIONS}}{{end}}'
+  ALLOC_CONF: 'expandable_segments:True'
+  REPORT: 'benchmarks/history/allocator-comparison/resolution-expandable.json'
+  CHART: 'benchmarks/resolution-expandable.svg'
+  RESOLUTIONS: '512x512,768x768,1024x1024,1280x1280,1536x1024,1024x1536,1920x1088,1088x1920,1536x1536'
+  CAPACITY_RESOLUTIONS: '1024x1024,1280x1280,1536x1536,1792x1792,1856x1856,1920x1920,2048x2048,2304x2304,2560x2560,2816x2816,3072x3072'
+
+tasks:
+  default:
+    cmds: [task --list]
+
+  docker:build:
+    desc: Build the local runtime image
+    aliases: [build]
+    cmds: [docker compose build]
+
+  doctor:
+    desc: Check GPU access and runtime versions
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio doctor
+
+  model:download:
+    desc: Download the pinned model into the persistent volume
+    cmds: [docker compose run --rm studio download]
+
+  generate:
+    desc: Generate one image; pass a prompt after -- or set WIDTH/HEIGHT/SEED
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio generate --width {{.WIDTH}} --height {{.HEIGHT}} --seed {{.SEED}} --steps {{.STEPS}} {{.CLI_ARGS}}
+
+  benchmark:
+    desc: Measure warmed speed at one resolution (no VRAM sampling or seed assertion)
+    aliases: [bench]
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio benchmark --offline --width {{.WIDTH}} --height {{.HEIGHT}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} {{.CLI_ARGS}}
+
+  benchmark:resolutions:
+    desc: Measure speed per size in fresh processes and update speed reports
+    aliases: ['bench:resolutions', 'benchmark:speed', 'bench:speed']
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --suite speed --offline --resolutions {{.RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} {{.CLI_ARGS}}
+
+      - task: benchmark:report
+        vars: {SUITE: speed}
+
+  benchmark:capacity:
+    desc: Increase square resolution until OOM, timeout or less than 512 MiB sampled headroom
+    aliases: ['bench:capacity']
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --suite memory --offline --stop-on-limit --resolutions {{.CAPACITY_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} {{.CLI_ARGS}}
+
+      - task: benchmark:report
+        vars: {SUITE: memory}
+
+  benchmark:memory:
+    desc: Measure loading and generation VRAM per size and update memory reports
+    aliases: ['bench:memory']
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --suite memory --offline --resolutions {{.RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} {{.CLI_ARGS}}
+      - task: benchmark:report
+        vars: {SUITE: memory}
+
+  benchmark:seed:
+    desc: Test same-seed pixels, changed inputs and fresh-process reproduction
+    aliases: ['bench:seed']
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --suite fixed-seed --offline --resolutions {{.SEED_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} {{.CLI_ARGS}}
+      - task: benchmark:report
+        vars: {SUITE: fixed-seed}
+
+  benchmark:full:
+    desc: Run memory, speed and fixed-seed suites sequentially with separate reports
+    aliases: ['bench:full']
+    cmds:
+      - task: benchmark:memory
+      - task: benchmark:resolutions
+      - task: benchmark:seed
+
+  benchmark:plan:
+    desc: Show a suite workload without GPU access, model loading or report writes
+    cmds:
+      - docker run --rm --network none -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} flux2-klein-studio:dev resolution-sweep --suite {{.SUITE}} --resolutions {{.PLAN_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} --plan {{.CLI_ARGS}}
+
+  benchmark:smoke:
+    desc: Run one-size suite wiring check, keeping raw evidence without public report writes
+    aliases: ['bench:smoke']
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --suite {{.SUITE}} --offline --resolutions {{.WIDTH}}x{{.HEIGHT}} --seed {{.SEED}} --steps {{.STEPS}} --runs 2 --warmups 1 --timeout {{.TIMEOUT}} {{.CLI_ARGS}}
+
+  benchmark:report:
+    desc: Archive a portable run and rebuild its report and root SVG (no inference)
+    deps: ['tools:build']
+    cmds:
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" --entrypoint python flux2-klein-studio:tools tools/report_benchmarks.py --suite {{.SUITE}} --input "{{.SUMMARY}}" --plot
+
+  docker:test-build:
+    desc: Build test image and run CPU guards (GPU tests explicitly skipped)
+    aliases: ['test:cpu', test]
+    cmds: [docker build --target test -t flux2-klein-studio:test .]
+
+  test:gpu:
+    desc: Run numerical GPU tests using the test image
+    cmds:
+      - task: docker:test-build
+      - docker run --rm --gpus all -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} --mount type=volume,source=flux2-klein-studio-data,target=/data --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
+
+  tools:build:
+    desc: Build optional lint/plot tools separately from the inference image
+    cmds: [docker build --target tooling -t flux2-klein-studio:tools .]
+
+  lint:
+    desc: Check Python code and formatting with the pinned container tools
+    deps: ['tools:build']
+    cmds:
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" flux2-klein-studio:tools check src tests tools
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" flux2-klein-studio:tools format --check src tests tools
+
+  format:
+    desc: Format Python sources using the pinned container tool
+    deps: ['tools:build']
+    cmds:
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" flux2-klein-studio:tools format src tests tools
+
+  benchmark:plot:
+    desc: Render the selected benchmark JSON as an SVG chart
+    aliases: ['bench:plot']
+    deps: ['tools:build']
+    cmds:
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" --entrypoint python flux2-klein-studio:tools tools/plot_benchmark.py "{{.REPORT}}" "{{.CHART}}"
+
+  cli:
+    desc: Forward arguments directly to the container CLI
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio {{.CLI_ARGS}}
+
+  docker:down:
+    desc: Remove project containers/network while preserving model caches
+    cmds: [docker compose down]

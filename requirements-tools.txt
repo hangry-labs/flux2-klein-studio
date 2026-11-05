@@ -1,0 +1,3 @@
+# Optional development/reporting tools; never installed in the inference image.
+ruff==0.16.10
+matplotlib==3.10.8

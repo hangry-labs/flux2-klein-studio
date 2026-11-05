@@ -2,6 +2,8 @@
 
 Status: the default ordered mode passed same-seed repeatability checks on an
 RTX 5070 Ti with the pinned software stack. The original native mode still varies.
+The subsequent [resolution baseline](benchmarks.md) measures speed and memory
+across sizes, including a separate expandable-segment allocator profile.
 
 ## Ordered reduction
 
@@ -34,9 +36,9 @@ on CUDA. Nine GPU-enabled tests passed, including six numerical shapes against a
 float64 reference, padded row counts and unsupported-dtype rejection.
 CPU-only test builds skip the two GPU-specific tests explicitly.
 
-See [ordered results](../benchmarks/ordered-1024.json). This establishes measured
+See [ordered results](../benchmarks/history/initial/ordered-1024.json). This establishes measured
 run-to-run behavior on this GPU and stack, not a guarantee across GPUs, compiler
-versions, precision profiles or future code changes. The ordered benchmark fails
+versions, precision profiles or future code changes. The fixed-seed suite fails
 if its same-seed image hashes differ. The first inference may include compilation
 time; compiled kernels persist in the data volume.
 
@@ -63,7 +65,7 @@ Desktop Linux containers, with networking disabled and no source-code mount:
 
 Pinned stack: torch 2.14.0+cu130, Diffusers 0.42.1, Transformers 5.22.1,
 bitsandbytes 0.50.2, kernels 0.18.1, Accelerate 1.15.0, Hub 2.4.0.
-See [machine-readable results](../benchmarks/initial-1024.json) for artifact revisions,
+See [machine-readable results](../benchmarks/history/initial/initial-1024.json) for artifact revisions,
 kernel file hashes, prompts and measurements. Each invocation saves its own raw
 report and images under `outputs/<timestamp>/`; generated files are excluded from
 version control. Robot/orchid images were visually inspected and matched the prompt. These are
@@ -88,7 +90,7 @@ every contributing CUDA operation or identify the exact source behind the binary
 The upstream kernel build also identifies its source tree as dirty and is unsigned.
 We pin the immutable Hub snapshot and record hashes of the actual loaded files;
 we do not claim a reproducible source build or exact same-seed image reproduction.
-The benchmark reports `same_seed_bit_exact` separately from operational success.
+The historical combined benchmark reported `same_seed_bit_exact` separately from operational success.
 Keep generated images rather than assuming the seed can recreate an exact picture.
 
 A follow-up controlled probe confirmed identical starting noise, prompt embeddings,
@@ -102,17 +104,23 @@ from each actual input using fixed-order accumulation.
 
 ## Reproduce the checks
 
-Baseline: 1024×1024, batch size one, four steps, guidance 1.0, seed 12345. The
-benchmark uses one warmup, three measured calls with the same prompt and seed,
-then a changed-prompt call. Every neural component must remain on the GPU.
+The historical initial check used 1024×1024, batch size one, four steps, guidance
+1.0 and seed 12345, with one warmup, three repeats and a changed prompt.
+Current benchmarks separate correctness from speed and memory:
 
-Each run saves PNG images with generation metadata and a JSON report containing
-library versions, CUDA runtime, GPU, exact model/kernel revisions, model placement,
-quantization modules, loading time and per-call timings/memory. Whole-device peak
-memory is sampled every 0.5 seconds and includes desktop/other process usage; it
-is approximate. PyTorch allocated/reserved peaks are recorded separately and omit
-some CUDA allocations outside PyTorch. Timings synchronize the GPU and cover the
-pipeline call, excluding PNG encoding and disk writes.
+```shell
+task bench:seed SEED_RESOLUTIONS=1024x1024
+task bench:memory RESOLUTIONS=1024x1024
+task bench:speed RESOLUTIONS=1024x1024
+```
+
+The fixed-seed suite saves comparison PNGs and additionally checks a changed
+seed and fresh-process reproduction. The memory suite records loading and
+generation separately with a 100 ms target sampling interval; the speed suite
+has no periodic VRAM polling or equality assertions. Defaults are two warmups
+and five measured calls per resolution. Every neural component remains on CUDA.
+See the [benchmark guide](../benchmarks/README.md) for report definitions,
+limitations, output locations and the preserved historical measurements.
 
 After a successful online run, check restart and cached offline behavior:
 

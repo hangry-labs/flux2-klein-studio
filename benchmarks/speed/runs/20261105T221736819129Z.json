@@ -1,0 +1,279 @@
+{
+  "schema_version": 2,
+  "run_id": "20261105T221736819129Z",
+  "suite": "speed",
+  "status": "completed",
+  "steps": 4,
+  "seed": 12345,
+  "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+  "reduction": "ordered",
+  "warmups": 2,
+  "measured_calls_per_resolution": 5,
+  "workload": [
+    {
+      "label": "warmup-1",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345
+    },
+    {
+      "label": "warmup-2",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345
+    },
+    {
+      "label": "measured-1",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345
+    },
+    {
+      "label": "measured-2",
+      "prompt": "A small orange sailboat on a calm mountain lake at sunrise, realistic photograph",
+      "seed": 12346
+    },
+    {
+      "label": "measured-3",
+      "prompt": "A studio portrait of an elderly woman wearing a blue scarf, soft light, realistic photograph",
+      "seed": 12347
+    },
+    {
+      "label": "measured-4",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12348
+    },
+    {
+      "label": "measured-5",
+      "prompt": "A small orange sailboat on a calm mountain lake at sunrise, realistic photograph",
+      "seed": 12349
+    }
+  ],
+  "workload_sha256": "b25614daacc72cc57fbece1c245abd680a1db08b07ededbaad15b82ae54f6bde",
+  "resolutions": [
+    [
+      512,
+      512
+    ],
+    [
+      768,
+      768
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1280,
+      1280
+    ],
+    [
+      1536,
+      1024
+    ],
+    [
+      1024,
+      1536
+    ],
+    [
+      1920,
+      1088
+    ],
+    [
+      1088,
+      1920
+    ],
+    [
+      1536,
+      1536
+    ]
+  ],
+  "restart_calls_per_resolution": 0,
+  "measurement_context": "shared live system; other workloads left running",
+  "method": "Fresh process per resolution; cold load separate; no offload, VAE tiling or slicing",
+  "source_sha256": {
+    "inference.py": "073f863f3a506f5c5e6f78f405cc570ad968ace45003f20d32b6868ed2fde76c",
+    "ordered_reduction.py": "3a6b09bc8374545fe8bc5d9863ce475c6636f73f5cceb33b6a76c59cfeb12866",
+    "workloads.py": "cb27cc219ad8e5e591de7a64d11dd15e214aea1ffb7eaeef6292158f4c0243f2"
+  },
+  "generation_profile": {
+    "per_step_finite_check": true
+  },
+  "raw_summary_sha256": "2890099208ea750ffccebc65a7401317fe7970551dad63f21cd43516241cd346",
+  "environment": {
+    "versions": {
+      "torch": "2.14.0+cu130",
+      "diffusers": "0.42.1",
+      "transformers": "5.22.1",
+      "bitsandbytes": "0.50.2",
+      "kernels": "0.18.1",
+      "triton": "3.8.0",
+      "accelerate": "1.15.0",
+      "huggingface-hub": "2.4.0"
+    },
+    "cuda_runtime": "13.0",
+    "driver_version": "610.88",
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "capability": [
+      12,
+      0
+    ],
+    "total_vram_bytes": 17094475776,
+    "allocator_config": "expandable_segments:True",
+    "model": "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32",
+    "revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216"
+  },
+  "kernel": {
+    "repository": "rootonchair/nunchaku-lite-kernels",
+    "revision": "d04512b422d7c9d029ae760449687fb09f33bf58",
+    "file_sha256": {
+      "__init__.py": "d1e7ab23026ebff46f6153f2b8b6004a217b32c78893c67169b41b7c3474ec7b",
+      "_nunchaku_lite_kernels_cuda_c1b1dfd_dirty.abi3.so": "3a9f08167a5dd10f164e4cbef4452085b123019587bc26ef615546e6e5789e82",
+      "_ops.py": "306405a83de9aafbd12205f31c5d5083088aad7d444dd9adc74e03f8573412cc",
+      "interface.py": "2b276daac3a51ea611376417f4d7eef9c79d711c4e0c73a3f86e14566590d659"
+    }
+  },
+  "results": [
+    {
+      "width": 512,
+      "height": 512,
+      "megapixels": 0.262144,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 0.4737138699983916,
+      "mean_seconds": 0.4780651277993456,
+      "min_seconds": 0.4638777590007521,
+      "max_seconds": 0.5044191039996804,
+      "stdev_seconds": 0.014466619026094592,
+      "p95_seconds": 0.49978894499945453,
+      "images_per_second": 2.0917652048858955,
+      "first_call_seconds": 1.880975693999062,
+      "loading_seconds": 2.3906019810001453
+    },
+    {
+      "width": 768,
+      "height": 768,
+      "megapixels": 0.589824,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 0.8224802529985027,
+      "mean_seconds": 0.8182603419994848,
+      "min_seconds": 0.7997693180004717,
+      "max_seconds": 0.8317931739984488,
+      "stdev_seconds": 0.012643644110471074,
+      "p95_seconds": 0.8314239417988574,
+      "images_per_second": 1.222104932467361,
+      "first_call_seconds": 2.013826431999405,
+      "loading_seconds": 2.558986812000512
+    },
+    {
+      "width": 1024,
+      "height": 1024,
+      "megapixels": 1.048576,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 1.3987710000001243,
+      "mean_seconds": 1.3950855395996768,
+      "min_seconds": 1.3593486109984951,
+      "max_seconds": 1.4332165809992148,
+      "stdev_seconds": 0.02661449864634294,
+      "p95_seconds": 1.4289282741992793,
+      "images_per_second": 0.7168019247672457,
+      "first_call_seconds": 2.6058875839989923,
+      "loading_seconds": 2.447582782999234
+    },
+    {
+      "width": 1280,
+      "height": 1280,
+      "megapixels": 1.6384,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 2.40321443799985,
+      "mean_seconds": 2.3985027932001683,
+      "min_seconds": 2.367006651998963,
+      "max_seconds": 2.42629202200078,
+      "stdev_seconds": 0.021958639609626334,
+      "p95_seconds": 2.424166285000683,
+      "images_per_second": 0.41692676065878753,
+      "first_call_seconds": 3.4528178310010844,
+      "loading_seconds": 2.3679250349996437
+    },
+    {
+      "width": 1536,
+      "height": 1024,
+      "megapixels": 1.572864,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 2.246294057000341,
+      "mean_seconds": 2.2261106668000137,
+      "min_seconds": 2.1676375930001086,
+      "max_seconds": 2.2809761110002,
+      "stdev_seconds": 0.045375273454649666,
+      "p95_seconds": 2.2764946948002036,
+      "images_per_second": 0.44921396537642866,
+      "first_call_seconds": 4.446650752999631,
+      "loading_seconds": 3.290832548000253
+    },
+    {
+      "width": 1024,
+      "height": 1536,
+      "megapixels": 1.572864,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 2.183635460000005,
+      "mean_seconds": 2.171383149599933,
+      "min_seconds": 2.128641016999609,
+      "max_seconds": 2.1985211859991978,
+      "stdev_seconds": 0.027553478094272135,
+      "p95_seconds": 2.198069600999588,
+      "images_per_second": 0.4605359492562357,
+      "first_call_seconds": 3.4212091990011686,
+      "loading_seconds": 2.7790230560003693
+    },
+    {
+      "width": 1920,
+      "height": 1088,
+      "megapixels": 2.08896,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 3.125889622999239,
+      "mean_seconds": 3.1280465479994746,
+      "min_seconds": 3.0930894680004712,
+      "max_seconds": 3.1652248579994193,
+      "stdev_seconds": 0.02450344698639001,
+      "p95_seconds": 3.1605871049992857,
+      "images_per_second": 0.3196883373233511,
+      "first_call_seconds": 4.230054305999147,
+      "loading_seconds": 2.465929434998543
+    },
+    {
+      "width": 1088,
+      "height": 1920,
+      "megapixels": 2.08896,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 3.0262581599999976,
+      "mean_seconds": 3.03121550720025,
+      "min_seconds": 3.0215132070006803,
+      "max_seconds": 3.0488607639999827,
+      "stdev_seconds": 0.00969333754835037,
+      "p95_seconds": 3.0458731758000797,
+      "images_per_second": 0.32990066117853806,
+      "first_call_seconds": 4.556365431000813,
+      "loading_seconds": 2.522836918000394
+    },
+    {
+      "width": 1536,
+      "height": 1536,
+      "megapixels": 2.359296,
+      "status": "passed",
+      "completed_calls": 7,
+      "median_seconds": 3.7046448740002234,
+      "mean_seconds": 3.721507045200269,
+      "min_seconds": 3.699671385000329,
+      "max_seconds": 3.780235160000302,
+      "stdev_seconds": 0.03057125846188833,
+      "p95_seconds": 3.768776848200287,
+      "images_per_second": 0.26870834526290305,
+      "first_call_seconds": 4.693054927000048,
+      "loading_seconds": 2.561262839999472
+    }
+  ]
+}

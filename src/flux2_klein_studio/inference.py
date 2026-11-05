@@ -1,16 +1,17 @@
-"""Measured, GPU-resident inference for the initial 1024 square profile."""
+"""Measured, GPU-resident text-to-image inference."""
 
 import hashlib
 import json
 import os
-import statistics
 import subprocess
 import threading
 import time
 from datetime import datetime, timezone
+from contextlib import nullcontext
 from pathlib import Path
 
 from .cli import MODEL_ID, MODEL_REVISION, doctor
+from .workloads import fingerprint, jobs, seed_checks, timing_summary
 
 KERNEL_REPOSITORY = "rootonchair/nunchaku-lite-kernels"
 KERNEL_REVISION = "d04512b422d7c9d029ae760449687fb09f33bf58"
@@ -101,9 +102,14 @@ def check_quantization(pipe):
 class DeviceMemorySampler:
     """Sample whole-device usage; this includes the desktop and other processes."""
 
-    def __init__(self):
+    def __init__(self, interval=0.1):
         self.peak_mib = None
         self.error = None
+        self.start_mib = None
+        self.total_mib = None
+        self.minimum_free_mib = None
+        self.interval = interval
+        self.samples = []
         self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self._sample, daemon=True)
 
@@ -114,7 +120,7 @@ class DeviceMemorySampler:
                     [
                         "nvidia-smi",
                         "--id=0",
-                        "--query-gpu=memory.used",
+                        "--query-gpu=memory.used,memory.total,memory.free",
                         "--format=csv,noheader,nounits",
                     ],
                     capture_output=True,
@@ -122,20 +128,62 @@ class DeviceMemorySampler:
                     check=True,
                     timeout=5,
                 )
-                value = int(result.stdout.strip())
+                value, self.total_mib, free = (
+                    int(part.strip()) for part in result.stdout.strip().split(",")
+                )
+                if self.start_mib is None:
+                    self.start_mib = value
                 self.peak_mib = max(self.peak_mib or 0, value)
+                self.minimum_free_mib = (
+                    free
+                    if self.minimum_free_mib is None
+                    else min(self.minimum_free_mib, free)
+                )
+                self.samples.append(
+                    {
+                        "monotonic_seconds": time.perf_counter(),
+                        "used_mib": value,
+                        "free_mib": free,
+                    }
+                )
             except (OSError, ValueError, subprocess.SubprocessError) as exc:
                 self.error = str(exc)
                 return
-            self.stop_event.wait(0.5)
+            self.stop_event.wait(self.interval)
 
     def __enter__(self):
         self.thread.start()
+        # Establish the pre-stage baseline before model loading or generation.
+        deadline = time.perf_counter() + 6
+        while (
+            self.start_mib is None
+            and self.error is None
+            and time.perf_counter() < deadline
+        ):
+            self.stop_event.wait(0.01)
+        if self.start_mib is None:
+            self.stop_event.set()
+            self.thread.join(timeout=6)
+            raise RuntimeError(
+                f"Cannot sample GPU memory: {self.error or 'no baseline sample'}"
+            )
         return self
 
     def __exit__(self, *_):
         self.stop_event.set()
         self.thread.join(timeout=6)
+
+    def summary(self):
+        if self.error:
+            raise RuntimeError(f"GPU memory sampling failed: {self.error}")
+        return {
+            "baseline_mib": self.start_mib,
+            "peak_mib": self.peak_mib,
+            "minimum_free_mib": self.minimum_free_mib,
+            "total_mib": self.total_mib,
+            "sample_count": len(self.samples),
+            "target_interval_seconds": self.interval,
+        }
 
 
 def memory():
@@ -170,14 +218,69 @@ def check_step(_pipe, _index, _timestep, tensors):
     return tensors
 
 
+def load_pipeline(arguments, report):
+    import sys
+    import torch
+    from diffusers import Flux2KleinPipeline
+    from huggingface_hub import HfApi
+
+    if not arguments.offline:
+        actual = (
+            HfApi().repo_info(KERNEL_REPOSITORY, repo_type="kernel", revision="v2").sha
+        )
+        if actual != KERNEL_REVISION:
+            raise RuntimeError(f"Kernel v2 moved to {actual}; review before updating")
+    pipe = Flux2KleinPipeline.from_pretrained(
+        MODEL_ID,
+        revision=MODEL_REVISION,
+        dtype=torch.bfloat16,
+        local_files_only=arguments.offline,
+    ).to("cuda")
+    if arguments.reduction == "ordered":
+        from .ordered_reduction import install_ordered_reduction
+
+        replaced = install_ordered_reduction(pipe.transformer)
+        if replaced != 100:
+            raise RuntimeError(f"Expected 100 ordered SVDQ modules, got {replaced}")
+        report["ordered_modules"] = replaced
+    report["vae_tiling"] = getattr(pipe.vae, "use_tiling", None)
+    report["vae_slicing"] = getattr(pipe.vae, "use_slicing", None)
+    if report["vae_tiling"] or report["vae_slicing"]:
+        raise RuntimeError(
+            "The selected profile requires VAE tiling and slicing disabled"
+        )
+    report["placement"] = check_residency(pipe)
+    report["quantization"] = check_quantization(pipe)
+    paths = sorted(
+        {
+            str(getattr(module, "__file__", ""))
+            for name, module in sys.modules.items()
+            if "nunchaku" in name
+            and "snapshots" in str(getattr(module, "__file__", ""))
+        }
+    )
+    if not paths or any(KERNEL_REVISION not in path for path in paths):
+        raise RuntimeError(f"Cannot verify the loaded kernel snapshot: {paths}")
+    report["kernel"] = {
+        "repository": KERNEL_REPOSITORY,
+        "revision": KERNEL_REVISION,
+        "file_sha256": {Path(path).name: file_sha256(path) for path in paths},
+    }
+    return pipe
+
+
 def run(arguments):
     # Set offline mode before importing Hub and Diffusers, which cache environment settings.
     if arguments.offline:
         os.environ["HF_HUB_OFFLINE"] = "1"
     import torch
-    from PIL import ImageChops, ImageStat
+    from PIL import ImageStat
     from PIL.PngImagePlugin import PngInfo
 
+    measure_memory = arguments.command == "memory"
+    test_seed = arguments.command == "seed-test"
+    measure_speed = arguments.command == "benchmark"
+    selected_jobs = jobs(arguments)
     output = arguments.output_dir / datetime.now(timezone.utc).strftime(
         "%Y%m%dT%H%M%S%fZ"
     )
@@ -186,8 +289,8 @@ def run(arguments):
     report = {
         "status": "starting",
         "runs": [],
-        "width": 1024,
-        "height": 1024,
+        "width": arguments.width,
+        "height": arguments.height,
         "steps": arguments.steps,
         "guidance_scale": 1.0,
         "seed": arguments.seed,
@@ -195,178 +298,124 @@ def run(arguments):
         "offloading": False,
         "mode": arguments.command,
         "reduction": arguments.reduction,
+        "warmups": getattr(arguments, "warmups", 0),
+        "measured_calls_requested": getattr(arguments, "runs", 0),
+        "workload_sha256": fingerprint(selected_jobs),
+        "source_sha256": {
+            name: file_sha256(Path(__file__).with_name(name))
+            for name in ("inference.py", "ordered_reduction.py", "workloads.py")
+        },
+        "generation_profile": {"per_step_finite_check": True},
     }
     write_json(report_path, report)
+    sampler = None
     try:
         report["environment"] = doctor()
-        from huggingface_hub import HfApi
-
-        if not arguments.offline:
-            actual = (
-                HfApi()
-                .repo_info(KERNEL_REPOSITORY, repo_type="kernel", revision="v2")
-                .sha
-            )
-            if actual != KERNEL_REVISION:
-                raise RuntimeError(
-                    f"Kernel v2 moved to {actual}; review it before updating the pinned revision"
-                )
-        from diffusers import Flux2KleinPipeline
-
-        with DeviceMemorySampler() as sampler:
+        with DeviceMemorySampler() if measure_memory else nullcontext() as sampler:
+            if measure_memory:
+                torch.cuda.reset_peak_memory_stats(0)
+            torch.cuda.synchronize()
             start = time.perf_counter()
-            torch.cuda.reset_peak_memory_stats(0)
-            pipe = Flux2KleinPipeline.from_pretrained(
-                MODEL_ID,
-                revision=MODEL_REVISION,
-                dtype=torch.bfloat16,
-                local_files_only=arguments.offline,
-            ).to("cuda")
+            pipe = load_pipeline(arguments, report)
             torch.cuda.synchronize()
             report["loading_seconds"] = time.perf_counter() - start
-            if arguments.reduction == "ordered":
-                from .ordered_reduction import install_ordered_reduction
-
-                replaced = install_ordered_reduction(pipe.transformer)
-                if replaced != 100:
-                    raise RuntimeError(
-                        f"Expected 100 ordered SVDQ modules, got {replaced}"
-                    )
-                report["ordered_modules"] = replaced
-            report["loading_memory"] = memory()
-            report["placement"] = check_residency(pipe)
-            report["quantization"] = check_quantization(pipe)
-            # The loaded extension must come from the exact reviewed Hub snapshot.
-            import sys
-
-            kernel_paths = sorted(
-                {
-                    str(getattr(module, "__file__", ""))
-                    for name, module in sys.modules.items()
-                    if "nunchaku" in name
-                    and "snapshots" in str(getattr(module, "__file__", ""))
-                }
-            )
-            if not kernel_paths or any(
-                KERNEL_REVISION not in path for path in kernel_paths
-            ):
-                raise RuntimeError(
-                    f"Cannot verify the loaded kernel snapshot: {kernel_paths}"
-                )
-            report["kernel"] = {
-                "repository": KERNEL_REPOSITORY,
-                "revision": KERNEL_REVISION,
-                "paths": kernel_paths,
-                "file_sha256": {path: file_sha256(path) for path in kernel_paths},
-            }
-            report["status"] = "loaded"
+            if measure_memory:
+                report["loading_memory"] = memory()
+        if measure_memory:
+            report["loading_device_memory"] = sampler.summary()
+            report["loading_device_samples"] = sampler.samples
+        report["status"] = "loaded"
+        write_json(report_path, report)
+        for job in selected_jobs:
+            report["active_call"] = job["label"]
             write_json(report_path, report)
-            previous = None
-            jobs = [("generate", arguments.prompt)]
-            if arguments.command == "benchmark":
-                jobs = [("warmup", arguments.prompt)]
-                jobs += [
-                    (f"measured-{i + 1}", arguments.prompt)
-                    for i in range(arguments.runs)
-                ]
-                jobs += [
-                    (
-                        "changed-prompt",
-                        "A small orange sailboat on a calm mountain lake at sunrise, realistic photograph",
-                    )
-                ]
-            for label, prompt in jobs:
-                torch.cuda.reset_peak_memory_stats(0)
+            with DeviceMemorySampler() if measure_memory else nullcontext() as sampler:
+                if measure_memory:
+                    torch.cuda.reset_peak_memory_stats(0)
                 torch.cuda.synchronize()
                 start = time.perf_counter()
                 with torch.inference_mode():
                     image = pipe(
-                        prompt=prompt,
-                        width=1024,
-                        height=1024,
+                        prompt=job["prompt"],
+                        width=arguments.width,
+                        height=arguments.height,
                         num_inference_steps=arguments.steps,
                         guidance_scale=1.0,
-                        generator=torch.Generator("cuda").manual_seed(arguments.seed),
+                        generator=torch.Generator("cuda").manual_seed(job["seed"]),
                         callback_on_step_end=check_step,
                     ).images[0]
                 torch.cuda.synchronize()
                 seconds = time.perf_counter() - start
-                if image.size != (1024, 1024) or max(ImageStat.Stat(image).stddev) < 1:
-                    raise RuntimeError("Output has an unexpected size or appears blank")
                 record = {
-                    "label": label,
-                    "prompt": prompt,
-                    "seed": arguments.seed,
-                    "seconds": seconds,
-                    "memory": memory(),
+                    **job,
                     "pixel_sha256": hashlib.sha256(image.tobytes()).hexdigest(),
                 }
-                if previous is not None and label.startswith("measured-"):
-                    record["same_seed_pixel_mae"] = statistics.mean(
-                        ImageStat.Stat(ImageChops.difference(previous, image)).mean
-                    )
-                if label == "warmup":
-                    previous = image.copy()
-                if label == "changed-prompt" and previous is not None:
-                    record["changed_prompt_pixel_mae"] = statistics.mean(
-                        ImageStat.Stat(ImageChops.difference(previous, image)).mean
-                    )
-                    if record["changed_prompt_pixel_mae"] < 1:
-                        raise RuntimeError(
-                            "Changing the prompt did not materially change the image"
-                        )
+                if measure_speed or arguments.command == "generate":
+                    record["seconds"] = seconds
+                if measure_memory:
+                    record["memory"] = memory()
+            if measure_memory:
+                record["device_memory"] = sampler.summary()
+                record["device_samples"] = sampler.samples
+            if (
+                image.size != (arguments.width, arguments.height)
+                or max(ImageStat.Stat(image).stddev) < 1
+            ):
+                raise RuntimeError("Output has an unexpected size or appears blank")
+            if arguments.command == "generate" or test_seed or arguments.save_images:
                 metadata = PngInfo()
                 metadata.add_text(
                     "generation",
                     json.dumps(
                         {
-                            **record,
+                            **job,
                             "model": MODEL_ID,
                             "revision": MODEL_REVISION,
-                            "width": 1024,
-                            "height": 1024,
+                            "width": arguments.width,
+                            "height": arguments.height,
                             "steps": arguments.steps,
                             "guidance_scale": 1.0,
                             "reduction": arguments.reduction,
                         }
                     ),
                 )
-                image.save(output / f"{label}.png", pnginfo=metadata)
-                report["runs"].append(record)
-                report["placement_after_generation"] = check_residency(pipe)
-                write_json(report_path, report)
-                print(json.dumps(record), flush=True)
-            report["sampled_device_peak_mib"] = sampler.peak_mib
-            report["device_sampling_error"] = sampler.error
-            measured = [
-                item["seconds"]
-                for item in report["runs"]
-                if item["label"].startswith("measured-")
-            ]
-            if measured:
-                report["measured_mean_seconds"] = statistics.mean(measured)
-                report["measured_stdev_seconds"] = statistics.pstdev(measured)
-                reference_hash = report["runs"][0]["pixel_sha256"]
-                report["same_seed_bit_exact"] = all(
-                    item["pixel_sha256"] == reference_hash
-                    for item in report["runs"]
-                    if item["label"].startswith("measured-")
+                image.save(output / f"{job['label']}.png", pnginfo=metadata)
+            report["runs"].append(record)
+            report["placement_after_generation"] = check_residency(pipe)
+            write_json(report_path, report)
+            print(
+                json.dumps({k: v for k, v in record.items() if k != "device_samples"}),
+                flush=True,
+            )
+        if measure_speed:
+            report["timing"] = timing_summary(
+                [
+                    r["seconds"]
+                    for r in report["runs"]
+                    if r["label"].startswith("measured-")
+                ]
+            )
+        if test_seed:
+            report["seed_checks"] = seed_checks(report["runs"])
+            if not all(
+                value
+                for key, value in report["seed_checks"].items()
+                if key != "reference_pixel_sha256"
+            ):
+                raise RuntimeError(
+                    "Fixed-seed repeatability or changed-input control failed"
                 )
-                if not report["same_seed_bit_exact"]:
-                    if arguments.reduction == "ordered":
-                        raise RuntimeError(
-                            "Ordered accumulation failed the same-seed pixel equality check"
-                        )
-                    report["repeatability_note"] = (
-                        "Repeated same-seed calls differ. The current SVDQ CUDA projection "
-                        "was observed to vary for identical input. Exact image reproduction "
-                        "is not guaranteed by this runtime profile."
-                    )
-                    print(report["repeatability_note"], flush=True)
         report["status"] = "passed"
     except Exception as exc:
         report["status"] = "failed"
         report["error"] = f"{type(exc).__name__}: {exc}"
+        if measure_memory and torch.cuda.is_initialized():
+            try:
+                report["failure_memory"] = memory()
+            except RuntimeError as memory_exc:
+                report["failure_memory_error"] = str(memory_exc)
+        if measure_memory and sampler is not None:
+            report["failure_device_samples"] = sampler.samples
         raise
     finally:
         write_json(report_path, report)

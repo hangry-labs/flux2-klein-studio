@@ -1,0 +1,312 @@
+{
+  "schema_version": 2,
+  "run_id": "20261105T220648011510Z",
+  "suite": "memory",
+  "status": "completed",
+  "steps": 4,
+  "seed": 12345,
+  "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+  "reduction": "ordered",
+  "warmups": 2,
+  "measured_calls_per_resolution": 5,
+  "workload": [
+    {
+      "label": "warmup-1",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345
+    },
+    {
+      "label": "warmup-2",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345
+    },
+    {
+      "label": "measured-1",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345
+    },
+    {
+      "label": "measured-2",
+      "prompt": "A small orange sailboat on a calm mountain lake at sunrise, realistic photograph",
+      "seed": 12346
+    },
+    {
+      "label": "measured-3",
+      "prompt": "A studio portrait of an elderly woman wearing a blue scarf, soft light, realistic photograph",
+      "seed": 12347
+    },
+    {
+      "label": "measured-4",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12348
+    },
+    {
+      "label": "measured-5",
+      "prompt": "A small orange sailboat on a calm mountain lake at sunrise, realistic photograph",
+      "seed": 12349
+    }
+  ],
+  "workload_sha256": "b25614daacc72cc57fbece1c245abd680a1db08b07ededbaad15b82ae54f6bde",
+  "resolutions": [
+    [
+      512,
+      512
+    ],
+    [
+      768,
+      768
+    ],
+    [
+      1024,
+      1024
+    ],
+    [
+      1280,
+      1280
+    ],
+    [
+      1536,
+      1024
+    ],
+    [
+      1024,
+      1536
+    ],
+    [
+      1920,
+      1088
+    ],
+    [
+      1088,
+      1920
+    ],
+    [
+      1536,
+      1536
+    ]
+  ],
+  "restart_calls_per_resolution": 0,
+  "measurement_context": "shared live system; other workloads left running",
+  "method": "Fresh process per resolution; cold load separate; no offload, VAE tiling or slicing",
+  "source_sha256": {
+    "inference.py": "391ed5b818c7bcfba2a660a82e07e52e47051de7838161f7c0d408f6abb6bf82",
+    "ordered_reduction.py": "3a6b09bc8374545fe8bc5d9863ce475c6636f73f5cceb33b6a76c59cfeb12866",
+    "workloads.py": "cb27cc219ad8e5e591de7a64d11dd15e214aea1ffb7eaeef6292158f4c0243f2"
+  },
+  "raw_summary_sha256": "a4be37c964a9ddb6bab82c15e07fb265b189fbf05b53597bbf63e6c8640b63f1",
+  "environment": {
+    "versions": {
+      "torch": "2.14.0+cu130",
+      "diffusers": "0.42.1",
+      "transformers": "5.22.1",
+      "bitsandbytes": "0.50.2",
+      "kernels": "0.18.1",
+      "triton": "3.8.0",
+      "accelerate": "1.15.0",
+      "huggingface-hub": "2.4.0"
+    },
+    "cuda_runtime": "13.0",
+    "driver_version": "610.88",
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "capability": [
+      12,
+      0
+    ],
+    "total_vram_bytes": 17094475776,
+    "allocator_config": "expandable_segments:True",
+    "model": "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32",
+    "revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216"
+  },
+  "kernel": {
+    "repository": "rootonchair/nunchaku-lite-kernels",
+    "revision": "d04512b422d7c9d029ae760449687fb09f33bf58",
+    "file_sha256": {
+      "__init__.py": "d1e7ab23026ebff46f6153f2b8b6004a217b32c78893c67169b41b7c3474ec7b",
+      "_nunchaku_lite_kernels_cuda_c1b1dfd_dirty.abi3.so": "3a9f08167a5dd10f164e4cbef4452085b123019587bc26ef615546e6e5789e82",
+      "_ops.py": "306405a83de9aafbd12205f31c5d5083088aad7d444dd9adc74e03f8573412cc",
+      "interface.py": "2b276daac3a51ea611376417f4d7eef9c79d711c4e0c73a3f86e14566590d659"
+    }
+  },
+  "results": [
+    {
+      "width": 512,
+      "height": 512,
+      "megapixels": 0.262144,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 6063214080,
+      "reserved_peak_bytes": 6211764224,
+      "baseline_device_mib": 1127,
+      "loading_device_peak_mib": 6520,
+      "generation_device_peak_mib": 7318,
+      "loading_device_delta_mib": 5393,
+      "generation_device_delta_mib": 6191,
+      "sampled_device_headroom_mib": 8678,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 768,
+      "height": 768,
+      "megapixels": 0.589824,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 6861483520,
+      "reserved_peak_bytes": 7155482624,
+      "baseline_device_mib": 1114,
+      "loading_device_peak_mib": 6520,
+      "generation_device_peak_mib": 8260,
+      "loading_device_delta_mib": 5406,
+      "generation_device_delta_mib": 7146,
+      "sampled_device_headroom_mib": 7736,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 1024,
+      "height": 1024,
+      "megapixels": 1.048576,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 7979060736,
+      "reserved_peak_bytes": 8476688384,
+      "baseline_device_mib": 1115,
+      "loading_device_peak_mib": 6520,
+      "generation_device_peak_mib": 9483,
+      "loading_device_delta_mib": 5405,
+      "generation_device_delta_mib": 8368,
+      "sampled_device_headroom_mib": 6513,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 1280,
+      "height": 1280,
+      "megapixels": 1.6384,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 9415945728,
+      "reserved_peak_bytes": 10091495424,
+      "baseline_device_mib": 1142,
+      "loading_device_peak_mib": 6530,
+      "generation_device_peak_mib": 11071,
+      "loading_device_delta_mib": 5388,
+      "generation_device_delta_mib": 9929,
+      "sampled_device_headroom_mib": 4925,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 1536,
+      "height": 1024,
+      "megapixels": 1.572864,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 9256291840,
+      "reserved_peak_bytes": 9902751744,
+      "baseline_device_mib": 1119,
+      "loading_device_peak_mib": 6590,
+      "generation_device_peak_mib": 11118,
+      "loading_device_delta_mib": 5471,
+      "generation_device_delta_mib": 9999,
+      "sampled_device_headroom_mib": 4878,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 1024,
+      "height": 1536,
+      "megapixels": 1.572864,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 9256291840,
+      "reserved_peak_bytes": 9902751744,
+      "baseline_device_mib": 1505,
+      "loading_device_peak_mib": 6846,
+      "generation_device_peak_mib": 11205,
+      "loading_device_delta_mib": 5341,
+      "generation_device_delta_mib": 9700,
+      "sampled_device_headroom_mib": 4791,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 1920,
+      "height": 1088,
+      "megapixels": 2.08896,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 10513566208,
+      "reserved_peak_bytes": 11351883776,
+      "baseline_device_mib": 1464,
+      "loading_device_peak_mib": 6912,
+      "generation_device_peak_mib": 12486,
+      "loading_device_delta_mib": 5448,
+      "generation_device_delta_mib": 11022,
+      "sampled_device_headroom_mib": 3510,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 1088,
+      "height": 1920,
+      "megapixels": 2.08896,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 10513566208,
+      "reserved_peak_bytes": 11351883776,
+      "baseline_device_mib": 1243,
+      "loading_device_peak_mib": 6602,
+      "generation_device_peak_mib": 12421,
+      "loading_device_delta_mib": 5359,
+      "generation_device_delta_mib": 11178,
+      "sampled_device_headroom_mib": 3575,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    },
+    {
+      "width": 1536,
+      "height": 1536,
+      "megapixels": 2.359296,
+      "status": "passed",
+      "completed_calls": 7,
+      "loading_allocated_peak_bytes": 5382767616,
+      "loading_reserved_peak_bytes": 5387583488,
+      "allocated_peak_bytes": 11172138496,
+      "reserved_peak_bytes": 12104761344,
+      "baseline_device_mib": 1276,
+      "loading_device_peak_mib": 6671,
+      "generation_device_peak_mib": 13300,
+      "loading_device_delta_mib": 5395,
+      "generation_device_delta_mib": 12024,
+      "sampled_device_headroom_mib": 2696,
+      "vae_tiling": false,
+      "vae_slicing": false,
+      "failure_allocated_peak_bytes": null
+    }
+  ]
+}

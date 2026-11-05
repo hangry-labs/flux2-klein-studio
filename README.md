@@ -2,7 +2,8 @@
 
 Experimental local text-to-image generation using FLUX.2 Klein 4B with a Nunchaku
 Lite NVFP4 rank-32 transformer and an NF4 text encoder. The Docker CLI generates
-1024×1024 images with all model components on the GPU, without offloading.
+images at configurable resolutions with all model components on the GPU, without
+application offloading. The default image size is 1024×1024.
 Browser UI and an HTTP API are planned.
 
 **Repeatability:** ordered low-rank accumulation is enabled by default. Repeated
@@ -53,14 +54,68 @@ Optionally download the model before generation:
 docker compose run --rm studio download
 ```
 
-Run the 1024×1024 operational benchmark and same-seed comparison:
+Measure warmed generation speed at 1024×1024:
 
 ```shell
 docker compose run --rm studio benchmark
 ```
 
-The benchmark measures a warmup, repeated calls and a changed prompt. Operational
-success and exact same-seed pixel equality are reported separately.
+Memory, speed and fixed-seed correctness have separate suites and reports. See
+the [benchmark guide](benchmarks/README.md) for methodology, per-size VRAM and
+speed tables, fixed-seed results and immutable run history. SVG summary charts
+live directly in `benchmarks/`:
+
+![Generation speed](benchmarks/speed.svg)
+
+[VRAM chart](benchmarks/memory.svg) · [Fixed-seed chart](benchmarks/fixed-seed.svg)
+
+### Task shortcuts
+
+With [Task](https://taskfile.dev/) installed, the repository's `Taskfile.yml`
+provides the same commands on PowerShell and Bash. Run `task` to list them.
+
+```shell
+task build
+task doctor
+task model:download
+task generate WIDTH=1536 HEIGHT=1024 -- --prompt "A mountain lake at sunrise"
+task benchmark WIDTH=1024 HEIGHT=1024
+task bench:memory
+task bench:speed
+task bench:seed
+task bench:full
+task bench:capacity
+task test:gpu
+task lint
+```
+
+Performance tasks use cached assets (`--offline`), two warmups and five measured
+calls per resolution. Fixed-seed controls run in their own suite. First generate an image to
+populate the model and kernel caches. Override `RUNS`, `WARMUPS`, `SEED`, `STEPS`,
+`RESOLUTIONS`, `SEED_RESOLUTIONS`, `CAPACITY_RESOLUTIONS` or the per-case `TIMEOUT` as needed.
+Capacity testing stops at low sampled free memory, OOM or timeout; unexpected
+errors stop the sweep and return a failure. Raw images, logs, JSON and CSV stay
+under ignored `outputs/benchmarks/`. Tasks archive portable JSON/CSV snapshots,
+update each suite's Markdown reports, and rebuild the root SVGs. Resolution
+sweeps start a fresh process for each size; `task benchmark:plan` shows the
+workload without GPU access. `task bench:full` runs all three suites sequentially.
+
+Expandable GPU memory segments (`PYTORCH_ALLOC_CONF=expandable_segments:True`)
+are enabled by default at every resolution in the CLI, Docker image and Task
+commands. This reduced reserved memory in our tests. `doctor` reports the selected
+configuration. To compare with PyTorch's original allocator:
+
+```shell
+task benchmark ALLOC_CONF=backend:native
+docker compose run --rm -e PYTORCH_ALLOC_CONF=backend:native studio benchmark --offline
+```
+
+See the benchmark notes before treating a completed size as a comfortable VRAM
+fit. `task benchmark:report SUITE=speed` rebuilds the latest speed report and
+chart without inference. `task bench:plot` renders a selected JSON using `REPORT`
+and `CHART`. Lint, formatting and plotting use a separate
+small tools image, without adding development dependencies to the inference image.
+`task docker:down` preserves the model volume.
 
 ## What the settings mean
 
@@ -77,10 +132,17 @@ success and exact same-seed pixel equality are reported separately.
 - **Offloading:** moving model components between GPU and host memory to save
   VRAM. This profile keeps them on the GPU and fails rather than enabling offload.
 
-The initial runner fixes width/height to 1024×1024, batch size to one and guidance
-to `1.0`. `--seed`, `--steps`, `--prompt` and `--output-dir` can be changed. The
-benchmark performs a warmup, three measured calls, then a changed-prompt call.
-Use `--runs` to change the number of measured calls.
+Batch size is one and guidance is `1.0`. `--width` and `--height` must each be at
+least 64 and divisible by 16; invalid sizes are rejected instead of silently
+rounded. For example, use 1920×1088 rather than 1920×1080. `--seed`, `--steps`,
+`--prompt` and `--output-dir` can also be changed. Direct `benchmark`, `memory`
+and `seed-test` default to two warmups and five measured calls; use `--warmups`
+and `--runs` to override them. Performance calls rotate three prompts and vary
+seeds deterministically. `--prompt` selects one custom prompt instead. `seed-test`
+repeats one prompt/seed, then checks a second seed and a changed prompt. The
+fixed-seed resolution sweep additionally verifies reproduction in a fresh process.
+Changing the dimensions changes the starting noise layout and composition,
+even when the seed is the same; repetition is checked within each resolution.
 
 Ordered mode uses a GPU kernel with a fixed accumulation order for the low-rank
 correction. It preserves the model weights, NF4 encoder and no-offload profile.
@@ -92,11 +154,14 @@ For comparison with the original kernel, use `--reduction native`. Native mode
 was observed to produce different pixels with identical prompts and seeds:
 
 ```shell
-docker compose run --rm studio benchmark --offline --reduction native
+docker compose run --rm studio seed-test --offline --reduction native
 ```
 
+This correctness check is expected to fail if the original kernel varies; use
+`benchmark --reduction native` separately to measure its speed.
+
 After one successful inference has populated both caches, use `--offline` with
-`generate` or `benchmark` for cached loading. Verify complete offline operation
+`generate`, `benchmark`, `memory` or `seed-test` for cached loading. Verify complete offline operation
 with Docker's network disabled, as described in the validation notes.
 
 Model weights are downloaded into the volume, not bundled into the image. The
@@ -111,7 +176,8 @@ docker build --target test -t flux2-klein-studio:test .
 ```
 
 The test stage runs CPU tests for the residency and quantization guards; actual
-GPU generation requires the runtime checks above. Dependency pins are in
+GPU generation requires the runtime checks above. Sweep tests also cover input
+validation, failure reporting and stopping at capacity limits. Dependency pins are in
 `requirements.txt`, with the full Linux dependency resolution in `requirements.lock`;
 validation records the selected model/kernel revisions and loaded kernel file hashes.
 To update the lock, use `uv pip compile requirements.txt --python-version 3.13 --python-platform x86_64-unknown-linux-gnu --index-strategy unsafe-best-match --emit-index-url --output-file requirements.lock`,
