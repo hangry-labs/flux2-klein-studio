@@ -1,0 +1,16 @@
+services:
+  studio:
+    image: flux2-klein-studio:dev
+    build:
+      context: .
+      target: runtime
+    gpus: all
+    init: true
+    volumes:
+      - data:/data
+      - ./outputs:/data/outputs
+    command: [doctor]
+
+volumes:
+  data:
+    name: flux2-klein-studio-data

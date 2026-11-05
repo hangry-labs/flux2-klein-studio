@@ -1,0 +1,120 @@
+{
+  "qualification_date": "2026-11-05",
+  "scope": "Docker operational smoke test; exact same-seed reproduction remains unresolved",
+  "container_network": "none",
+  "source_mount": false,
+  "requirements_lock_sha256": "01c79330a89f155e419d25035bd143a05e4b94c5c1efed1c4a2e0bb65cd9637c",
+  "environment": {
+    "versions": {
+      "torch": "2.14.0+cu130",
+      "diffusers": "0.42.1",
+      "transformers": "5.22.1",
+      "bitsandbytes": "0.50.2",
+      "kernels": "0.18.1",
+      "accelerate": "1.15.0",
+      "huggingface-hub": "2.4.0"
+    },
+    "cuda_runtime": "13.0",
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "capability": [
+      12,
+      0
+    ],
+    "total_vram_bytes": 17094475776,
+    "model": "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32",
+    "revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216"
+  },
+  "profile": {
+    "width": 1024,
+    "height": 1024,
+    "steps": 4,
+    "guidance_scale": 1.0,
+    "seed": 12345,
+    "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+    "offloading": false
+  },
+  "loading_seconds": 4.34378328099956,
+  "measured_mean_seconds": 1.4480739826661495,
+  "measured_stdev_seconds": 0.050801207616545316,
+  "sampled_device_peak_mib": 12830,
+  "measured_allocated_peak_bytes": 7978863616,
+  "measured_reserved_peak_bytes": 10515120128,
+  "same_seed_bit_exact": false,
+  "repeatability_note": "Repeated same-seed calls differ. The current SVDQ CUDA projection was observed to vary for identical input. Exact image reproduction is not guaranteed by this runtime profile.",
+  "runs": [
+    {
+      "label": "warmup",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345,
+      "seconds": 2.442357551999521,
+      "pixel_sha256": "1acc9156832d8ab5ceefc8099c878dd6fc7d5edf90fd81aeb1517c610fb1c8f8"
+    },
+    {
+      "label": "measured-1",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345,
+      "seconds": 1.4311045989998092,
+      "pixel_sha256": "60202aebd585482161975d41b64be51d577a9ba4b013fc8aa5336ec1a0e1ef4b",
+      "same_seed_pixel_mae": 22.136438687642414
+    },
+    {
+      "label": "measured-2",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345,
+      "seconds": 1.3961006389999966,
+      "pixel_sha256": "13fdede216787b5f30f141f448718e3cc7523250706580faafff097bae3be2ec",
+      "same_seed_pixel_mae": 23.509818077087402
+    },
+    {
+      "label": "measured-3",
+      "prompt": "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed",
+      "seed": 12345,
+      "seconds": 1.517016709998643,
+      "pixel_sha256": "6b2fd16ad21de7501d2f0f0e86556ceb080b754e42c2f7cab13c0b49b0b6598a",
+      "same_seed_pixel_mae": 27.304282824198406
+    },
+    {
+      "label": "changed-prompt",
+      "prompt": "A small orange sailboat on a calm mountain lake at sunrise, realistic photograph",
+      "seed": 12345,
+      "seconds": 1.4834308620011143,
+      "pixel_sha256": "9f13049f63351c03a52b496ce2db4b681ab88b69c3c9f72938bed68562cfad86",
+      "changed_prompt_pixel_mae": 70.91343816121419
+    }
+  ],
+  "placement": {
+    "vae": {
+      "class": "AutoencoderKLFlux2",
+      "devices": [
+        "cuda:0"
+      ],
+      "device_map": {}
+    },
+    "text_encoder": {
+      "class": "Qwen3ForCausalLM",
+      "devices": [
+        "cuda:0"
+      ],
+      "device_map": {}
+    },
+    "transformer": {
+      "class": "Flux2Transformer2DModel",
+      "devices": [
+        "cuda:0"
+      ],
+      "device_map": {}
+    }
+  },
+  "kernel": {
+    "repository": "rootonchair/nunchaku-lite-kernels",
+    "revision": "d04512b422d7c9d029ae760449687fb09f33bf58",
+    "file_sha256": {
+      "torch214-cxx11-cu130-x86_64-linux/__init__.py": "d1e7ab23026ebff46f6153f2b8b6004a217b32c78893c67169b41b7c3474ec7b",
+      "torch214-cxx11-cu130-x86_64-linux/_nunchaku_lite_kernels_cuda_c1b1dfd_dirty.abi3.so": "3a9f08167a5dd10f164e4cbef4452085b123019587bc26ef615546e6e5789e82",
+      "torch214-cxx11-cu130-x86_64-linux/_ops.py": "306405a83de9aafbd12205f31c5d5083088aad7d444dd9adc74e03f8573412cc",
+      "torch214-cxx11-cu130-x86_64-linux/interface.py": "2b276daac3a51ea611376417f4d7eef9c79d711c4e0c73a3f86e14566590d659"
+    }
+  },
+  "guard_tests_passed": 7,
+  "status": "passed"
+}
