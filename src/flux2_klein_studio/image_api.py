@@ -24,8 +24,8 @@ class ImageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     prompt: str = Field(min_length=1, max_length=4000)
     model: str = MODEL_ALIAS
-    size: str = Field(
-        default="square_big",
+    size: str | None = Field(
+        default=None,
         description="Named resolution; discover dimensions at /v1/images/resolutions.",
         json_schema_extra={
             "enum": ["auto"]
@@ -56,7 +56,8 @@ class ImageRequest(BaseModel):
     @field_validator("size")
     @classmethod
     def known_size(cls, value):
-        resolve_size(value)
+        if value is not None:
+            resolve_size(value)
         return value
 
 
@@ -76,6 +77,24 @@ def error_response(status, message, param=None, headers=None):
 
 
 def attach_image_api(app, jobs):
+    original_openapi = app.openapi
+
+    def openapi():
+        schema = original_openapi()
+        with jobs.lock:
+            choices = jobs.resolutions.catalog()
+            default = jobs.resolutions.default()
+        field = schema["components"]["schemas"]["ImageRequest"]["properties"]["size"]
+        field["enum"] = (
+            ([None, "auto"] + [r["id"] for r in choices] + [r["size"] for r in choices])
+            if choices
+            else [None]
+        )
+        field["default"] = default
+        return schema
+
+    app.openapi = openapi
+
     @app.exception_handler(RequestValidationError)
     async def validation_error(request, exc):
         if request.url.path.startswith("/v1/"):
@@ -104,7 +123,11 @@ def attach_image_api(app, jobs):
 
     @app.get("/v1/images/resolutions")
     def resolutions():
-        return {"default": "square_big", "data": catalog()}
+        with jobs.lock:
+            return {
+                "default": jobs.resolutions.default(),
+                "data": jobs.resolutions.catalog(),
+            }
 
     @app.get("/health/live")
     def live():
@@ -113,10 +136,15 @@ def attach_image_api(app, jobs):
     @app.get("/health/ready")
     def ready():
         with jobs.lock:
-            available = not jobs.closing and jobs.active is None
+            enabled = bool(jobs.resolutions.allowed())
+            available = not jobs.closing and jobs.active is None and enabled
             return JSONResponse(
                 {
-                    "status": "ready" if available else "busy",
+                    "status": "ready"
+                    if available
+                    else "busy"
+                    if enabled
+                    else "disabled",
                     "accepting_requests": available,
                     "model": MODEL_ALIAS,
                     "model_state": jobs.model.snapshot()["state"],
@@ -129,7 +157,7 @@ def attach_image_api(app, jobs):
         data, metadata = await generate_image(
             jobs,
             options.prompt,
-            resolve_size(options.size),
+            resolve_size(options.size) if options.size not in (None, "auto") else None,
             seed=options.seed,
             output_format=options.output_format,
             save_gallery=options.save_gallery,

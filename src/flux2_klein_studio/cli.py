@@ -136,6 +136,11 @@ def parser():
             command.add_argument("--warmups", type=int, default=2)
         if name == "resolution-sweep":
             command.add_argument(
+                "--named-resolutions",
+                action="store_true",
+                help="Measure every named agent resolution from the preset catalog",
+            )
+            command.add_argument(
                 "--suite", choices=("speed", "memory", "fixed-seed"), default="speed"
             )
             command.add_argument(
@@ -169,6 +174,10 @@ def main():
         os.getenv("PYTORCH_CUDA_ALLOC_CONF") or "expandable_segments:True",
     )
     arguments = parser().parse_args()
+    if getattr(arguments, "named_resolutions", False):
+        from .presets import SIZES
+
+        arguments.resolutions = list(SIZES.values())
     if any(
         getattr(arguments, name, 1) < 1
         for name in ("steps", "runs", "warmups", "timeout")

@@ -143,6 +143,35 @@ Failures produce a `report.json` with status `failed`; CPU/disk spill and active
 model-offload hooks are errors. No automatic offload, dtype, image-size or model
 fallback is used to make a failing profile appear to pass.
 
+## Named-preset VRAM and agent controls (2026-11-06)
+
+The [memory run 20261106T112139378542Z](../benchmarks/memory/gpu/runs/20261106T112139378542Z.json)
+passed all 17 named resolutions with fresh workers, two warmups and five measured
+calls per size, four steps and the existing ordered/expandable profile. The local
+studio was stopped to release its resident model; other applications remained
+running. Loading reserved peak was about 5.02 GiB; measured generation reserved
+peaks ranged from 5.79 to 9.22 GiB, with 7.89 GiB at 1024×1024. Device sampling
+and pre-load baselines remain separate in the archive. These measurements update
+the root memory.svg and packaged settings reference without a speed claim.
+
+The expanded regression suite passed 55 tests with CUDA enabled; the CPU build
+passes with two numerical CUDA skips. Additional tests cover persisted policy,
+filtered MCP/OpenAPI catalogs, disabled names/numeric aliases, all-disabled mode,
+default selection, invalid/I/O-failed settings and accepted work finishing after
+a policy change. Plan/export tests check catalog coverage and measured profile.
+
+Real browser checks covered individual/family toggles, mixed checkbox states,
+save/reload, a container restart with a reduced catalog, all-disabled operation,
+and restoring the initial all-enabled policy. MCP discovery omitted disabled
+sizes, stale tool calls failed, and numeric HTTP aliases returned 400. Desktop,
+tablet and mobile checks (1440, 900 and 390 pixels wide, expanded/compact header)
+had no horizontal page overflow; the table scrolls within its mobile container.
+
+With only square_big and portrait_medium enabled, paired real HTTP/MCP
+1024×1024 generations reproduced the existing greenhouse golden hash. Own
+temporary jobs were removed and existing gallery files preserved. The final
+studio was rebuilt with the reference included and left running.
+
 ## Agent API workflow checks (2026-11-06)
 
 The OpenAI-compatible Images subset and stateless MCP endpoint use the same

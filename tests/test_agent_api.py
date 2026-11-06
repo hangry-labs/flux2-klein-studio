@@ -5,7 +5,9 @@ import base64
 import hashlib
 import json
 import tempfile
+import threading
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
@@ -187,6 +189,191 @@ class AgentAPITests(unittest.TestCase):
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["error"]["type"], "server_error")
         self.assertTrue(self.client.get("/health/ready").json()["accepting_requests"])
+
+    def test_resolution_policy_filters_discovery_and_rejects_cached_or_numeric_choices(
+        self,
+    ):
+        self.client.put("/api/settings", json={"idle_seconds": 77})
+        response = self.client.put(
+            "/api/resolutions",
+            json={"enabled_resolutions": ["portrait_medium", "square_small"]},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["default"], "square_small")
+        choices = self.client.get("/v1/images/resolutions").json()
+        self.assertEqual(
+            [row["id"] for row in choices["data"]], ["square_small", "portrait_medium"]
+        )
+        tools = self.rpc("tools/list").json()["result"]["tools"]
+        schema = next(t for t in tools if t["name"] == "generate_image")["inputSchema"]
+        self.assertEqual(
+            schema["properties"]["resolution"]["enum"],
+            ["square_small", "portrait_medium"],
+        )
+        self.assertEqual(
+            schema["$defs"]["Resolution"]["enum"], ["square_small", "portrait_medium"]
+        )
+        advertised = self.client.get("/openapi.json").json()["components"]["schemas"][
+            "ImageRequest"
+        ]["properties"]["size"]
+        self.assertNotIn("square_big", advertised["enum"])
+        self.assertNotIn("1024x1024", advertised["enum"])
+        self.assertIn(None, advertised["enum"])
+        for value in ("square_big", "1024x1024"):
+            response = self.client.post(
+                "/v1/images/generations", json={"prompt": "test", "size": value}
+            )
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("disabled", response.json()["error"]["message"])
+        result = self.rpc(
+            "tools/call",
+            {
+                "name": "generate_image",
+                "arguments": {"prompt": "test", "resolution": "square_big"},
+            },
+        ).json()["result"]
+        self.assertTrue(result["isError"])
+        self.assertEqual(self.requests, [])
+        first = self.client.post(
+            "/v1/images/generations", json={"prompt": "test"}
+        ).json()
+        self.assertEqual(first["studio"]["resolution"], "square_small")
+        result = self.rpc(
+            "tools/call", {"name": "generate_image", "arguments": {"prompt": "test"}}
+        ).json()["result"]
+        self.assertEqual(result["structuredContent"]["resolution"], "square_small")
+        restored = create_app(Path(self.directory.name))
+        try:
+            self.assertEqual(
+                restored.state.jobs.resolutions.allowed(),
+                ["square_small", "portrait_medium"],
+            )
+            self.assertEqual(restored.state.jobs.model.idle_seconds, 77)
+        finally:
+            restored.state.jobs.close()
+
+    def test_all_disabled_hides_generation_and_reenabling_restores_it(self):
+        self.client.put("/api/resolutions", json={"enabled_resolutions": []})
+        names = {t["name"] for t in self.rpc("tools/list").json()["result"]["tools"]}
+        self.assertEqual(names, {"get_status", "list_resolutions"})
+        self.assertEqual(
+            self.client.get("/v1/images/resolutions").json(),
+            {"default": None, "data": []},
+        )
+        self.assertEqual(self.client.get("/health/ready").status_code, 503)
+        self.assertEqual(self.client.get("/health/live").status_code, 200)
+        self.assertEqual(
+            self.client.post(
+                "/v1/images/generations", json={"prompt": "test"}
+            ).status_code,
+            503,
+        )
+        stale = self.rpc(
+            "tools/call",
+            {
+                "name": "generate_image",
+                "arguments": {"prompt": "test", "resolution": "square_big"},
+            },
+        ).json()["result"]
+        self.assertTrue(stale["isError"])
+        self.assertEqual(self.requests, [])
+        self.client.put(
+            "/api/resolutions", json={"enabled_resolutions": ["square_medium"]}
+        )
+        names = {t["name"] for t in self.rpc("tools/list").json()["result"]["tools"]}
+        self.assertIn("generate_image", names)
+        self.assertEqual(self.client.get("/health/ready").status_code, 200)
+        self.assertEqual(
+            self.client.get("/v1/images/resolutions").json()["default"], "square_medium"
+        )
+
+    def test_resolution_save_validation_origin_and_io_failure_preserve_choices(self):
+        for value in (["unknown"], ["square_big", "square_big"], "square_big"):
+            self.assertEqual(
+                self.client.put(
+                    "/api/resolutions", json={"enabled_resolutions": value}
+                ).status_code,
+                422,
+            )
+        self.client.put(
+            "/api/resolutions", json={"enabled_resolutions": ["square_small"]}
+        )
+        before = self.jobs.resolutions.path.read_text(encoding="utf-8")
+        with patch("pathlib.Path.replace", side_effect=PermissionError("locked")):
+            self.assertEqual(
+                self.client.put(
+                    "/api/resolutions", json={"enabled_resolutions": []}
+                ).status_code,
+                409,
+            )
+        self.assertEqual(self.jobs.resolutions.allowed(), ["square_small"])
+        self.assertEqual(self.jobs.resolutions.path.read_text(encoding="utf-8"), before)
+        self.assertEqual(
+            self.client.put(
+                "/api/resolutions",
+                json={"enabled_resolutions": []},
+                headers={"Origin": "https://elsewhere.example"},
+            ).status_code,
+            403,
+        )
+
+    def test_invalid_persisted_policy_does_not_silently_enable_everything(self):
+        self.jobs.resolutions.path.write_text(
+            '{"enabled_resolutions":["unknown"]}', encoding="utf-8"
+        )
+        with self.assertRaises(ValueError):
+            create_app(Path(self.directory.name))
+
+    def test_policy_changes_apply_to_new_requests_and_allow_admitted_work_to_finish(
+        self,
+    ):
+        entered, release = threading.Event(), threading.Event()
+        original = self.jobs.model.generate.side_effect
+
+        def blocked(settings, phase, cancelled):
+            entered.set()
+            if not release.wait(3) or cancelled.is_set():
+                raise RuntimeError("Accepted request was unexpectedly stopped")
+            return original(settings, phase, cancelled)
+
+        with (
+            patch.object(self.jobs.model, "generate", side_effect=blocked),
+            ThreadPoolExecutor() as pool,
+        ):
+            future = pool.submit(
+                self.client.post,
+                "/v1/images/generations",
+                json={"prompt": "admitted", "size": "square_big"},
+            )
+            try:
+                self.assertTrue(entered.wait(2))
+                self.client.put(
+                    "/api/resolutions", json={"enabled_resolutions": ["square_small"]}
+                )
+                self.assertFalse(self.jobs.cancel_event.is_set())
+            finally:
+                release.set()
+            self.assertEqual(future.result(timeout=3).status_code, 200)
+        self.assertEqual(
+            self.client.post(
+                "/v1/images/generations", json={"prompt": "new", "size": "square_big"}
+            ).status_code,
+            400,
+        )
+
+    def test_packaged_reference_covers_the_catalog_and_preserves_measurement_scope(
+        self,
+    ):
+        data = self.client.get("/api/resolutions").json()
+        self.assertEqual(data["reference"]["steps"], 4)
+        self.assertIn("shared", data["reference"]["measurement_context"])
+        self.assertEqual(len(data["resolutions"]), len(SIZES))
+        for row in data["resolutions"]:
+            self.assertEqual(
+                (row["memory"]["width"], row["memory"]["height"]),
+                SIZES[Resolution(row["id"])],
+            )
+            self.assertIsNotNone(row["memory"]["reserved_peak_bytes"])
 
     def test_busy_is_shared_with_browser_and_does_not_cancel_another_job(self):
         with patch("threading.Thread.start"):

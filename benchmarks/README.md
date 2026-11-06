@@ -70,6 +70,42 @@ seed-test sizes. Both dimensions must be at least 64 and divisible by 16.
 
 ## Memory
 
+### Named agent presets
+
+`task benchmark:presets:plan` shows the actual memory workload for every named
+agent resolution. `task benchmark:presets` stops the local studio, measures all
+17 presets in fresh processes, archives the run, updates memory.svg, exports the
+studio's packaged reference and rebuilds/restarts the studio. Finish any active
+generation before invoking it. Other applications remain running.
+
+The baseline uses the ordinary memory suite: four steps, ordered reduction,
+expandable segments, two warmups and five measured calls per size with the same
+varied prompt/seed schedule. There is no offloading, tiling or slicing, and this
+instrumented run makes no speed claim. Sampled device baseline/free memory and
+allocated/reserved peaks stay distinct in the immutable JSON/CSV evidence.
+
+The 2026-11-06 run measured every named preset successfully. At 1024×1024 the
+generation reserved peak was about 7.89 GiB; the full catalog ranged from
+5.79 to 9.22 GiB. Loading reserved peak was about 5.02 GiB. These are PyTorch
+allocator figures, not total memory required by the entire shared desktop.
+See [latest details](memory/gpu/DETAILS.md) and the root [memory chart](memory.svg).
+
+`task benchmark:presets:export` regenerates
+`src/flux2_klein_studio/data/preset-memory.json` from the latest archived memory
+run without inference. The exporter requires coverage of every named resolution
+and the studio's model/revision/four-step/ordered/allocator profile. It carries
+the archive identity and canonical JSON content hash into the packaged reference;
+values are copied from measured records, never hand-entered. Use `--input` with
+the exporter directly to select an older full-catalog archive. Rebuild the
+runtime after exporting a changed reference. Failed rows retain their status;
+they are not successful capacity qualifications.
+
+The settings table labels loading and generation **reserved** peaks, and minimum
+sampled free whole-device VRAM. A resident worker switching shapes can reserve
+more memory than this fresh-worker-per-size baseline. GPU/driver/software changes
+and other running applications also change practical headroom. Enabling a preset
+is an operator choice, not an automatic guarantee that it fits every GPU.
+
 The memory suite samples whole-device used/free VRAM around **loading** and
 around each generation, targeting 100 ms plus query overhead. It establishes
 a pre-model baseline after CUDA context initialization. Device peak minus that

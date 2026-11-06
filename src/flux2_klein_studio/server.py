@@ -28,6 +28,7 @@ from .schemas import Generation
 from .images import encode_image
 from .presets import catalog
 from .transport import DisconnectMonitor
+from .resolution_policy import ResolutionPolicy, ResolutionSettings
 
 STATIC = Path(__file__).with_name("static")
 TERMINAL = {"completed", "failed", "cancelled"}
@@ -53,6 +54,8 @@ class Jobs:
     def __init__(self, root):
         self.root = root
         self.lock = threading.RLock()
+        root.mkdir(parents=True, exist_ok=True)
+        self.resolutions = ResolutionPolicy(root / "agent-resolutions.json", self.lock)
         self.items = {}
         self.active = None
         self.temporary = tempfile.TemporaryDirectory(prefix="klein-studio-")
@@ -473,6 +476,22 @@ def create_app(root=Path("/data/outputs/studio")):
             with jobs.model.lock:
                 jobs.model.idle_seconds = options.idle_seconds
         return options.model_dump()
+
+    @app.get("/api/resolutions")
+    def resolution_settings():
+        return jobs.resolutions.snapshot()
+
+    @app.put("/api/resolutions")
+    def configure_resolutions(options: ResolutionSettings):
+        try:
+            result = jobs.resolutions.save(options)
+        except OSError as exc:
+            raise HTTPException(
+                409,
+                "Could not save resolution settings. Check free disk space and permissions.",
+            ) from exc
+        app.openapi_schema = None
+        return result
 
     @app.post("/api/model/unload")
     def unload_model():

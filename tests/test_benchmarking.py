@@ -13,9 +13,76 @@ from flux2_klein_studio.inference import DeviceMemorySampler
 from flux2_klein_studio.resolution_sweep import classify, run_sweep, summarize
 from flux2_klein_studio.workloads import jobs, seed_checks, timing_summary
 from tools.report_benchmarks import archive, portable
+from tools.export_preset_memory import project
+from flux2_klein_studio.presets import SIZES
+from flux2_klein_studio.cli import MODEL_ID, MODEL_REVISION
 
 
 class ResolutionTests(unittest.TestCase):
+    def test_named_resolution_plan_uses_the_real_catalog(self):
+        from flux2_klein_studio.cli import main
+
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "studio",
+                    "resolution-sweep",
+                    "--suite",
+                    "memory",
+                    "--named-resolutions",
+                    "--plan",
+                ],
+            ),
+            patch("flux2_klein_studio.resolution_sweep.run_sweep") as run,
+        ):
+            main()
+        self.assertEqual(run.call_args.args[0].resolutions, list(SIZES.values()))
+
+    def test_packaged_memory_projection_preserves_evidence_and_rejects_wrong_profiles(
+        self,
+    ):
+        data = {
+            "schema_version": 2,
+            "suite": "memory",
+            "status": "completed",
+            "run_id": "20261106T000000Z",
+            "environment": {
+                "model": MODEL_ID,
+                "revision": MODEL_REVISION,
+                "allocator_config": "expandable_segments:True",
+            },
+            "reduction": "ordered",
+            "steps": 4,
+            "warmups": 2,
+            "measured_calls_per_resolution": 5,
+            "workload_sha256": "fixture",
+            "method": "fresh worker",
+            "measurement_context": "shared",
+            "results": [
+                {
+                    "width": w,
+                    "height": h,
+                    "status": "passed",
+                    "reserved_peak_bytes": 1234,
+                }
+                for w, h in SIZES.values()
+            ],
+        }
+        output = project(data)
+        self.assertEqual(len(output["results"]), 17)
+        self.assertEqual(
+            output["results"]["portrait_small"]["reserved_peak_bytes"], 1234
+        )
+        self.assertEqual(output["run_id"], data["run_id"])
+        for change in (
+            {"results": data["results"][:-1]},
+            {"reduction": "native"},
+            {"status": "running"},
+        ):
+            with self.subTest(change=next(iter(change))), self.assertRaises(ValueError):
+                project({**data, **change})
+
     def test_rejects_silent_rounding_and_invalid_lists(self):
         for value in ("1080", "0", "-16", "32"):
             with (

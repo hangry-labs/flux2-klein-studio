@@ -23,16 +23,18 @@ async def generate_image(
     save_gallery=False,
     disconnected=None,
 ):
-    width, height = SIZES[resolution]
-    options = Generation(
-        prompt=prompt,
-        width=width,
-        height=height,
-        seed=secrets.randbits(53) if seed is None else seed,
-        save_gallery=save_gallery,
-    )
     try:
-        item = jobs.submit(options)
+        with jobs.lock:
+            resolution = jobs.resolutions.choose(resolution)
+            width, height = SIZES[resolution]
+            options = Generation(
+                prompt=prompt,
+                width=width,
+                height=height,
+                seed=secrets.randbits(53) if seed is None else seed,
+                save_gallery=save_gallery,
+            )
+            item = jobs.submit(options)
     except HTTPException as exc:
         if exc.status_code == 409:
             raise HTTPException(

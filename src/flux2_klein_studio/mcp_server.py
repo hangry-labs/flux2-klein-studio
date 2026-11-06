@@ -12,22 +12,48 @@ from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 from pydantic import Field
 
 from .generation_service import MODEL_ALIAS, generate_image as run_generation
-from .presets import Resolution, catalog
+from .presets import Resolution
 from .transport import client_disconnected
 
 
+class ResolutionServer(MCPServer):
+    """Filter discovery through the public SDK hook; admission validates again."""
+
+    async def list_tools(self):
+        tools = await super().list_tools()
+        with self.resolution_policy.lock:
+            allowed = self.resolution_policy.allowed()
+            default = self.resolution_policy.default()
+        result = []
+        for tool in tools:
+            if tool.name == "generate_image":
+                if not allowed:
+                    continue
+                tool = tool.model_copy(deep=True)
+                tool.input_schema["$defs"]["Resolution"]["enum"] = allowed
+                tool.input_schema["properties"]["resolution"] = {
+                    "type": "string",
+                    "enum": allowed,
+                    "default": default,
+                    "description": "An enabled named resolution from System settings.",
+                }
+            result.append(tool)
+        return result
+
+
 def create_mcp_server(jobs):
-    server = MCPServer(
+    server = ResolutionServer(
         "flux2-klein-studio",
         version="0.1.0-dev",
         log_level="WARNING",
         subscriptions=False,
-        instructions="Generate local images with generate_image. Choose a named resolution; "
-        "square_big is the 1024-square default. list_resolutions describes all sizes. "
+        instructions="Use the currently advertised tools for local image generation. Choose an enabled named resolution; "
+        "list_resolutions describes the current choices and default. "
         "Omit seed for a random image; reuse the returned seed and settings to reproduce it. "
         "Results include inline image content and a recipe. Gallery storage is opt-in. "
         "Busy instances reject requests; retry or select another instance.",
     )
+    server.resolution_policy = jobs.resolutions
     read = ToolAnnotations(
         read_only_hint=True,
         destructive_hint=False,
@@ -38,7 +64,11 @@ def create_mcp_server(jobs):
     @server.tool(annotations=read, structured_output=True)
     async def list_resolutions() -> dict[str, Any]:
         """List exact named resolutions and aspect ratios; no GPU/model load."""
-        return {"default": "square_big", "resolutions": catalog()}
+        with jobs.lock:
+            return {
+                "default": jobs.resolutions.default(),
+                "resolutions": jobs.resolutions.catalog(),
+            }
 
     @server.tool(annotations=read, structured_output=True)
     async def get_status() -> dict[str, Any]:
@@ -46,7 +76,10 @@ def create_mcp_server(jobs):
         with jobs.lock:
             return {
                 "model": MODEL_ALIAS,
-                "accepting_requests": not jobs.closing and jobs.active is None,
+                "accepting_requests": not jobs.closing
+                and jobs.active is None
+                and bool(jobs.resolutions.allowed()),
+                "default_resolution": jobs.resolutions.default(),
                 "model_residency": jobs.model.snapshot(),
             }
 
@@ -68,7 +101,7 @@ def create_mcp_server(jobs):
             ),
         ],
         context: Context,
-        resolution: Resolution = Resolution.square_big,
+        resolution: Resolution | None = None,
         seed: Annotated[
             int | None,
             Field(
@@ -82,8 +115,8 @@ def create_mcp_server(jobs):
     ) -> CallToolResult:
         """Generate one image at a named size. Return image content and its exact recipe.
 
-        Square: small512, medium768, big1024. Portrait3:4, landscape4:3,
-        widescreen16:9 and panorama2:1 also have small/medium/big choices.
+        Choose an enabled resolution from list_resolutions, or omit it to use
+        the current server default. Disabled presets are rejected before generation.
         Keep save_gallery=false unless the user wants persistent gallery storage.
         """
         try:

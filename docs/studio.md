@@ -83,6 +83,21 @@ reported with the completed count; files in other job folders are unaffected.
 
 ## System
 
+**Image sizes and VRAM** lists the named agent presets with their reference
+loading and generation peaks. Enable individual rows or whole shape families,
+then save. Choices persist across restarts and control both the MCP schema and
+agent API admission. Cached requests for disabled sizes are rejected. The table
+also shows the resulting default; disabling every row turns off agent generation.
+Refresh/reconnect an agent to update its cached tool list. Existing admitted
+jobs can finish, and browser canvas controls remain available for local use.
+
+The displayed loading/generation numbers are PyTorch reserved peaks from the
+labeled reference GPU and pinned stack. Minimum free memory is sampled across
+the whole GPU, including other applications. The benchmark uses a fresh worker
+per size; a resident model switching sizes may retain more allocator space.
+See the [benchmark guide](../benchmarks/README.md#named-agent-presets) for
+measurement and regeneration commands.
+
 System shows the model profile, lifecycle and GPU utilization, VRAM, temperature,
 power and fan sensors when available. Browser polling runs only while System is
 visible and the document is active. The server sampler stops after 60 seconds
@@ -112,6 +127,7 @@ with named resolution presets. These share the browser worker and gallery opt-in
 | `GET /api/jobs` | Most recent saved gallery job records |
 | `DELETE /api/jobs/{id}` | Permanently remove an inactive job and all its files |
 | `GET /api/settings`, `PUT /api/settings` | Read/save the model idle timeout |
+| `GET /api/resolutions`, `PUT /api/resolutions` | Reference VRAM table and persistent enabled agent presets |
 | `POST /api/model/unload` | Release idle model weights; rejected during generation |
 | `GET /api/jobs/{id}` | Progress or terminal state |
 | `POST /api/jobs/{id}/cancel` | Cancel an active worker |

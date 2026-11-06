@@ -16,6 +16,10 @@ outputs/
 .cache/
 models/
 data/
+# Only the portable benchmark reference is packaged as source data.
+!/src/flux2_klein_studio/data/
+/src/flux2_klein_studio/data/*
+!/src/flux2_klein_studio/data/preset-memory.json
 .env
 .env.*
 !.env.example

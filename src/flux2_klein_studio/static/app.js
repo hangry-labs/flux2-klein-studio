@@ -1,3 +1,4 @@
+import {loadResolutionSettings} from './resolutions.js';
 const $ = (id) => document.getElementById(id);
 const examples = [
   'A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed',
@@ -20,7 +21,7 @@ function switchView(next) {
   document.querySelectorAll('[data-view]').forEach((button) => button.setAttribute('aria-selected', String(button.dataset.view === view)));
   ['generate', 'gallery', 'system'].forEach((name) => $(`${name}-panel`).hidden = name !== view);
   if (view === 'gallery') refreshGallery().catch((error) => message(error.message));
-  if (view === 'system') refreshGPU();
+  if (view === 'system') {refreshGPU(); loadResolutionSettings();}
 }
 document.querySelectorAll('[data-view]').forEach((button) => {
   button.onclick = () => switchView(button.dataset.view);

@@ -18,11 +18,12 @@ tools without loading weights. `task api:smoke` generates matching 1024×1024
 images through HTTP and MCP and verifies their pixels. `task api:resolutions`
 also generates every named size. These are workflow checks, not performance
 benchmarks; they remove only their own temporary test jobs.
+The 1024 smoke check requires square_big to be enabled in System.
 
 ## Named resolutions
 
 Names always mean **width × height**. Square is 1:1; portrait is taller than wide.
-`square_big` is the default. Small/medium/big refer to dimensions, not a separate
+`square_big` is the initial default. Small/medium/big refer to dimensions, not a separate
 model quality mode. Agents choose a name instead of calculating dimensions.
 
 | Family | Small | Medium | Big | Aspect ratio |
@@ -37,8 +38,40 @@ For example: `portrait_medium`, `landscape_big`, `panorama_small`.
 Two additional presets preserve common OpenAI client dimensions:
 `photo_portrait` = 1024×1536 (2:3), `photo_landscape` = 1536×1024 (3:2).
 The HTTP `size` field accepts names, their exact dimension strings, or `auto`
-(square_big). MCP accepts only the named enum. Other dimensions are rejected;
+(the current enabled default). MCP accepts only the named enum. Other dimensions are rejected;
 the browser/CLI retain their existing custom canvas controls.
+
+### Control which sizes agents can use
+
+**System → Image sizes and VRAM** shows all presets, with loading/generation
+VRAM reference measurements and minimum observed free GPU memory. Toggle an
+individual row or a whole shape family, then **Save enabled sizes**. These
+operator choices are stored locally and survive container restarts. New
+installations start with every preset enabled.
+
+Both MCP tools/list (including the resolution enum) and list_resolutions expose
+only enabled choices. The OpenAI size catalog and OpenAPI schema follow the
+same policy. Disabled names and their numeric size strings are rejected before
+worker admission, including calls using an old cached MCP schema. Refresh the
+agent's tools or reconnect to update its cached choices. Already admitted
+generations can finish with their original settings.
+
+The default remains square_big while enabled; otherwise it becomes the first
+enabled preset in catalog order. The UI displays that default. Omitting a size,
+using HTTP auto/null, or omitting MCP resolution uses the current default.
+Disabling every preset hides generate_image from MCP discovery and makes agent
+generation/readiness return unavailable (HTTP 503). The read-only MCP tools
+remain accessible. Local browser canvas controls and CLI generation remain
+operator-controlled.
+
+The settings endpoint is `GET /api/resolutions` and
+`PUT /api/resolutions` with `{"enabled_resolutions":["square_small","portrait_medium"]}`.
+It belongs to the trusted-local studio administration API. The reference data
+is generated from an [archived memory run](../benchmarks/memory/gpu/DETAILS.md),
+packaged into the image and labeled with GPU, workload and run identity. It is
+not a live prediction for every GPU: PyTorch reserved peaks exclude memory used
+by other applications and driver overhead, and a resident worker changing
+shapes may reserve more than a fresh worker per size.
 
 ## OpenAI-compatible Images API
 

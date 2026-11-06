@@ -64,6 +64,9 @@ Agents choose named sizes such as `square_big`, `portrait_medium` or `panorama_b
 See the [agent API guide](docs/agent-api.md) for presets, client examples, keys,
 readiness and load-balancing behavior. `task api:check` verifies discovery without
 loading the model; `task api:smoke` checks real 1024 generation through both APIs.
+**System → Image sizes and VRAM** shows the measured reference peaks and lets
+you enable individual agent sizes or whole shape families. Saved choices control
+MCP discovery and agent request acceptance across restarts.
 
 ## Runtime commands
 

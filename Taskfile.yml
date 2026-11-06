@@ -93,6 +93,29 @@ tasks:
       - task: benchmark:report
         vars: {SUITE: memory}
 
+  benchmark:presets:plan:
+    desc: Show the memory workload for all named agent sizes without loading a model
+    cmds:
+      - docker run --rm --network none flux2-klein-studio:dev resolution-sweep --suite memory --named-resolutions --runs {{.RUNS}} --warmups {{.WARMUPS}} --seed {{.SEED}} --steps {{.STEPS}} --timeout {{.TIMEOUT}} --plan {{.CLI_ARGS}}
+
+  benchmark:presets:
+    desc: Stop the studio, benchmark all named sizes, update reference VRAM and rebuild/restart the studio
+    cmds:
+      - docker compose stop studio
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --suite memory --named-resolutions --offline --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} {{.CLI_ARGS}}
+      - task: benchmark:report
+        vars: {SUITE: memory}
+      - task: benchmark:presets:export
+        vars: {CLI_ARGS: ''}
+      - task: docker:build
+      - task: ui
+
+  benchmark:presets:export:
+    desc: Build the studio's portable VRAM reference from the latest archived memory run (no inference)
+    deps: ['tools:build']
+    cmds:
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" --entrypoint python flux2-klein-studio:tools tools/export_preset_memory.py {{.CLI_ARGS}}
+
   benchmark:seed:
     desc: Test same-seed pixels, changed inputs and fresh-process reproduction
     aliases: ['bench:seed']

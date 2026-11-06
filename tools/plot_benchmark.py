@@ -12,6 +12,21 @@ matplotlib.rcParams["svg.hashsalt"] = "flux2-klein-studio"
 import matplotlib.pyplot as plt  # noqa: E402
 
 
+def save_figure(fig, output):
+    fig.savefig(output, metadata={"Date": None})
+    if output.suffix.lower() == ".svg":
+        # Matplotlib emits trailing spaces inside path attributes; normalize only
+        # whitespace so regenerated figures pass repository diff checks.
+        output.write_text(
+            "\n".join(
+                line.rstrip()
+                for line in output.read_text(encoding="utf-8").splitlines()
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("report", type=Path)
@@ -88,7 +103,7 @@ def render(report, output):
     )
     fig.tight_layout()
     output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, metadata={"Date": None})
+    save_figure(fig, output)
     plt.close(fig)
     print(output)
 
@@ -230,7 +245,7 @@ def render_suite(report, output):
     )
     fig.tight_layout()
     output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, metadata={"Date": None})
+    save_figure(fig, output)
     plt.close(fig)
     print(output)
 
