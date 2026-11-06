@@ -1,6 +1,8 @@
 """Local studio: bounded jobs around the qualified CLI, without importing torch."""
 
 import json
+import hmac
+import os
 import re
 import shutil
 import subprocess
@@ -8,21 +10,24 @@ import threading
 import time
 import uuid
 import tempfile
-from io import BytesIO
 from typing import Literal
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-from PIL import Image
+from pydantic import BaseModel, ConfigDict, Field
 
 from .cli import MODEL_ID, MODEL_REVISION
 from .residency import ModelWorker
+from .schemas import Generation
+from .images import encode_image
+from .presets import catalog
+from .transport import DisconnectMonitor
 
 STATIC = Path(__file__).with_name("static")
 TERMINAL = {"completed", "failed", "cancelled"}
@@ -37,23 +42,6 @@ PRESETS = [
     (1088, 1920),
     (1536, 1536),
 ]
-
-
-class Generation(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-    prompt: str = Field(min_length=1, max_length=4000)
-    seed: int = Field(default=12345, ge=0, le=2**63 - 1)
-    width: int = Field(default=1024, ge=64, le=1920, multiple_of=16)
-    height: int = Field(default=1024, ge=64, le=1920, multiple_of=16)
-    steps: int = Field(default=4, ge=1, le=50)
-    save_gallery: bool = False
-
-    @field_validator("prompt")
-    @classmethod
-    def nonblank(cls, value):
-        if not value.strip():
-            raise ValueError("Describe the image you want to create")
-        return value.strip()
 
 
 class Settings(BaseModel):
@@ -206,6 +194,16 @@ class Jobs:
             item = dict(self.items[identifier])
             return item
 
+    def image_path(self, identifier):
+        item = self.get(identifier)
+        folder = self.folder(item)
+        paths = list(folder.glob("*/generate.png"))
+        if (folder / "generate.png").is_file():
+            paths.append(folder / "generate.png")
+        if item["status"] != "completed" or len(paths) != 1:
+            raise HTTPException(404, "Image is not available")
+        return item, paths[0]
+
     def cancel(self, identifier):
         with self.lock:
             item = self.get(identifier)
@@ -336,16 +334,33 @@ class GPU:
 
 
 def create_app(root=Path("/data/outputs/studio")):
+    from .image_api import attach_image_api
+    from .mcp_server import create_mcp_server
+
     jobs = Jobs(root)
     gpu = GPU()
+    mcp = create_mcp_server(jobs)
+    mcp_app = mcp.streamable_http_app(
+        streamable_http_path="/",
+        stateless_http=True,
+        json_response=True,
+        max_request_body_size=64 * 1024,
+        # The enclosing app enforces the same Host/Origin policy for every route.
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=False
+        ),
+    )
 
     @asynccontextmanager
     async def lifespan(_app):
-        yield
-        jobs.close()
-        gpu.stop.set()
-        if gpu.thread:
-            gpu.thread.join(timeout=5)
+        try:
+            async with mcp.session_manager.run():
+                yield
+        finally:
+            jobs.close()
+            gpu.stop.set()
+            if gpu.thread:
+                gpu.thread.join(timeout=5)
 
     app = FastAPI(
         title="FLUX.2 Klein Studio",
@@ -355,13 +370,41 @@ def create_app(root=Path("/data/outputs/studio")):
         redoc_url=None,
     )
     app.state.jobs = jobs
+    app.state.mcp = mcp
     app.add_middleware(
         TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", "[::1]", "testserver"],
+        allowed_hosts=[
+            value.strip()
+            for value in os.getenv(
+                "STUDIO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1],testserver"
+            ).split(",")
+            if value.strip()
+        ],
     )
+    api_key = os.getenv("STUDIO_API_KEY", "").strip()
 
     @app.middleware("http")
     async def local_requests(request: Request, call_next):
+        if api_key and (
+            request.url.path.startswith("/v1/")
+            or request.url.path.rstrip("/") == "/mcp"
+        ):
+            scheme, _, key = request.headers.get("authorization", "").partition(" ")
+            if scheme.lower() != "bearer" or not hmac.compare_digest(
+                key.encode(), api_key.encode()
+            ):
+                return JSONResponse(
+                    {
+                        "error": {
+                            "message": "A valid API bearer key is required.",
+                            "type": "authentication_error",
+                            "param": None,
+                            "code": "invalid_api_key",
+                        }
+                    },
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+                )
         origin = request.headers.get("origin")
         if (
             request.method not in ("GET", "HEAD", "OPTIONS")
@@ -371,8 +414,6 @@ def create_app(root=Path("/data/outputs/studio")):
             raise_error = HTTPException(
                 403, "Cross-origin generation requests are disabled"
             )
-            from fastapi.responses import JSONResponse
-
             return JSONResponse({"detail": raise_error.detail}, status_code=403)
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
@@ -397,6 +438,12 @@ def create_app(root=Path("/data/outputs/studio")):
             "model_lifecycle": "Resident worker with configurable idle unload",
             "model_residency": jobs.model.snapshot(),
             "presets": PRESETS,
+            "resolution_presets": catalog(),
+            "agent_api": {
+                "openai_base_url": "/v1",
+                "mcp": "/mcp/",
+                "api_key_required": bool(api_key),
+            },
             "defaults": Generation(prompt="example").model_dump(exclude={"prompt"}),
             "limits": {
                 "min_dimension": 64,
@@ -469,19 +516,9 @@ def create_app(root=Path("/data/outputs/studio")):
     def cancel(identifier: str):
         return jobs.cancel(identifier)
 
-    def image_path(identifier):
-        item = jobs.get(identifier)
-        folder = jobs.folder(item)
-        paths = list(folder.glob("*/generate.png"))
-        if (folder / "generate.png").is_file():
-            paths.append(folder / "generate.png")
-        if item["status"] != "completed" or len(paths) != 1:
-            raise HTTPException(404, "Image is not available")
-        return item, paths[0]
-
     @app.get("/api/jobs/{identifier}/image")
     def image(identifier: str):
-        item, path = image_path(identifier)
+        item, path = jobs.image_path(identifier)
         return FileResponse(
             path,
             media_type="image/png",
@@ -491,7 +528,7 @@ def create_app(root=Path("/data/outputs/studio")):
 
     @app.get("/api/jobs/{identifier}/download")
     def download(identifier: str, format: Literal["png", "webp", "jpeg"] = "png"):
-        item, path = image_path(identifier)
+        item, path = jobs.image_path(identifier)
         filename = f"flux2-{item['settings']['seed']}"
         if format == "png":
             return FileResponse(
@@ -499,31 +536,12 @@ def create_app(root=Path("/data/outputs/studio")):
             )
         # Convert on demand, without creating files or changing the canonical PNG.
         try:
-            with Image.open(path) as source:
-                recipe = source.info.get("generation") or json.dumps(
-                    {
-                        "model": MODEL_ID,
-                        "revision": MODEL_REVISION,
-                        **item["settings"],
-                        "reduction": "ordered",
-                    }
-                )
-                exif = Image.Exif()
-                exif[270] = recipe  # ImageDescription: portable generation recipe.
-                output = BytesIO()
-                options = (
-                    {"lossless": True, "method": 4}
-                    if format == "webp"
-                    else {"quality": 95, "subsampling": 0}
-                )
-                source.convert("RGB").save(
-                    output, format=format.upper(), exif=exif.tobytes(), **options
-                )
+            output = encode_image(path, format, item["settings"])
         except FileNotFoundError as exc:
             raise HTTPException(404, "Image is not available") from exc
         extension = "jpg" if format == "jpeg" else format
         return Response(
-            output.getvalue(),
+            output,
             media_type=f"image/{format}",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}.{extension}"'
@@ -534,5 +552,8 @@ def create_app(root=Path("/data/outputs/studio")):
     def telemetry():
         return gpu.snapshot()
 
+    attach_image_api(app, jobs)
+    app.add_middleware(DisconnectMonitor)
+    app.mount("/mcp", mcp_app, name="mcp")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app

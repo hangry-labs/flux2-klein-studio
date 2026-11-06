@@ -102,6 +102,8 @@ The service is intended for a trusted local machine, with Compose binding only
 browser origins. Public/LAN exposure needs a deliberate deployment configuration.
 The JSON OpenAPI description is available at `/openapi.json`; no CDN-based API
 documentation is required by the application.
+The service also provides [OpenAI-compatible image generation and MCP](agent-api.md)
+with named resolution presets. These share the browser worker and gallery opt-in.
 
 | Route | Behavior |
 | --- | --- |

@@ -58,6 +58,13 @@ to repeat a fixed seed. Downloads offer original PNG, lossless WebP and JPEG.
 See the [capability review](docs/model-capabilities.md) for model features we could
 add next, including reference-image editing.
 
+Applications can use the **OpenAI-compatible Images API** at `/v1` with model
+`flux2-klein-4b`, or connect an agent to **MCP Streamable HTTP** at `/mcp/`.
+Agents choose named sizes such as `square_big`, `portrait_medium` or `panorama_big`.
+See the [agent API guide](docs/agent-api.md) for presets, client examples, keys,
+readiness and load-balancing behavior. `task api:check` verifies discovery without
+loading the model; `task api:smoke` checks real 1024 generation through both APIs.
+
 ## Runtime commands
 
 Check CUDA and library imports without downloading model weights:

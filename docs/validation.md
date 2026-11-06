@@ -142,3 +142,30 @@ cache may be missing for the strict offline run.
 Failures produce a `report.json` with status `failed`; CPU/disk spill and active
 model-offload hooks are errors. No automatic offload, dtype, image-size or model
 fallback is used to make a failing profile appear to pass.
+
+## Agent API workflow checks (2026-11-06)
+
+The OpenAI-compatible Images subset and stateless MCP endpoint use the same
+qualified pipeline. The official OpenAI Python client 3.46.0 generated a
+1024×1024 image successfully; HTTP and MCP generation both retained the existing
+seed-12345 greenhouse pixel hash
+`bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440`.
+
+All 17 [named presets](agent-api.md#named-resolutions) generated and decoded at
+their advertised dimensions on the tested GPU, without changing the inference
+lock or enabling offload. These are workflow checks for one prompt, not new
+speed/memory benchmarks or a repeatability guarantee for every preset.
+
+The container regression suite has 47 passing tests with CUDA enabled; the CPU
+build passes with two numerical CUDA tests skipped. API tests cover discovery,
+validation, formats, shared admission, opt-in persistence, authentication,
+cancellation, timeout and worker failure. ASGI disconnect observation preserves
+request body chunks and cleans its watcher after normal responses. Actual MCP
+HTTP cancellation with a current client and an HTTP request disconnect both
+cancelled the owned jobs and released admission. Older MCP clients that only
+send a separate cancellation notification have the limitation described in the
+[API guide](agent-api.md#balancing-and-deployment-behavior).
+
+Run `task api:check` for discovery, `task api:smoke` for paired 1024 generation,
+and `task api:resolutions` for all named sizes. Test artifacts are temporary and
+the probe removes only the jobs it creates; existing gallery files are preserved.

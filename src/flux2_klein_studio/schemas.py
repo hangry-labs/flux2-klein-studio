@@ -1,0 +1,20 @@
+"""Validated generation settings shared by browser, HTTP and MCP."""
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class Generation(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    prompt: str = Field(min_length=1, max_length=4000)
+    seed: int = Field(default=12345, ge=0, le=2**63 - 1)
+    width: int = Field(default=1024, ge=64, le=1920, multiple_of=16)
+    height: int = Field(default=1024, ge=64, le=1920, multiple_of=16)
+    steps: int = Field(default=4, ge=1, le=50)
+    save_gallery: bool = False
+
+    @field_validator("prompt")
+    @classmethod
+    def nonblank(cls, value):
+        if not value.strip():
+            raise ValueError("Describe the image you want to create")
+        return value.strip()

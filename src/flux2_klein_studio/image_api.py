@@ -1,0 +1,144 @@
+"""A documented OpenAI Images subset with discoverable local extensions."""
+
+import base64
+from typing import Literal
+
+from fastapi import HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import (
+    http_exception_handler,
+    request_validation_exception_handler,
+)
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from .cli import MODEL_ID
+from .generation_service import MODEL_ALIAS, generate_image
+from .presets import catalog, resolve_size
+from .schemas import Generation
+from .transport import client_disconnected
+
+
+class ImageRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    prompt: str = Field(min_length=1, max_length=4000)
+    model: str = MODEL_ALIAS
+    size: str = Field(
+        default="square_big",
+        description="Named resolution; discover dimensions at /v1/images/resolutions.",
+        json_schema_extra={
+            "enum": ["auto"]
+            + [r["id"] for r in catalog()]
+            + [r["size"] for r in catalog()]
+        },
+    )
+    n: int = Field(default=1, ge=1, le=1)
+    response_format: Literal["b64_json"] = "b64_json"
+    output_format: Literal["png", "webp", "jpeg"] = "png"
+    quality: Literal["auto", "standard"] = "auto"
+    stream: Literal[False] = False
+    seed: int | None = Field(default=None, ge=0, le=2**53 - 1)
+    save_gallery: bool = False
+
+    @field_validator("prompt")
+    @classmethod
+    def nonblank(cls, value):
+        return Generation.nonblank(value)
+
+    @field_validator("model")
+    @classmethod
+    def known_model(cls, value):
+        if value not in (MODEL_ALIAS, MODEL_ID):
+            raise ValueError(f"Use model {MODEL_ALIAS}")
+        return value
+
+    @field_validator("size")
+    @classmethod
+    def known_size(cls, value):
+        resolve_size(value)
+        return value
+
+
+def error_response(status, message, param=None, headers=None):
+    return JSONResponse(
+        {
+            "error": {
+                "message": message,
+                "type": "invalid_request_error" if status < 500 else "server_error",
+                "param": param,
+                "code": "instance_busy" if status == 429 else str(status),
+            }
+        },
+        status_code=status,
+        headers=headers,
+    )
+
+
+def attach_image_api(app, jobs):
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc):
+        if request.url.path.startswith("/v1/"):
+            first = exc.errors()[0]
+            return error_response(400, first["msg"], str(first["loc"][-1]))
+        return await request_validation_exception_handler(request, exc)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error(request, exc):
+        if request.url.path.startswith("/v1/"):
+            return error_response(exc.status_code, str(exc.detail), headers=exc.headers)
+        return await http_exception_handler(request, exc)
+
+    def model_entry():
+        return {"id": MODEL_ALIAS, "object": "model", "created": 0, "owned_by": "local"}
+
+    @app.get("/v1/models")
+    def models():
+        return {"object": "list", "data": [model_entry()]}
+
+    @app.get("/v1/models/{identifier:path}")
+    def model(identifier: str):
+        if identifier not in (MODEL_ALIAS, MODEL_ID):
+            raise HTTPException(404, "Model not found")
+        return model_entry()
+
+    @app.get("/v1/images/resolutions")
+    def resolutions():
+        return {"default": "square_big", "data": catalog()}
+
+    @app.get("/health/live")
+    def live():
+        return {"status": "alive"}
+
+    @app.get("/health/ready")
+    def ready():
+        with jobs.lock:
+            available = not jobs.closing and jobs.active is None
+            return JSONResponse(
+                {
+                    "status": "ready" if available else "busy",
+                    "accepting_requests": available,
+                    "model": MODEL_ALIAS,
+                    "model_state": jobs.model.snapshot()["state"],
+                },
+                status_code=200 if available else 503,
+            )
+
+    @app.post("/v1/images/generations")
+    async def generate(options: ImageRequest, request: Request):
+        data, metadata = await generate_image(
+            jobs,
+            options.prompt,
+            resolve_size(options.size),
+            seed=options.seed,
+            output_format=options.output_format,
+            save_gallery=options.save_gallery,
+            disconnected=lambda: client_disconnected(request),
+        )
+        return {
+            "created": metadata["created"],
+            "data": [{"b64_json": base64.b64encode(data).decode("ascii")}],
+            "size": f"{metadata['width']}x{metadata['height']}",
+            "output_format": options.output_format,
+            "studio": metadata,
+        }

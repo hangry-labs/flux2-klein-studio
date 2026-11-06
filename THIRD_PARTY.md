@@ -17,6 +17,7 @@ The browser server uses [FastAPI](https://github.com/fastapi/fastapi) and
 [Uvicorn](https://github.com/encode/uvicorn), retaining their MIT and BSD-3-Clause
 licenses respectively. The studio shell follows Hangry Labs design conventions;
 its geometric product mark is temporary and the Hangry Labs logo is brand artwork.
+The agent endpoint uses the MIT-licensed [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
 Installed packages and the Python/Debian base image retain their upstream license
 files. The downloaded model snapshot includes LICENSE.md. Kernel files are acquired

@@ -27,6 +27,18 @@ tasks:
     desc: Follow studio service logs
     cmds: [docker compose logs -f studio]
 
+  api:check:
+    desc: Inspect readiness, models, named resolutions and MCP tools without loading weights
+    cmds: [docker compose exec -T studio python tools/probe_agent_api.py]
+
+  api:smoke:
+    desc: Generate matching 1024 images over HTTP and MCP, verify pixels and remove own test jobs
+    cmds: [docker compose exec -T studio python tools/probe_agent_api.py --generate]
+
+  api:resolutions:
+    desc: Generate each named API size and verify its output (workflow check, not a benchmark)
+    cmds: [docker compose exec -T studio python tools/probe_agent_api.py --all-resolutions]
+
   default:
     cmds: [task --list]
 

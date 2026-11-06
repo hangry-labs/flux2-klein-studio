@@ -23,6 +23,7 @@ RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirem
 ENV TRITON_CACHE_DIR=/data/triton \
     PYTORCH_ALLOC_CONF=expandable_segments:True
 COPY src/ ./src/
+COPY tools/probe_agent_api.py ./tools/probe_agent_api.py
 COPY THIRD_PARTY.md ./THIRD_PARTY.md
 COPY licenses/ ./licenses/
 ENTRYPOINT ["python", "-m", "flux2_klein_studio"]
