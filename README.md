@@ -1,11 +1,13 @@
 # FLUX.2 Klein Studio
 
+<p align="center"><img src="assets/flux2_klein_logo_horizontal.webp" width="840" alt="FLUX.2 Klein Studio — local image generation"></p>
+
 Experimental local text-to-image generation using FLUX.2 Klein 4B with a Nunchaku
 Lite NVFP4 rank-32 transformer and an NF4 text encoder. The Docker CLI generates
 images at configurable resolutions with all model components on the GPU, without
 application offloading. The default image size is 1024×1024.
 The local browser studio provides generation, a saved-image gallery, recipe reuse
-and GPU telemetry. Product artwork is currently a temporary placeholder.
+and GPU telemetry. Project artwork is available in [assets/](assets/README.md).
 
 **Repeatability:** ordered low-rank accumulation is enabled by default. Repeated
 prompts and seeds produced pixel-identical images on the tested GPU and pinned

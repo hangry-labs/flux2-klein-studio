@@ -107,8 +107,9 @@ preserve the last browser history. Whole-device values include other application
 
 The dark shell, orange accents, collapsible header, workflow navigation and System
 layout follow the Hangry Labs studio family, adapted for images. All browser
-assets are packaged locally. The geometric product icon is an original temporary
-placeholder, ready for replacement with supplied product artwork.
+assets are packaged locally. The supplied product logo, mascot, badge and favicon
+live in [assets/](../assets/README.md) as WebP images. The horizontal logo is used
+in the header, the mascot on the empty canvas, and the badge as a subtle backdrop.
 
 ## Local HTTP API
 

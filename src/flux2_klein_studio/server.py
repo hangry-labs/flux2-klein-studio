@@ -31,6 +31,7 @@ from .transport import DisconnectMonitor
 from .resolution_policy import ResolutionPolicy, ResolutionSettings
 
 STATIC = Path(__file__).with_name("static")
+ASSETS = Path(__file__).resolve().parents[2] / "assets"
 TERMINAL = {"completed", "failed", "cancelled"}
 PRESETS = [
     (1024, 1024),
@@ -574,5 +575,6 @@ def create_app(root=Path("/data/outputs/studio")):
     attach_image_api(app, jobs)
     app.add_middleware(DisconnectMonitor)
     app.mount("/mcp", mcp_app, name="mcp")
+    app.mount("/assets", StaticFiles(directory=ASSETS), name="assets")
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     return app

@@ -52,10 +52,16 @@ class StudioTests(unittest.TestCase):
             for file in (
                 "app.js",
                 "styles.css",
-                "placeholder.svg",
-                "hangrylabs_logo.webp",
+                "resolutions.js",
             ):
                 self.assertEqual(self.client.get("/static/" + file).status_code, 200)
+            for name in ("logo", "logo_horizontal", "mascot", "badge", "favicon"):
+                response = self.client.get(f"/assets/flux2_klein_{name}.webp")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.headers["content-type"], "image/webp")
+            self.assertEqual(
+                self.client.get("/assets/hangrylabs_logo.webp").status_code, 200
+            )
 
     def test_validation_rejects_invalid_sizes_and_blank_prompts(self):
         for payload in (
