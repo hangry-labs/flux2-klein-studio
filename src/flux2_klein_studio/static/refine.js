@@ -1,3 +1,4 @@
+import {runtimeState} from './shell.js';
 const $ = (id) => document.getElementById(id);
 const terminal = new Set(['completed', 'failed', 'cancelled']);
 let api, reference = null, active = null, result = null, uploading = false, polling = false, recipeURL = null;
@@ -15,7 +16,7 @@ function controls() {
   $('refine-busy').hidden = !running;
   $('refine-state').textContent = uploading ? 'Preparing reference' : running ? active.status : result ? 'Completed' : reference ? 'Ready to refine' : 'Choose a picture';
   $('refine-busy-title').textContent = active?.status === 'queued' ? `Waiting · Queue position ${active.queue_position}` : active?.status === 'loading' ? 'Loading your local model…' : active?.status === 'processing' ? 'Preparing your picture…' : active?.status === 'cancelling' ? 'Stopping refinement…' : 'Refining your picture…';
-  if (running && !$('refine-panel').hidden) $('runtime').textContent = active.status === 'queued' ? 'Refinement queued' : 'Refining image';
+  if (running && !$('refine-panel').hidden) runtimeState('busy', active.status === 'queued' ? 'Refinement queued' : 'Refining image');
 }
 function sizeChanged() {
   const size = `${$('refine-width').value}x${$('refine-height').value}`;

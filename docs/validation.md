@@ -308,3 +308,27 @@ instruction, a mirrored-reference control and a fresh-worker repeat. Their scope
 is the pinned stack and RTX 5070 Ti tested here. Editing results and root SVG
 charts remain separate from the existing text-only benchmark history. Other
 editing resolutions, masks and multiple references are not qualified by this run.
+
+
+## Studio visual alignment, 2026-11-06
+
+The packaged studio was compared with the running Faster Qwen UI. Desktop
+expanded/compact headers now measure 224/74 pixels, with matching tab height,
+panel/control styling and bordered runtime/version treatment. GPU cards use
+bordered grid plots, per-metric colors, shaded history, latest markers and sample
+tooltips. This changes presentation and browser behavior; inference and backend
+telemetry contracts are unchanged.
+
+Browser checks covered all four views and both header states at 22 widths from
+320 to 1920 pixels: 176 layout combinations, without horizontal document overflow
+or header artwork/control overlap. Desktop and mobile screenshots were inspected.
+Keyboard tab navigation, reduced motion, chart hover/focus, history-window reload
+persistence and preservation of the Refine workspace across tab changes passed.
+No GPU telemetry requests were issued while the browser was on Generate during
+the polling check. The final browser checks reported no console errors.
+
+The rebuilt container completed a real 1024×1024 generation, transfer to Refine
+and sunset edit. Their RGB hashes matched the existing text and editing goldens
+recorded above. These workflow timings are not new benchmark measurements. The
+95-test CPU container suite passed with its two CUDA numerical checks explicitly
+skipped. JavaScript syntax, Ruff, release validation and whitespace checks passed.

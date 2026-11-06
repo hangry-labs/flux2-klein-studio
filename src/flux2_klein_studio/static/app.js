@@ -1,5 +1,7 @@
 import {loadResolutionSettings} from './resolutions.js';
 import {initializeRefine, configureRefine, refineFromJob, reviewRefinement, refineRunning} from './refine.js';
+import {initializeShell, runtimeState} from './shell.js';
+import {initializeGPU} from './gpu-monitor.js';
 const $ = (id) => document.getElementById(id);
 const examples = [
   'A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed',
@@ -8,7 +10,7 @@ const examples = [
   'A quiet bookshop on a rainy evening, warm light spilling onto cobblestones, cinematic photograph',
 ];
 const terminal = new Set(['completed', 'failed', 'cancelled']);
-let view = 'generate', active = null, selected = null, config = null, polling = false, gpuFetching = false, gpuHistory = [];
+let view = 'generate', active = null, selected = null, config = null, polling = false;
 const storage = {get(key, fallback) {try {return sessionStorage.getItem(`klein-${key}`) || fallback;} catch {return fallback;}}, set(key, value) {try {sessionStorage.setItem(`klein-${key}`, value);} catch { /* Optional browser storage. */ }}};
 function message(text = '') {$('notice').textContent = text; $('notice').hidden = !text;}
 async function request(path, options = {}) {
@@ -19,23 +21,18 @@ async function request(path, options = {}) {
 }
 function switchView(next) {
   view = next; storage.set('view', next);
-  document.querySelectorAll('[data-view]').forEach((button) => button.setAttribute('aria-selected', String(button.dataset.view === view)));
+  document.querySelectorAll('[data-view]').forEach((button) => {const current = button.dataset.view === view; button.setAttribute('aria-selected', String(current)); button.tabIndex = current ? 0 : -1;});
   ['generate', 'refine', 'gallery', 'system'].forEach((name) => $(`${name}-panel`).hidden = name !== view);
   if (view === 'gallery') refreshGallery().catch((error) => message(error.message));
-  if (view === 'system') {refreshGPU(); loadResolutionSettings();}
+  gpuMonitor.setVisible(view === 'system');
+  if (view === 'system') loadResolutionSettings();
 }
+const gpuMonitor = initializeGPU({request, storage});
 document.querySelectorAll('[data-view]').forEach((button) => {
   button.onclick = () => switchView(button.dataset.view);
-  button.onkeydown = (event) => {if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {event.preventDefault(); const tabs = [...document.querySelectorAll('[data-view]')]; const index = (tabs.indexOf(button) + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[index].focus(); tabs[index].click();}};
+  button.onkeydown = (event) => {if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {event.preventDefault(); const tabs = [...document.querySelectorAll('[data-view]')]; const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (tabs.indexOf(button) + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; tabs[index].focus(); tabs[index].click(); tabs[index].scrollIntoView({block: 'nearest', inline: 'nearest'});}};
 });
-function collapse(value) {
-  $('hero').classList.toggle('compact', value);
-  $('collapse').setAttribute('aria-expanded', String(!value));
-  $('collapse').setAttribute('aria-label', value ? 'Expand header' : 'Collapse header');
-  $('collapse').textContent = value ? '⌄' : '⌃'; storage.set('collapsed', String(value));
-}
-$('collapse').onclick = () => collapse(!$('hero').classList.contains('compact'));
-collapse(storage.get('collapsed', 'false') === 'true');
+initializeShell(storage);
 function idea() {$('prompt').value = examples[Math.floor(Math.random() * examples.length)]; updatePrompt(); switchView('generate'); $('prompt').focus();}
 ['examples', 'sample', 'empty-example'].forEach((id) => $(id).onclick = idea);
 function updatePrompt() {$('characters').textContent = `${$('prompt').value.length} / 4000`;}
@@ -61,7 +58,7 @@ function busy(job) {
   active = job; const running = job && !terminal.has(job.status);
   $('generate').disabled = !config || running; $('cancel').hidden = !running;
   $('busy').hidden = !running; $('empty').hidden = Boolean(selected) || running;
-  $('runtime').textContent = running ? (job.status === 'queued' ? `Queued · Position ${job.queue_position}` : job.status === 'processing' ? 'Preparing image download' : job.status === 'loading' ? 'Loading model' : 'Generating image') : 'Ready for an idea';
+  runtimeState(running ? 'busy' : 'ready', running ? (job.status === 'queued' ? `Queued · Position ${job.queue_position}` : job.status === 'processing' ? 'Preparing image download' : job.status === 'loading' ? 'Loading model' : 'Generating image') : 'Ready for an idea');
   $('result-state').textContent = running ? job.status : selected ? 'Completed' : 'Ready to create';
   $('busy-title').textContent = job?.status === 'cancelling' ? 'Stopping generation…' : job?.status === 'queued' ? `Waiting in queue · Position ${job.queue_position}` : job?.status === 'processing' ? 'Preparing your image…' : job?.status === 'loading' ? 'Loading your local model…' : 'Creating your image…';
   $('cancel').disabled = job?.status === 'cancelling';
@@ -172,46 +169,17 @@ async function pollJob() {
 }
 setInterval(pollJob, 900);
 setInterval(() => {if (active && !terminal.has(active.status)) $('elapsed').textContent = `${Math.max(0, Math.round(Date.now() / 1000 - active.created))} seconds elapsed`;}, 1000);
-function renderGPU() {
-  $('gpu').replaceChildren(); const latest = gpuHistory.at(-1);
-  if (!latest?.gpus.length) {$('gpu').textContent = 'GPU telemetry unavailable or starting. The monitor will retry while this view is open.'; return;}
-  latest.gpus.forEach((gpu) => {
-    const name = document.createElement('h3'); name.textContent = gpu.name; $('gpu').append(name);
-    const grid = document.createElement('div'); grid.className = 'gpu-grid'; $('gpu').append(grid);
-    const windowSeconds = Number($('gpu-window').value);
-    for (const [key, title, unit, limit] of [['used', 'VRAM used', 'MiB', gpu.total], ['utilization', 'GPU load', '%', 100], ['temperature', 'Temperature', '°C', 100], ['power', 'Power', 'W', gpu.power_limit], ['fan', 'Fan', '%', 100]]) {
-      if (gpu[key] === null) continue;
-      const points = gpuHistory.filter((sample) => latest.timestamp - sample.timestamp <= windowSeconds).map((sample) => ({time: sample.timestamp, value: sample.gpus.find((item) => item.index === gpu.index)?.[key]})).filter((point) => Number.isFinite(point.value));
-      if (!points.length) continue;
-      const average = points.reduce((sum, p) => sum + p.value, 0) / points.length, peak = Math.max(...points.map((p) => p.value));
-      const card = document.createElement('div'); card.className = 'gpu-metric'; const label = document.createElement('small'), value = document.createElement('strong'), details = document.createElement('small');
-      label.textContent = title; value.textContent = `${gpu[key].toFixed(0)} ${unit}${key === 'used' ? ` / ${gpu.total} MiB` : ''}`; details.textContent = `Average ${average.toFixed(0)} · Peak ${peak.toFixed(0)} ${unit}`;
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 300 65'); svg.setAttribute('preserveAspectRatio', 'none'); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', `${title}, average ${average.toFixed(0)}, peak ${peak.toFixed(0)} ${unit}`);
-      const line = document.createElementNS(svg.namespaceURI, 'polyline'); const maximum = limit || Math.max(1, peak * 1.1);
-      line.setAttribute('points', points.map((p) => `${300 * (p.time - latest.timestamp + windowSeconds) / windowSeconds},${63 - Math.min(1, p.value / maximum) * 60}`).join(' ')); svg.append(line);
-      svg.onpointermove = (event) => {const bounds = svg.getBoundingClientRect(); const timestamp = latest.timestamp - windowSeconds + (event.clientX - bounds.left) / bounds.width * windowSeconds; const nearest = points.reduce((a, b) => Math.abs(a.time - timestamp) < Math.abs(b.time - timestamp) ? a : b); svg.setAttribute('aria-label', `${title}: ${nearest.value} ${unit} at ${new Date(nearest.time * 1000).toLocaleTimeString()}`); card.title = svg.getAttribute('aria-label');};
-      card.append(label, value, svg, details); grid.append(card);
-    }
-  });
-}
-async function refreshGPU() {
-  if (view !== 'system' || document.hidden || gpuFetching) return;
-  gpuFetching = true;
-  try {const data = await request('/system/gpu'); const samples = new Map([...gpuHistory, ...data.history].map((sample) => [sample.timestamp, sample])); gpuHistory = [...samples.values()].sort((a, b) => a.timestamp - b.timestamp).filter((sample) => Date.now() / 1000 - sample.timestamp < 600); storage.set('gpu-history', JSON.stringify(gpuHistory)); renderGPU();} catch { /* Preserve the last valid sample on transient errors. */ } finally {gpuFetching = false;}
-}
-setInterval(refreshGPU, 1500); document.addEventListener('visibilitychange', () => {if (!document.hidden) {refreshGPU(); pollJob();}});
-$('gpu-window').value = storage.get('gpu-window', '60'); $('gpu-window').onchange = () => {storage.set('gpu-window', $('gpu-window').value); renderGPU();};
-try {gpuHistory = JSON.parse(storage.get('gpu-history', '[]'));} catch {gpuHistory = [];}
+document.addEventListener('visibilitychange', () => {if (!document.hidden) pollJob();});
 async function start() {
   $('generate').disabled = true;
   try {
-    config = await request('/api/status'); configureRefine(config); $('version').textContent = config.version;
+    config = await request('/api/status'); configureRefine(config); $('version').textContent = `v${config.version}`;
     $('download-format').replaceChildren(...config.download_formats.map(format => new Option(format.label, format.value)));
     $('resolution').replaceChildren(...config.presets.map(([width, height]) => new Option(`${width} × ${height}${width === height ? ' · Square' : width > height ? ' · Landscape' : ' · Portrait'}`, `${width}x${height}`)), new Option('Custom size', 'custom'));
     const items = await refreshGallery(); const job = config.active_job ? await request(`/api/jobs/${config.active_job}`) : null;
     const last = items.find((item) => item.status === 'completed'); if (last) showResult(last);
     busy(job || null); sizeHelp(); switchView(['generate', 'refine', 'gallery', 'system'].includes(storage.get('view', 'generate')) ? storage.get('view', 'generate') : 'generate');
-  } catch (error) {message(`Studio connection failed: ${error.message}. Reload to reconnect.`); $('runtime').textContent = 'Disconnected';}
+  } catch (error) {message(`Studio connection failed: ${error.message}. Reload to reconnect.`); runtimeState('error', 'Disconnected');}
 }
 start();
 
@@ -220,7 +188,10 @@ async function residencyStatus() {
   try {
     const status = await request('/api/status'); const model = status.model_residency;
     $('model-state').textContent = model.state === 'ready' ? (model.keep_loaded ? 'Weights loaded. Kept ready by the residency policy.' : `Weights loaded. Unload in ${model.unload_in_seconds} seconds if idle.`) : `Model ${model.state}.`;
-    if ((!active || terminal.has(active.status)) && !refineRunning()) $('runtime').textContent = model.state === 'ready' ? 'Model loaded · Ready' : 'Ready to load';
+    if ((!active || terminal.has(active.status)) && !refineRunning()) {
+      if (status.queue.outstanding) runtimeState('busy', status.active_job ? 'Generating image' : status.queue.processing ? 'Preparing image download' : 'Images queued');
+      else runtimeState(model.state === 'error' ? 'error' : ['loading', 'unloading'].includes(model.state) ? 'busy' : 'ready', model.state === 'ready' ? 'Model loaded · Ready' : model.state === 'unloaded' ? 'Ready to load' : `Model ${model.state}`);
+    }
     $('unload-model').disabled = Boolean(status.active_job) || model.state === 'unloaded';
   } catch { /* Keep prior state during reconnects. */ }
 }

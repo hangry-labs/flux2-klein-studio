@@ -149,12 +149,20 @@ visible and the document is active. The server sampler stops after 60 seconds
 without demand and retains at most 600 samples. History and the one-/ten-minute
 window are session-owned. Missing sensors are omitted, and temporary failures
 preserve the last browser history. Whole-device values include other applications.
+Each GPU has a bordered card with metric plots, grid lines, a latest-sample
+marker, and average/peak values. Hover a plot to inspect a sample and its time;
+keyboard focus shows its latest sample. VRAM is displayed in GiB. The **1 min**
+and **10 min** controls select the history window.
 
 The dark shell, orange accents, collapsible header, workflow navigation and System
 layout follow the Hangry Labs studio family, adapted for images. All browser
 assets are packaged locally. The supplied product logo, mascot, badge and favicon
 live in [assets/](../assets/README.md) as WebP images. The horizontal logo is used
-in the header, the mascot on the empty canvas, and the badge as a subtle backdrop.
+in the header and the mascot on the empty canvas; the badge remains available
+for product artwork. The desktop header is 224 pixels high, with a 74-pixel
+compact mode. Narrow screens reflow the branding, links and runtime badge into
+rows. Header state and active tab survive a reload within the browser session.
+Use the arrow keys, Home and End to move between focused workflow tabs.
 
 ## Local HTTP API
 

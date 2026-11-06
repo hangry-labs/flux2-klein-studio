@@ -9,7 +9,7 @@ after verifying lossless conversion. Filenames consistently use `flux2_klein`.
 | [Horizontal logo](flux2_klein_logo_horizontal.webp) | <img src="ui/header.webp" width="320" alt="FLUX.2 Klein Studio horizontal logo"> | Expanded studio header and README |
 | [Full logo](flux2_klein_logo.webp) | <img src="flux2_klein_logo.webp" width="180" alt="FLUX.2 Klein Studio full logo"> | Portrait product artwork for documentation and project cards |
 | [Mascot](flux2_klein_mascot.webp) | <img src="ui/mascot.webp" width="180" alt="Klein Studio adventurer mascot in a wooden boat"> | Empty generation canvas |
-| [Badge](flux2_klein_badge.webp) | <img src="ui/badge.webp" width="180" alt="FLUX.2 Klein Studio badge"> | Subtle header backdrop |
+| [Badge](flux2_klein_badge.webp) | <img src="ui/badge.webp" width="180" alt="FLUX.2 Klein Studio badge"> | Decorative product artwork |
 
 [flux2_klein_favicon.webp](flux2_klein_favicon.webp) is a 192-pixel thumbnail of the
 mascot, used for the browser tab and compact header. The separate
