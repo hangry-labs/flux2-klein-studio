@@ -2,6 +2,8 @@
 !Dockerfile
 !requirements.txt
 !requirements.lock
+!requirements-ui.txt
+!requirements-ui.lock
 !requirements-tools.txt
 !THIRD_PARTY.md
 !licenses/

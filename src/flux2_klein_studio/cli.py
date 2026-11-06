@@ -1,4 +1,4 @@
-"""Docker inference entry point. No UI or HTTP service is started yet."""
+"""Local image generation, benchmarks and browser studio entry point."""
 
 import argparse
 import importlib.metadata
@@ -100,6 +100,10 @@ def doctor():
 def parser():
     result = argparse.ArgumentParser(description=__doc__)
     commands = result.add_subparsers(dest="command", required=True)
+    serve = commands.add_parser("serve", help="Start the local browser studio")
+    serve.add_argument("--host", default="0.0.0.0")
+    serve.add_argument("--port", type=int, default=7860)
+    serve.add_argument("--output-dir", type=Path, default=Path("/data/outputs/studio"))
     commands.add_parser(
         "doctor", help="Check CUDA and imports without downloading model weights"
     )
@@ -181,7 +185,14 @@ def main():
         raise SystemExit("Fixed-seed tests require at least two measured repeats.")
     if getattr(arguments, "stop_on_limit", False) and arguments.suite != "memory":
         raise SystemExit("Capacity/headroom testing requires --suite memory.")
-    if arguments.command == "doctor":
+    if arguments.command == "serve":
+        import uvicorn
+        from .server import create_app
+
+        uvicorn.run(
+            create_app(arguments.output_dir), host=arguments.host, port=arguments.port
+        )
+    elif arguments.command == "doctor":
         print(json.dumps(doctor(), indent=2))
     elif arguments.command == "download":
         from huggingface_hub import snapshot_download

@@ -19,6 +19,14 @@ vars:
   CAPACITY_RESOLUTIONS: '1024x1024,1280x1280,1536x1536,1792x1792,1856x1856,1920x1920,2048x2048,2304x2304,2560x2560,2816x2816,3072x3072'
 
 tasks:
+  ui:
+    desc: Start the browser studio at http://localhost:7860
+    cmds: [docker compose up -d]
+
+  ui:logs:
+    desc: Follow studio service logs
+    cmds: [docker compose logs -f studio]
+
   default:
     cmds: [task --list]
 

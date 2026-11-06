@@ -6,10 +6,14 @@ services:
       target: runtime
     gpus: all
     init: true
+    environment:
+      STUDIO_OFFLINE: ${STUDIO_OFFLINE:-0}
     volumes:
       - data:/data
       - ./outputs:/data/outputs
-    command: [doctor]
+    ports:
+      - "127.0.0.1:7860:7860"
+    command: [serve]
 
 volumes:
   data:

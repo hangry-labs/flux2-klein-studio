@@ -4,7 +4,8 @@ Experimental local text-to-image generation using FLUX.2 Klein 4B with a Nunchak
 Lite NVFP4 rank-32 transformer and an NF4 text encoder. The Docker CLI generates
 images at configurable resolutions with all model components on the GPU, without
 application offloading. The default image size is 1024×1024.
-Browser UI and an HTTP API are planned.
+The local browser studio provides generation, a saved-image gallery, recipe reuse
+and GPU telemetry. Product artwork is currently a temporary placeholder.
 
 **Repeatability:** ordered low-rank accumulation is enabled by default. Repeated
 prompts and seeds produced pixel-identical images on the tested GPU and pinned
@@ -27,7 +28,17 @@ Build the development image:
 docker compose build
 ```
 
-Generate an image. The first run downloads the pinned model and compatible CUDA kernel:
+Start the browser studio, then open **http://localhost:7860**:
+
+```shell
+docker compose up -d
+```
+
+The first generation downloads the pinned model and compatible CUDA kernel when
+needed. See the [studio guide](docs/studio.md) for controls, storage and API routes.
+The port is bound to loopback for local access.
+
+Or generate an image directly from the CLI:
 
 ```shell
 docker compose run --rm studio generate --prompt "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed"
@@ -38,7 +49,10 @@ caches live in the `flux2-klein-studio-data` Docker volume and survive container
 removal. Keep that volume to avoid downloading the assets again. Removing it,
 including with `docker compose down --volumes`, deletes the cached assets.
 The image is built locally as `flux2-klein-studio:dev`; no registry image or stable
-release is published. The CLI exposes no HTTP port.
+release is published. The browser service uses port 7860; explicit CLI commands
+remain available. Check **Save result to gallery** to retain an image and recipe
+under `outputs/studio/`; otherwise the result is a temporary downloadable preview.
+System controls the model idle timeout (five minutes by default) and manual unload.
 
 ## Runtime commands
 
@@ -76,6 +90,7 @@ provides the same commands on PowerShell and Bash. Run `task` to list them.
 
 ```shell
 task build
+task ui
 task doctor
 task model:download
 task generate WIDTH=1536 HEIGHT=1024 -- --prompt "A mountain lake at sunrise"
