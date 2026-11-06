@@ -1,7 +1,7 @@
 # Third-party components
 
-The application uses the following model and runtime components, which retain
-their own licenses and notices.
+Application code is licensed under [Apache-2.0](LICENSE). The application uses the
+following model and runtime components, which retain their own licenses and notices.
 This inventory does not assign one blanket license to the eventual container distribution.
 
 | Component | Source / licensing reference |

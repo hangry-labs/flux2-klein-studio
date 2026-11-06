@@ -70,6 +70,8 @@ jobs:
           ref: ${{ needs.validate.outputs.commit }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Check distribution readiness
+        run: python3 tools/check_release.py --publishing
       - name: Free hosted-runner disk space
         shell: bash
         run: |
@@ -92,8 +94,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Check distribution readiness
-        run: python3 tools/check_release.py --publishing
       - name: Plan tags and check immutable release identity
         id: images
         env:

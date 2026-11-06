@@ -1,8 +1,11 @@
 # FLUX.2 Klein Studio containers
 
-**Publication status:** build and publication automation is being prepared. No
+**Publication status:** build and publication automation is configured. No
 registry image or stable release has been published or qualified for deployment.
-The application license must be selected before the publishing gate can pass.
+
+Application code is licensed under [Apache-2.0](../LICENSE). Models, dependencies
+and adapted code retain their own terms and notices; see [NOTICE](../NOTICE) and
+[THIRD_PARTY.md](../THIRD_PARTY.md).
 
 Local text-to-image generation with a browser UI, OpenAI-compatible Images API
 and MCP. The initial stack is NVFP4 rank-32 FLUX.2 Klein 4B plus NF4 Qwen3,

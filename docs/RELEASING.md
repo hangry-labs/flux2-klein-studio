@@ -34,9 +34,10 @@ Configure repository secrets `DOCKER_USERNAME` and `DOCKER_TOKEN` with access to
 Face secret is required for the pinned public assets. Actions are pinned to full
 commit SHAs. Publications are serialized and run only on Linux amd64.
 
-The distribution gate requires an application `LICENSE`; the choice is currently
-pending. Once selected, update `NOTICE` and the documentation to match. This
-application license does not replace model or dependency terms.
+Application code is licensed under [Apache-2.0](../LICENSE). The distribution gate
+requires this `LICENSE` before runner cleanup, registry login or publication.
+Model and dependency terms remain documented separately in
+[THIRD_PARTY.md](../THIRD_PARTY.md) and [NOTICE](../NOTICE).
 
 Before binary publication, the build collects runtime notices, verifies reviewed
 wheel versions/native hashes, resolves exact Debian source identities, and

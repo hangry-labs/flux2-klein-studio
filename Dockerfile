@@ -80,9 +80,12 @@ FROM scratch AS sources
 COPY --from=source-assets /app/runtime-sources /runtime-sources/
 COPY --from=runtime /app/licenses /licenses/
 COPY --from=runtime /app/NOTICE /NOTICE
+COPY --from=runtime /app/LICENSE /LICENSE
 
 FROM scratch AS evidence
 COPY --from=runtime /app/licenses /licenses/
+COPY --from=runtime /app/LICENSE /LICENSE
+COPY --from=runtime /app/NOTICE /NOTICE
 COPY --from=model-assets /opt/klein-models/manifest.json /model-manifest.json
 COPY --from=source-assets /app/runtime-sources/manifest.json /source-manifest.json
 

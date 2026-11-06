@@ -228,6 +228,10 @@ float64 reference, after building the test image:
 docker run --rm --gpus all --mount type=volume,source=flux2-klein-studio-data,target=/data --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
 ```
 
+Application code is licensed under [Apache-2.0](LICENSE). Models, dependencies,
+adapted code and brand assets retain their own terms and notices; see
+[NOTICE](NOTICE) and [third-party notices](THIRD_PARTY.md).
+
 Model: [lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32](https://huggingface.co/lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32),
 based on Black Forest Labs FLUX.2 Klein 4B. Runtime: Hugging Face Diffusers,
 Transformers, bitsandbytes and Nunchaku Lite CUDA kernels. See
