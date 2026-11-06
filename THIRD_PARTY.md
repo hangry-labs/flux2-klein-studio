@@ -33,8 +33,9 @@ kernel. Tiny images download these into the persistent cache when first needed.
 The full image retains model LICENSE.md and kernel notices in that cache.
 Both variants include `/app/licenses/runtime/inventory.json`, Python/Debian
 license files and source-package identities. The workflow collects exact Debian
-sources and reviewed wheel sources in a separate `*_sources` image before
-publishing application images. Its manifest and checksums describe the evidence;
+sources and reviewed wheel sources and bundles them in both application images
+at `/app/runtime-sources`. There is no separate source image. The bundled
+manifest and checksums describe the evidence;
 they are not automatic legal approval. CUDA/NVIDIA components retain their own
 redistribution terms. Source collection does not relicense the combined image.
 

@@ -294,6 +294,6 @@ Initial development snapshot. Registry images have not been published yet.
 - Single-reference Refine workspace, iterative reuse and queued HTTP/MCP image edits.
 - Ordered reductions, expandable allocation and separated memory/speed/seed benchmarks.
 - Full/tiny Docker targets, matching Docker Hub/GHCR publication, corresponding
-  sources, provenance, SBOM, digest verification and release dry runs.
+  bundled dependency sources, provenance, SBOM, digest verification and release dry runs.
 
 </details>

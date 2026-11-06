@@ -9,9 +9,9 @@ build date and image flavor. Local images use `unknown`/`dev` build metadata.
 Run `task validate` for lightweight source/publication/release checks and
 `task test:cpu` for the full container test suite. `task test:gpu` adds numerical
 GPU tests. `task docker:build:tiny` and `task docker:build:full` build the two local
-variants; `task docker:build:sources` collects exact redistribution sources.
+variants. Both include exact dependency source archives under `/app/runtime-sources`.
 `task docker:evidence` exports runtime notices and model/source manifests into
-ignored `.ci-build/evidence`. Neither command publishes anything.
+ignored `.ci-build/evidence`. These local build/export commands publish nothing.
 
 Qualify the exact packaged candidate on GPU, including a 1024×1024 fixed-seed
 generation and an offline restart. A full-image qualification must start with an
@@ -39,17 +39,16 @@ requires this `LICENSE` before runner cleanup, registry login or publication.
 Model and dependency terms remain documented separately in
 [THIRD_PARTY.md](../THIRD_PARTY.md) and [NOTICE](../NOTICE).
 
-Before binary publication, the build collects runtime notices, verifies reviewed
-wheel versions/native hashes, resolves exact Debian source identities, and
-publishes corresponding sources. Missing notices, unavailable source versions or
-changed reviewed native files fail collection. The signed apt indexes cover current
-packages; `tools/debian-source-index.txt` preserves reviewed descriptor checksums
-for the older tzdata version in the pinned base. Its exact `.dsc` and archives
-are retained too. This explicit supplement is version-bound and cannot substitute
-newer source for an older binary. Each run has a unique immutable
-`sources-<commit>-<run>-<attempt>` tag, referenced by image labels, plus convenient
-`latest_sources` or stable `_sources` aliases. Stable tags are checked for prior
-existence and never overwritten, including partial releases.
+Only the standard and tiny images are published. The build collects runtime
+notices, verifies reviewed wheel versions/native hashes and resolves exact Debian
+source identities. Both application variants include the verified archives,
+manifest and checksums at `/app/runtime-sources`, so they travel with the matching
+binaries. There are no source-image tags or separate source-image publication.
+Missing notices, unavailable source versions or changed reviewed native files
+fail collection. `tools/debian-source-index.txt` retains reviewed descriptor
+checksums for the older tzdata version in the pinned base; its exact `.dsc` and
+archives are included. Stable application tags are checked for prior existence
+and never overwritten, including partial releases.
 
 Full/tiny builds attach provenance and SBOM attestations. The workflow compares
 the top-level OCI index digest of every tag in both registries to the corresponding

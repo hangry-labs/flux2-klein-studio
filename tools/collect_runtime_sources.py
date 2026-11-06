@@ -1,4 +1,4 @@
-"""Collect exact Debian sources and reviewed wheel bundles for a source image.
+"""Collect exact Debian sources and reviewed wheel bundles for application images.
 
 Run in the source-assets build stage after enabling deb-src indexes. Downloading
 sources never builds or executes them. Collection is not automatic legal approval.

@@ -16,12 +16,13 @@ is the qualified development hardware; see [validation](validation.md).
 | --- | --- | --- | --- |
 | Full | `baked` | `latest`, `vX.Y.Z` | Pinned model and CUDA kernel included; offline by default |
 | Tiny | `tiny` | `latest_tiny`, `vX.Y.Z_tiny` | Same dependencies and features; downloads pinned assets on first use |
-| Sources | `sources` | `latest_sources`, `vX.Y.Z_sources` | Corresponding source archives and checksums; no executable application |
 
 The workflow targets `hangrylabs/flux2-klein-studio` on Docker Hub and
 `ghcr.io/hangry-labs/flux2-klein-studio` on GHCR. These are planned references
 until publication succeeds. Full images save the initial network download, while
 tiny images reduce transfer size. Tiny still includes the CUDA/PyTorch runtime.
+Both variants include dependency notices and verified corresponding-source
+archives under `/app/runtime-sources`; no separate source image is published.
 The full model cache adds about 5 GiB, and its initial copy into a data volume
 uses additional disk space. It does not change GPU memory requirements.
 

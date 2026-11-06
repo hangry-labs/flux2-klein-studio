@@ -55,15 +55,14 @@ class PublicationTests(unittest.TestCase):
         )
         self.assertEqual(len(plan["baked_tags"]), 4)
 
-    def test_source_identity_is_unique_and_commit_bound(self):
-        plan = ci_images.plan_images("push", "refs/tags/v0.1")
-        result = ci_images.add_source_plan(plan, "a" * 40, "123", "2")
-        self.assertIn("sources-" + "a" * 40 + "-123-2", result["source_image"])
-        self.assertTrue(
-            any(tag.endswith(":v0.1_sources") for tag in result["source_tags"])
+    def test_publication_catalog_contains_only_standard_and_tiny(self):
+        plan = ci_images.plan_images(
+            "workflow_dispatch", "refs/heads/main", "v0.1", True
         )
-        with self.assertRaises(ValueError):
-            ci_images.add_source_plan(plan, "branch", "123", "2")
+        self.assertEqual(
+            set(plan), {"baked_tags", "tiny_tags", "release_tag", "image_version"}
+        )
+        self.assertEqual(len(plan["baked_tags"]) + len(plan["tiny_tags"]), 8)
 
     def test_existing_stable_tag_and_registry_auth_errors_fail_closed(self):
         plan = ci_images.plan_images("push", "refs/tags/v0.1")
@@ -81,6 +80,20 @@ class PublicationTests(unittest.TestCase):
             ci_images,
             "run",
             return_value=subprocess.CompletedProcess([], 1, "", "manifest unknown"),
+        ):
+            ci_images.check_unpublished(plan)
+
+    def test_partial_tiny_publication_still_prevents_overwrite(self):
+        plan = ci_images.plan_images("push", "refs/tags/v0.1")
+
+        def inspect(*command):
+            return subprocess.CompletedProcess(
+                [], 0 if command[-1].endswith("_tiny") else 1, "", "manifest unknown"
+            )
+
+        with (
+            patch.object(ci_images, "run", side_effect=inspect),
+            self.assertRaisesRegex(ValueError, "already exists"),
         ):
             ci_images.check_unpublished(plan)
 

@@ -22,18 +22,16 @@ COPY requirements-ui.lock ./requirements-ui.lock
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirements-ui.lock && python -m pip check
 ENV TRITON_CACHE_DIR=/data/triton \
     PYTORCH_ALLOC_CONF=expandable_segments:True
-FROM dependencies AS runtime
+FROM dependencies AS runtime-base
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 ARG IMAGE_VERSION=dev
-ARG SOURCE_IMAGE=unpublished
 ENV STUDIO_BUILD_ID=$VCS_REF STUDIO_BUILD_DATE=$BUILD_DATE STUDIO_IMAGE_VERSION=$IMAGE_VERSION
 LABEL org.opencontainers.image.title="FLUX.2 Klein Studio" \
       org.opencontainers.image.source="https://github.com/hangry-labs/flux2-klein-studio" \
       org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.created=$BUILD_DATE \
-      org.opencontainers.image.version=$IMAGE_VERSION \
-      io.hangrylabs.sources=$SOURCE_IMAGE
+      org.opencontainers.image.version=$IMAGE_VERSION
 COPY VERSION NOTICE README.md LICENSE* ./
 COPY src/ ./src/
 COPY assets/ ./assets/
@@ -45,6 +43,17 @@ RUN python tools/collect_runtime_licenses.py --output /app/licenses/runtime
 ENTRYPOINT ["python", "-m", "flux2_klein_studio.container_entrypoint"]
 EXPOSE 7860
 CMD ["serve"]
+
+FROM runtime-base AS source-assets
+COPY tools/collect_runtime_sources.py tools/runtime_sources.toml ./tools/
+COPY tools/debian-source-index.txt ./tools/debian-source-index.txt
+RUN sed -i 's/Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && python tools/collect_runtime_sources.py --supplement tools/debian-source-index.txt --output /app/runtime-sources \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM runtime-base AS runtime
+COPY --from=source-assets /app/runtime-sources /app/runtime-sources/
 
 FROM runtime AS checks
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install httpx==0.28.1
@@ -68,20 +77,6 @@ COPY src/flux2_klein_studio/__init__.py /app/src/flux2_klein_studio/__init__.py
 COPY tools/prefetch_models.py /app/tools/prefetch_models.py
 RUN python tools/prefetch_models.py
 
-FROM runtime AS source-assets
-COPY tools/collect_runtime_sources.py tools/runtime_sources.toml ./tools/
-COPY tools/debian-source-index.txt ./tools/debian-source-index.txt
-RUN sed -i 's/Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/debian.sources \
-    && apt-get update \
-    && python tools/collect_runtime_sources.py --supplement tools/debian-source-index.txt --output /app/runtime-sources \
-    && rm -rf /var/lib/apt/lists/*
-
-FROM scratch AS sources
-COPY --from=source-assets /app/runtime-sources /runtime-sources/
-COPY --from=runtime /app/licenses /licenses/
-COPY --from=runtime /app/NOTICE /NOTICE
-COPY --from=runtime /app/LICENSE /LICENSE
-
 FROM scratch AS evidence
 COPY --from=runtime /app/licenses /licenses/
 COPY --from=runtime /app/LICENSE /LICENSE
@@ -94,15 +89,13 @@ COPY --from=runtime /app /app
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 ARG IMAGE_VERSION=dev
-ARG SOURCE_IMAGE=unpublished
 ENV HF_HOME=/data/huggingface STUDIO_DEFAULT_OFFLINE=1 STUDIO_IMAGE_FLAVOR=full \
     STUDIO_BUILD_ID=$VCS_REF STUDIO_BUILD_DATE=$BUILD_DATE STUDIO_IMAGE_VERSION=$IMAGE_VERSION
 LABEL org.opencontainers.image.title="FLUX.2 Klein Studio" \
       org.opencontainers.image.source="https://github.com/hangry-labs/flux2-klein-studio" \
       org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.created=$BUILD_DATE \
-      org.opencontainers.image.version=$IMAGE_VERSION \
-      io.hangrylabs.sources=$SOURCE_IMAGE
+      org.opencontainers.image.version=$IMAGE_VERSION
 ENTRYPOINT ["python", "-m", "flux2_klein_studio.container_entrypoint"]
 EXPOSE 7860
 CMD ["serve"]

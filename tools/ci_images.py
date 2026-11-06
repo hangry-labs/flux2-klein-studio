@@ -58,24 +58,6 @@ def run(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(args, text=True, capture_output=True, check=False)
 
 
-def add_source_plan(plan: dict, revision: str, run_id: str, attempt: str) -> dict:
-    if (
-        not re.fullmatch(r"[a-f0-9]{40}", revision)
-        or not re.fullmatch(r"\d+", run_id)
-        or not re.fullmatch(r"\d+", attempt)
-    ):
-        raise ValueError(
-            "Source identity requires the exact Git commit and numeric workflow run/attempt."
-        )
-    identity = f"sources-{revision}-{run_id}-{attempt}"
-    tags = [f"{repo}:{identity}" for repo in REGISTRIES]
-    if any(ref.endswith(":latest") for ref in plan["baked_tags"]):
-        tags.extend(f"{repo}:latest_sources" for repo in REGISTRIES)
-    if plan["release_tag"]:
-        tags.extend(f"{repo}:{plan['release_tag']}_sources" for repo in REGISTRIES)
-    return {**plan, "source_tags": tags, "source_image": tags[0]}
-
-
 def check_release_checkout(plan: dict):
     if not plan["release_tag"]:
         return
@@ -96,8 +78,8 @@ def check_release_checkout(plan: dict):
 def check_unpublished(plan: dict):
     """Never overwrite an existing stable registry tag, including partial releases."""
     refs = plan["baked_tags"] + plan["tiny_tags"] if plan["release_tag"] else []
-    for ref in refs + plan.get("source_tags", []):
-        if ref.endswith((":latest", ":latest_tiny", ":latest_sources")):
+    for ref in refs:
+        if ref.endswith((":latest", ":latest_tiny")):
             continue
         result = run("docker", "buildx", "imagetools", "inspect", ref)
         if result.returncode == 0:
@@ -122,13 +104,9 @@ def inspect_digest(ref: str) -> str:
     return match[1]
 
 
-def verify_publication(
-    plan: dict, full_digest: str, tiny_digest: str, source_digest: str = ""
-) -> list[dict]:
+def verify_publication(plan: dict, full_digest: str, tiny_digest: str) -> list[dict]:
     records = []
     variants = [("baked_tags", full_digest), ("tiny_tags", tiny_digest)]
-    if plan.get("source_tags"):
-        variants.append(("source_tags", source_digest))
     if any(not DIGEST.fullmatch(expected) for _, expected in variants):
         raise ValueError("Build action did not report a valid OCI digest.")
     for key, expected in variants:
@@ -168,7 +146,6 @@ def main():
             plan,
             os.environ["BAKED_DIGEST"],
             os.environ["TINY_DIGEST"],
-            os.getenv("SOURCE_DIGEST", ""),
         )
         (output / "published-images.json").write_text(
             json.dumps(records, indent=2) + "\n", encoding="utf-8"
@@ -196,12 +173,6 @@ def main():
     revision = run("git", "rev-parse", "HEAD")
     if revision.returncode:
         raise RuntimeError("Cannot determine checked-out commit.")
-    plan = add_source_plan(
-        plan,
-        revision.stdout.strip(),
-        os.environ["GITHUB_RUN_ID"],
-        os.environ["GITHUB_RUN_ATTEMPT"],
-    )
     check_release_checkout(plan)
     if args.check_existing:
         check_unpublished(plan)
@@ -212,13 +183,13 @@ def main():
     plan_file.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
     if os.getenv("GITHUB_OUTPUT"):
         with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as stream:
-            for key in ("baked_tags", "tiny_tags", "source_tags"):
+            for key in ("baked_tags", "tiny_tags"):
                 stream.write(
                     f"{key}<<KLEIN_IMAGE_TAGS\n"
                     + "\n".join(plan[key])
                     + "\nKLEIN_IMAGE_TAGS\n"
                 )
-            for key in ("image_version", "vcs_ref", "build_date", "source_image"):
+            for key in ("image_version", "vcs_ref", "build_date"):
                 stream.write(f"{key}={plan[key]}\n")
     print(json.dumps(plan, indent=2))
 

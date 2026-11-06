@@ -213,10 +213,6 @@ tasks:
     desc: Build the local full image with pinned model/kernel assets (no registry push)
     cmds: [docker build --target baked -t flux2-klein-studio:full .]
 
-  docker:build:sources:
-    desc: Collect exact runtime sources and build the local source image
-    cmds: [docker build --target sources -t flux2-klein-studio:sources .]
-
   docker:evidence:
     desc: Export runtime notices and model/source manifests into ignored .ci-build
     cmds:
