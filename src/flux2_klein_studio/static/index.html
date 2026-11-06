@@ -10,7 +10,7 @@
   <button id="collapse" class="collapse" aria-expanded="true" aria-controls="hero" aria-label="Collapse header">⌃</button>
 </header>
 <main>
-  <div class="tabbar" role="tablist" aria-label="Studio views"><button role="tab" aria-selected="true" aria-controls="generate-panel" id="generate-tab" data-view="generate">✧ Generate</button><button role="tab" aria-selected="false" aria-controls="gallery-panel" id="gallery-tab" data-view="gallery">▧ Gallery <span id="gallery-count">0</span></button><button role="tab" aria-selected="false" aria-controls="system-panel" id="system-tab" data-view="system">◉ System</button><span class="local-note">LOCAL GENERATION · NO OFFLOADING</span></div>
+  <div class="tabbar" role="tablist" aria-label="Studio views"><button role="tab" aria-selected="true" aria-controls="generate-panel" id="generate-tab" data-view="generate">✧ Generate</button><button role="tab" aria-selected="false" aria-controls="refine-panel" id="refine-tab" data-view="refine">✎ Refine</button><button role="tab" aria-selected="false" aria-controls="gallery-panel" id="gallery-tab" data-view="gallery">▧ Gallery <span id="gallery-count">0</span></button><button role="tab" aria-selected="false" aria-controls="system-panel" id="system-tab" data-view="system">◉ System</button><span class="local-note">LOCAL GENERATION · NO OFFLOADING</span></div>
   <div id="notice" class="notice" role="alert" hidden></div>
   <section id="generate-panel" role="tabpanel" aria-labelledby="generate-tab" class="workspace">
     <form id="generation-form" class="panel settings">
@@ -31,8 +31,33 @@
     </form>
     <div class="panel result-panel"><div class="panel-heading"><div><span class="eyebrow">02 / YOUR CANVAS</span><h2 id="result-title">Room for an idea</h2></div><span id="result-state" class="chip">Ready to create</span></div>
       <div id="canvas" class="canvas"><div id="empty" class="empty"><img src="/assets/ui/mascot.webp" width="180" height="180" alt=""><h3>Start with a little imagination.</h3><p>Your generated image will appear here.<br>Try an example, or write something entirely your own.</p><button type="button" id="empty-example" class="secondary">Explore a prompt ↗</button></div><img id="result-image" alt="Generated image" hidden><div id="busy" class="busy" hidden><span class="spinner"></span><strong id="busy-title">Preparing your image</strong><span id="elapsed">0 seconds</span><p>The first job loads the model. Later jobs reuse it while it remains resident.</p></div></div>
-      <div id="result-actions" class="result-actions" hidden><div><strong id="result-meta"></strong><p id="result-prompt"></p></div><div class="actions download-actions"><label for="download-format" class="visually-hidden">Download format</label><select id="download-format" aria-label="Download format"></select><a id="download" class="secondary" download>↓ Download</a><button id="recipe" type="button" class="secondary">↓ Recipe JSON</button></div></div>
+      <div id="result-actions" class="result-actions" hidden><div><strong id="result-meta"></strong><p id="result-prompt"></p></div><div class="actions download-actions"><label for="download-format" class="visually-hidden">Download format</label><select id="download-format" aria-label="Download format"></select><a id="download" class="secondary" download>↓ Download</a><button id="recipe" type="button" class="secondary">↓ Recipe JSON</button><button id="send-refine" type="button" class="secondary">✎ Send to Refine</button></div></div>
       <div class="canvas-footer"><span>NVFP4 transformer · NF4 text encoder</span><span>Reproducible seeds on the qualified stack</span></div>
+    </div>
+  </section>
+  <section id="refine-panel" role="tabpanel" aria-labelledby="refine-tab" class="workspace" hidden>
+    <form id="refine-form" class="panel settings">
+      <div class="panel-heading"><span class="eyebrow">01 / ANOTHER LOOK</span><span class="chip">Picture → picture</span></div>
+      <h2>Keep the idea. Change the picture.</h2><p class="muted">Upload a picture, or send a generated result here. Describe your changes and the details to keep.</p>
+      <label for="refine-upload">Reference picture</label><input id="refine-upload" type="file" accept="image/*"><p id="refine-reference-meta" class="help">One still image, up to 16 MiB. References stay temporary unless you save the refinement to gallery.</p>
+      <div class="actions"><button id="refine-gallery" type="button" class="subtle">Choose from gallery</button><button id="refine-clear" type="button" class="subtle" disabled>Clear reference</button></div>
+      <label for="refine-prompt">What should change?</label><textarea id="refine-prompt" rows="5" maxlength="4000" required placeholder="Keep the subject and composition, but change the lighting to warm sunset."></textarea>
+      <label for="refine-resolution">Output canvas</label><select id="refine-resolution"><option value="1024x1024">1024 × 1024 · Square</option></select>
+      <div class="two"><div><label for="refine-width">Width</label><input id="refine-width" type="number" min="64" max="1920" step="16" value="1024" required></div><div><label for="refine-height">Height</label><input id="refine-height" type="number" min="64" max="1920" step="16" value="1024" required></div></div>
+      <p class="help">Start at 1024 × 1024. Reference images add GPU work and memory; the System size table measures text-only generation.</p>
+      <label class="seed-toggle"><input id="refine-random-seed" type="checkbox" role="switch" checked><span class="switch-track" aria-hidden="true"></span> Random seed</label>
+      <div class="two"><div><label for="refine-seed">Seed</label><input id="refine-seed" type="number" min="0" max="9007199254740991" step="1" value="12345" readonly required></div><div><label for="refine-steps">Steps</label><input id="refine-steps" type="number" min="1" max="50" value="4" required></div></div>
+      <label class="check-option"><input id="refine-save-gallery" type="checkbox"> Save refinement and reference to gallery</label><p class="help">A saved result keeps its reference and recipe. Deleting it removes those files too.</p>
+      <button id="refine-submit" type="submit" class="primary" disabled>✎ Refine picture</button><button id="refine-cancel" type="button" class="cancel" hidden>Cancel refinement</button><p id="refine-message" class="help" role="status" aria-live="polite"></p>
+    </form>
+    <div class="panel result-panel">
+      <div class="panel-heading"><div><span class="eyebrow">02 / BEFORE &amp; AFTER</span><h2>A new direction.</h2></div><span id="refine-state" class="chip">Choose a picture</span></div>
+      <div class="refine-comparison">
+        <figure class="refine-picture"><figcaption>Reference</figcaption><div class="refine-frame"><p id="refine-source-empty" class="muted">Your starting picture goes here.</p><img id="refine-source-image" alt="Reference picture" hidden></div></figure>
+        <figure class="refine-picture"><figcaption>Refinement</figcaption><div class="refine-frame"><p id="refine-result-empty" class="muted">Your next version will appear here.</p><img id="refine-result-image" alt="Refined picture" hidden><div id="refine-busy" class="busy" hidden><span class="spinner"></span><strong id="refine-busy-title">Refining your picture…</strong><span id="refine-elapsed"></span></div></div></figure>
+      </div>
+      <div id="refine-result-actions" class="result-actions" hidden><div><strong id="refine-result-meta"></strong><p id="refine-result-prompt"></p></div><div class="actions download-actions"><select id="refine-format" aria-label="Refinement download format"></select><a id="refine-download" class="secondary" download>↓ Download</a><a id="refine-recipe" class="secondary" download>↓ Recipe JSON</a><button id="refine-use-result" type="button" class="secondary">✎ Use this result</button></div></div>
+      <p class="help">Each pass starts from the chosen reference. Use this result to continue with the new picture.</p>
     </div>
   </section>
   <section id="gallery-panel" role="tabpanel" aria-labelledby="gallery-tab" hidden><div class="section-heading"><div><span class="eyebrow">YOUR LOCAL COLLECTION</span><h2>Made here, kept here.</h2></div><div class="actions"><button id="select-gallery" class="secondary">Select all shown</button><button id="delete-selected" class="danger" disabled>Delete selected</button><button id="refresh-gallery" class="secondary">Refresh gallery</button></div></div><p class="muted">Select an image to view it or reuse its settings. The latest 100 saved jobs are shown. Deleting a job permanently removes its local image, metadata and any logs.</p><div id="gallery" class="gallery"></div></section>

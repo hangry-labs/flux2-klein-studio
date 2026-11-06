@@ -17,7 +17,7 @@ QUEUE_TIMEOUT = float(os.getenv("STUDIO_QUEUE_TIMEOUT_SECONDS", "900"))
 MAX_BATCH = 16
 
 
-def _admit(jobs, prompt, resolution, seed, save_gallery, count):
+def _admit(jobs, prompt, resolution, seed, save_gallery, count, reference_id=None):
     with jobs.lock:
         resolution = jobs.resolutions.choose(resolution)
         width, height = SIZES[resolution]
@@ -28,6 +28,7 @@ def _admit(jobs, prompt, resolution, seed, save_gallery, count):
                 height=height,
                 seed=secrets.randbits(53) if seed is None else (seed + index) % 2**53,
                 save_gallery=save_gallery,
+                reference_id=reference_id,
             )
             for index in range(count)
         ]
@@ -90,11 +91,14 @@ async def generate_images(
     save_gallery=False,
     disconnected=None,
     count=1,
+    reference_id=None,
 ):
     if not 1 <= count <= MAX_BATCH:
         raise HTTPException(400, f"Request between 1 and {MAX_BATCH} images")
     submission = asyncio.create_task(
-        asyncio.to_thread(_admit, jobs, prompt, resolution, seed, save_gallery, count)
+        asyncio.to_thread(
+            _admit, jobs, prompt, resolution, seed, save_gallery, count, reference_id
+        )
     )
     items, tasks = [], []
     try:

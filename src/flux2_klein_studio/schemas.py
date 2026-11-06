@@ -11,6 +11,7 @@ class Generation(BaseModel):
     height: int = Field(default=1024, ge=64, le=1920, multiple_of=16)
     steps: int = Field(default=4, ge=1, le=50)
     save_gallery: bool = False
+    reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
     @field_validator("prompt")
     @classmethod

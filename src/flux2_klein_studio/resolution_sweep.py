@@ -152,6 +152,8 @@ def command_for(arguments, width, height, case, *, restart=False):
     ]
     if not restart:
         command += ["--runs", str(arguments.runs), "--warmups", str(arguments.warmups)]
+    if getattr(arguments, "reference_image", None):
+        command += ["--reference-image", str(arguments.reference_image)]
     if arguments.offline:
         command.append("--offline")
     if getattr(arguments, "save_images", False):
@@ -163,6 +165,11 @@ def plan(arguments):
     options = SimpleNamespace(**vars(arguments))
     options.command = SUITE_COMMANDS[arguments.suite]
     schedule = jobs(options)
+    reference = None
+    if getattr(arguments, "reference_image", None):
+        from .references import normalize_reference
+
+        _, reference = normalize_reference(arguments.reference_image.read_bytes())
     return {
         "suite": arguments.suite,
         "steps": arguments.steps,
@@ -175,7 +182,10 @@ def plan(arguments):
         "minimum_sampled_headroom_mib": arguments.min_headroom_mib,
         "stop_on_limit": arguments.stop_on_limit,
         "workload": schedule,
-        "workload_sha256": fingerprint(schedule),
+        "workload_sha256": fingerprint({"jobs": schedule, "reference": reference})
+        if reference
+        else fingerprint(schedule),
+        **({"reference": reference} if reference else {}),
         "resolutions": arguments.resolutions,
         "restart_calls_per_resolution": int(arguments.suite == "fixed-seed"),
         "measurement_context": "shared live system; other workloads left running",

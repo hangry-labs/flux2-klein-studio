@@ -1,0 +1,158 @@
+{
+  "schema_version": 2,
+  "run_id": "20261106T144735649392Z",
+  "suite": "fixed-seed",
+  "status": "completed",
+  "steps": 4,
+  "seed": 12345,
+  "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+  "reduction": "ordered",
+  "warmups": 2,
+  "measured_calls_per_resolution": 5,
+  "workload": [
+    {
+      "label": "warmup-1",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345
+    },
+    {
+      "label": "warmup-2",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345
+    },
+    {
+      "label": "measured-1",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345
+    },
+    {
+      "label": "measured-2",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345
+    },
+    {
+      "label": "measured-3",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345
+    },
+    {
+      "label": "measured-4",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345
+    },
+    {
+      "label": "measured-5",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345
+    },
+    {
+      "label": "changed-seed-1",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12346
+    },
+    {
+      "label": "changed-seed-2",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12346
+    },
+    {
+      "label": "changed-prompt",
+      "prompt": "A small orange sailboat on a calm mountain lake at sunrise, realistic photograph",
+      "seed": 12345
+    },
+    {
+      "label": "changed-reference-1",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345,
+      "reference_variant": "mirror"
+    },
+    {
+      "label": "changed-reference-2",
+      "prompt": "Keep the glass robot and orchids, but change the lighting to warm golden sunset.",
+      "seed": 12345,
+      "reference_variant": "mirror"
+    }
+  ],
+  "workload_sha256": "b7d228765b2627d33dcf7a674a0e6915166d39c95ccc512ba056de94db936db4",
+  "resolutions": [
+    [
+      1024,
+      1024
+    ]
+  ],
+  "restart_calls_per_resolution": 1,
+  "measurement_context": "shared live system; other workloads left running",
+  "method": "Fresh process per resolution; cold load separate; no offload, VAE tiling or slicing",
+  "source_sha256": {
+    "inference.py": "27cc2f7579fdbb94581c913dd15158cd8f27ea522aa2f50b28a2a8bf14562f1b",
+    "ordered_reduction.py": "3a6b09bc8374545fe8bc5d9863ce475c6636f73f5cceb33b6a76c59cfeb12866",
+    "workloads.py": "e997e6b77a1fc5f7359f8936b1898b4bf4451ead00c1a02b479601a7276030a8",
+    "references.py": "4256787e2f8b83fa29656725924f901967b261b6f4b63da0884040a999839338"
+  },
+  "generation_profile": {
+    "per_step_finite_check": true,
+    "mode": "single-reference",
+    "reference": {
+      "sha256": "4a68126d54a0fc4d35cdb747ceb0313e59cfd0dd9385017507fd56df8ffb91a3",
+      "pixel_sha256": "bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440",
+      "original_sha256": "79cf0cadc26ed032783cf6854b79519a9757a5e78407515c2032a65e13164d52",
+      "original_width": 1024,
+      "original_height": 1024,
+      "width": 1024,
+      "height": 1024,
+      "preprocessing": "exif-rgb-white-alpha-lanczos-1mp-align16-v1"
+    }
+  },
+  "raw_summary_sha256": "08a917162db1c48c3ba22356f33ebfce22ba2b1fad1df1d03062e222a6cecbc0",
+  "environment": {
+    "versions": {
+      "torch": "2.14.0+cu130",
+      "diffusers": "0.42.1",
+      "transformers": "5.22.1",
+      "bitsandbytes": "0.50.2",
+      "kernels": "0.18.1",
+      "triton": "3.8.0",
+      "accelerate": "1.15.0",
+      "huggingface-hub": "2.4.0"
+    },
+    "cuda_runtime": "13.0",
+    "driver_version": "610.88",
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "capability": [
+      12,
+      0
+    ],
+    "total_vram_bytes": 17094475776,
+    "allocator_config": "expandable_segments:True",
+    "model": "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32",
+    "revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216"
+  },
+  "kernel": {
+    "repository": "rootonchair/nunchaku-lite-kernels",
+    "revision": "d04512b422d7c9d029ae760449687fb09f33bf58",
+    "file_sha256": {
+      "__init__.py": "d1e7ab23026ebff46f6153f2b8b6004a217b32c78893c67169b41b7c3474ec7b",
+      "_nunchaku_lite_kernels_cuda_c1b1dfd_dirty.abi3.so": "3a9f08167a5dd10f164e4cbef4452085b123019587bc26ef615546e6e5789e82",
+      "_ops.py": "306405a83de9aafbd12205f31c5d5083088aad7d444dd9adc74e03f8573412cc",
+      "interface.py": "2b276daac3a51ea611376417f4d7eef9c79d711c4e0c73a3f86e14566590d659"
+    }
+  },
+  "results": [
+    {
+      "width": 1024,
+      "height": 1024,
+      "megapixels": 1.048576,
+      "status": "passed",
+      "completed_calls": 12,
+      "same_seed_bit_exact": true,
+      "changed_seed_bit_exact": true,
+      "changed_seed_changes_pixels": true,
+      "changed_prompt_changes_pixels": true,
+      "reference_pixel_sha256": "779f3199dd573379837d22c7bc2056d515236e9c0db1267de6bd7c0717e13db8",
+      "fresh_process_bit_exact": true,
+      "restart_pixel_sha256": "779f3199dd573379837d22c7bc2056d515236e9c0db1267de6bd7c0717e13db8",
+      "changed_reference_bit_exact": true,
+      "changed_reference_changes_pixels": true
+    }
+  ]
+}

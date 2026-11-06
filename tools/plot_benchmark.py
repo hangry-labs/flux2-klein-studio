@@ -218,6 +218,9 @@ def render_suite(report, output):
             "Changed prompt differs",
             "Fresh process exact",
         )
+        if any("changed_reference_bit_exact" in row for row in rows):
+            keys += ("changed_reference_bit_exact", "changed_reference_changes_pixels")
+            names += ("Changed reference exact", "Changed reference differs")
         matrix = [[int(row.get(key) is True) for row in rows] for key in keys]
         axes.imshow(matrix, vmin=0, vmax=1, cmap="RdYlGn", aspect="auto")
         for y in range(len(keys)):
@@ -238,8 +241,13 @@ def render_suite(report, output):
     if suite != "fixed-seed":
         axes.grid(axis="y", alpha=0.2)
         axes.set_axisbelow(True)
+    mode = (
+        "single-reference editing"
+        if report.get("generation_profile", {}).get("mode") == "single-reference"
+        else "text-to-image"
+    )
     fig.suptitle(
-        f"{report['environment'].get('gpu', 'GPU unavailable')} · {report['steps']} steps · {suite}\n"
+        f"{mode} · {report['environment'].get('gpu', 'GPU unavailable')} · {report['steps']} steps · {suite}\n"
         f"{report['warmups']} warmups + {report['measured_calls_per_resolution']} measured calls · shared live system",
         fontsize=12,
     )

@@ -1,5 +1,10 @@
 # FLUX.2 Klein Studio benchmarks
 
+Single-reference editing has a separate [measurement profile](refine/README.md),
+including root [VRAM](refine-memory.svg), [speed](refine-speed.svg) and
+[repeatability](refine-fixed-seed.svg) charts. Its results are not pooled with
+the text-only baseline below.
+
 Manual, Docker-first suites measure **GPU memory**, **generation speed** and
 **fixed-seed correctness** separately. Each resolution uses a fresh process,
 with one checkpoint loaded, batch size one and no application offload, VAE tiling

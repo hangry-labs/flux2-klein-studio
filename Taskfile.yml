@@ -1,6 +1,9 @@
 version: '3'
 
 vars:
+  REFERENCE: '/data/outputs/refine-reference.png'
+  REFINE_PROMPT: 'Keep the glass robot and orchids, but change the lighting to warm golden sunset.'
+  REFINE_RESOLUTIONS: '1024x1024'
   WIDTH: '1024'
   HEIGHT: '1024'
   SEED: '12345'
@@ -38,6 +41,10 @@ tasks:
   api:queue:
     desc: Verify five concurrent HTTP/MCP calls plus two-image batches at 1024 (nine images total)
     cmds: [docker compose exec -T studio python tools/probe_queue.py]
+
+  api:refine:
+    desc: Verify text generation, paired two-image HTTP/MCP edits and iterative reuse at 1024
+    cmds: [docker compose exec -T studio python tools/probe_refine.py]
 
   api:resolutions:
     desc: Generate each named API size and verify its output (workflow check, not a benchmark)
@@ -234,3 +241,47 @@ tasks:
     desc: Promote snapshot, create annotated tag and next snapshot, atomically push refs (publishes via CI)
     cmds:
       - uv run --no-project --python 3.13 python tools/release.py {{.CLI_ARGS}}
+
+
+  benchmark:refine:plan:
+    desc: Plan reference-image measurements without GPU access or report writes
+    cmds:
+      - docker run --rm --network none --mount "type=bind,source={{.ROOT_DIR}}/outputs,target=/data/outputs,readonly" flux2-klein-studio:dev resolution-sweep --suite {{.SUITE}} --reference-image "{{.REFERENCE}}" --prompt "{{.REFINE_PROMPT}}" --resolutions {{.REFINE_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} --plan
+
+  benchmark:refine:memory:
+    desc: Measure reference-edit VRAM separately from the text-only baseline
+    cmds:
+      - task: benchmark:refine:suite
+        vars: {SUITE: memory}
+
+  benchmark:refine:speed:
+    desc: Measure warmed reference-edit speed without VRAM sampling
+    cmds:
+      - task: benchmark:refine:suite
+        vars: {SUITE: speed}
+
+  benchmark:refine:seed:
+    desc: Verify edit seeds, instruction/reference changes and a fresh worker
+    cmds:
+      - task: benchmark:refine:suite
+        vars: {SUITE: fixed-seed}
+
+  benchmark:refine:suite:
+    internal: true
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --offline --suite {{.SUITE}} --reference-image "{{.REFERENCE}}" --prompt "{{.REFINE_PROMPT}}" --resolutions {{.REFINE_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} --output-dir /data/outputs/refine {{.CLI_ARGS}}
+      - task: tools:build
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" --entrypoint python flux2-klein-studio:tools tools/report_benchmarks.py --suite {{.SUITE}} --artifacts outputs/refine/benchmarks --profile refine --plot
+
+  benchmark:refine:full:
+    desc: Run reference-edit memory, speed and correctness suites sequentially
+    cmds:
+      - task: benchmark:refine:memory
+      - task: benchmark:refine:speed
+      - task: benchmark:refine:seed
+
+  benchmark:refine:report:
+    desc: Regenerate editing reports and root SVG from local or archived evidence (no inference)
+    deps: ['tools:build']
+    cmds:
+      - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" --entrypoint python flux2-klein-studio:tools tools/report_benchmarks.py --suite {{.SUITE}} --input "{{.SUMMARY}}" --artifacts outputs/refine/benchmarks --profile refine --plot

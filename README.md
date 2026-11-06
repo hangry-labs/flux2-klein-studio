@@ -7,7 +7,9 @@ Lite NVFP4 rank-32 transformer and an NF4 text encoder. The Docker CLI generates
 images at configurable resolutions with all model components on the GPU, without
 application offloading. The default image size is 1024×1024.
 The local browser studio provides generation, a saved-image gallery, recipe reuse
-and GPU telemetry. Project artwork is available in [assets/](assets/README.md).
+and GPU telemetry. **Refine** edits an uploaded picture or a generated result
+using an instruction, with a before/after view and iterative reuse.
+Project artwork is available in [assets/](assets/README.md).
 
 **Repeatability:** ordered low-rank accumulation is enabled by default. Repeated
 prompts and seeds produced pixel-identical images on the tested GPU and pinned
@@ -19,6 +21,28 @@ Development version **v0.1.0-snapshot**.
 Container build and publication follow the [release workflow](docs/RELEASING.md).
 Full images bundle the model; tiny images download it on first use. See the
 [container guide](docs/dockerhub.md) for planned tags and persistent storage.
+
+## Refine in action
+
+Start with a generated picture or upload your own, then describe what to change.
+These screenshots show the reference on the left and the edited result on the
+right, using the Refine tab at 1024×1024.
+
+**Change objects and lighting.** “replace flowers with lollipops and make it
+happening in the night” turns the sunlit orchid greenhouse into a nighttime scene
+with lollipops while keeping the robot and greenhouse composition.
+
+![Refine comparison: a robot among orchids in daylight becomes a robot among lollipops at night](assets/ui/refine-night-lollipops.webp)
+
+**Remove an object.** “Remove the robot” clears the subject and fills the space
+with the greenhouse background.
+
+![Refine comparison: the robot is removed while the orchids and sunlit greenhouse remain](assets/ui/refine-remove-robot.webp)
+
+Choose **Use this result** to continue editing the new picture, or download it
+directly. See the [Refine guide](docs/studio.md#refine-a-picture) for transfer,
+gallery storage and recipe reuse, and the [API guide](docs/agent-api.md#reference-image-editing)
+for HTTP and MCP editing.
 
 ## Run locally
 
@@ -64,7 +88,7 @@ System controls the model idle timeout (five minutes by default) and manual unlo
 Random seed starts enabled and chooses a new seed per generation; switch it off
 to repeat a fixed seed. Downloads offer original PNG, lossless WebP and JPEG.
 See the [capability review](docs/model-capabilities.md) for model features we could
-add next, including reference-image editing.
+investigate next, including multiple references and adapter compatibility.
 
 Applications can use the **OpenAI-compatible Images API** at `/v1` with model
 `flux2-klein-4b`, or connect an agent to **MCP Streamable HTTP** at `/mcp/`.
@@ -76,6 +100,15 @@ defaults to 64 outstanding images and is configurable with `STUDIO_QUEUE_LIMIT`.
 See the [agent API guide](docs/agent-api.md) for presets, client examples, keys,
 readiness and load-balancing behavior. `task api:check` verifies discovery without
 loading the model; `task api:smoke` checks real 1024 generation through both APIs.
+Use **Send to Refine** on a generated result, **Refine** on a gallery card, or
+upload a picture in the **Refine** tab. Describe the change, generate a new version,
+then choose **Use this result** for another pass. Save-to-gallery is opt-in and
+retains the prepared reference with the result. Single-reference editing is also
+available through `POST /v1/images/edits` and MCP `refine_image`.
+Start at 1024×1024; editing has separate [reports](benchmarks/refine/README.md)
+and summary charts: [VRAM](benchmarks/refine-memory.svg),
+[speed](benchmarks/refine-speed.svg), [repeatability](benchmarks/refine-fixed-seed.svg).
+
 **System → Image sizes and VRAM** shows the measured reference peaks and lets
 you enable individual agent sizes or whole shape families. Saved choices control
 MCP discovery and agent request acceptance across restarts.
@@ -258,6 +291,7 @@ Initial development snapshot. Registry images have not been published yet.
 
 - Local text-to-image CLI, browser studio, gallery controls and model residency.
 - OpenAI-compatible image generation and MCP with configurable named sizes.
+- Single-reference Refine workspace, iterative reuse and queued HTTP/MCP image edits.
 - Ordered reductions, expandable allocation and separated memory/speed/seed benchmarks.
 - Full/tiny Docker targets, matching Docker Hub/GHCR publication, corresponding
   sources, provenance, SBOM, digest verification and release dry runs.

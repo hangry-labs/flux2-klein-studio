@@ -260,3 +260,51 @@ This qualifies API scheduling and correctness on the pinned RTX 5070 Ti stack;
 it is a smoke test, not a speed or VRAM benchmark. `task api:queue` repeats it and
 removes only its own temporary jobs. Local logs remain under ignored `.ci-build/`.
 No benchmark history or summary chart was replaced by these smoke-test timings.
+
+
+## Single-reference editing and Refine, 2026-11-06
+
+All 95 container tests passed with GPU access. The CPU build passed with the two
+numerical GPU tests explicitly skipped. Coverage includes reference decoding,
+orientation, transparency and metadata removal, upload limits, per-job reference
+snapshots, queue admission, persisted references, deletion, enabled-size policy,
+HTTP edit batches and MCP inputs larger than the previous small-message limit.
+Existing text-only, queue and gateway lifecycle tests continue to pass.
+
+An isolated packaged studio ran real 1024×1024 edits through the OpenAI Python
+SDK, multipart and JSON HTTP requests, and the MCP `refine_image` tool. The
+repeatable six-image probe covers HTTP/MCP two-image batches and an iterative
+edit using a generated result. Equivalent instructions, reference pixels and
+seed produced identical pixels across the two transports. `task api:refine`
+repeats that probe and deletes only the jobs it creates.
+
+Browser checks covered upload, Generate → Send to Refine, gallery transfer,
+before/after previews, using an edited result as the next reference, and opening
+a saved edit's original reference and fixed-seed recipe. Replaying that saved
+recipe produced the same RGB hash as the initial edit:
+
+```text
+779f3199dd573379837d22c7bc2056d515236e9c0db1267de6bd7c0717e13db8
+```
+
+The source was the existing greenhouse golden, with the instruction to keep the
+glass robot and orchids while changing the lighting to warm golden sunset,
+seed 12345 and four steps. Desktop and 390-pixel mobile layouts were checked.
+The final main studio was rebuilt and exercised without a host source mount;
+qualification images were removed and both existing user gallery entries kept.
+
+Separate [editing benchmarks](../benchmarks/refine/README.md) measured memory,
+warmed speed and fixed-seed correctness at 1024×1024. The speed suite's median
+pipeline time was **3.022 seconds** across five measured calls after two warmups.
+The independent memory suite's generation peak was **7.898 GiB PyTorch reserved**;
+whole-device sampling reached **10,802 MiB**, including existing desktop use.
+These are distinct measurements, not interchangeable VRAM figures. Reference
+normalization and output export are outside pipeline timing; reference VAE
+encoding is inside. Components stayed on GPU without application offloading,
+VAE tiling or slicing.
+
+Correctness checks passed repeated primary and secondary seeds, a changed
+instruction, a mirrored-reference control and a fresh-worker repeat. Their scope
+is the pinned stack and RTX 5070 Ti tested here. Editing results and root SVG
+charts remain separate from the existing text-only benchmark history. Other
+editing resolutions, masks and multiple references are not qualified by this run.

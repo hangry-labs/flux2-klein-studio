@@ -44,6 +44,8 @@ COLUMNS = {
         "reference_pixel_sha256",
         "fresh_process_bit_exact",
         "restart_pixel_sha256",
+        "changed_reference_bit_exact",
+        "changed_reference_changes_pixels",
     ),
 }
 
@@ -124,7 +126,7 @@ def number(value, divisor=1):
     return f"{value / divisor:.3f}"
 
 
-def cells(suite, row, run):
+def cells(suite, row, run, include_reference=False):
     identity = [f"{row['width']}×{row['height']}", row["status"]]
     if suite == "speed":
         checks = run.get("generation_profile", {}).get("per_step_finite_check")
@@ -172,6 +174,11 @@ def cells(suite, row, run):
             "changed_prompt_changes_pixels",
             "fresh_process_bit_exact",
         )
+        + (
+            ("changed_reference_bit_exact", "changed_reference_changes_pixels")
+            if include_reference
+            else ()
+        )
     ]
 
 
@@ -200,6 +207,11 @@ def render(root, suite):
             "Restart exact",
         ],
     }[suite]
+    include_reference = suite == "fixed-seed" and any(
+        "changed_reference_bit_exact" in row for run in runs for row in run["results"]
+    )
+    if include_reference:
+        headers += ["Changed reference exact", "Changed reference differs"]
     lines = [
         f"# {suite} benchmark history",
         "",
@@ -214,7 +226,7 @@ def render(root, suite):
                 "| "
                 + " | ".join(
                     [f"[{run['run_id']}](runs/{run['run_id']}.json)"]
-                    + cells(suite, row, run)
+                    + cells(suite, row, run, include_reference)
                 )
                 + " |"
             )
@@ -249,7 +261,7 @@ def render(root, suite):
             "It excludes model loading, output checks, pixel hashing, PNG writes and container startup.",
             "No periodic GPU polling, peak-memory resets or equality assertions run in this suite.",
             "The current timed profile retains normal CLI per-step finite-value checks. The initial separated speed run omitted them; compare those profiles with care.",
-            "Three default prompts rotate with deterministic per-call seeds; warmups use the first prompt.",
+            "The default text workload rotates three prompts; an explicit prompt uses one instruction with deterministic per-call seeds. Warmups use the primary prompt.",
             "First-call time can include compilation; persistent caches may already contain some shapes.",
             "p95 uses linear interpolation and is descriptive with only five samples.",
         ]
@@ -273,10 +285,20 @@ def render(root, suite):
             "The checks detect run-to-run regressions on the same GPU/stack; they do not assert GPU-to-GPU equality or aesthetic quality.",
             "The seed suite never reports speed or VRAM as benchmark results.",
         ]
+    reference = latest.get("generation_profile", {}).get("reference")
+    if reference:
+        details += [
+            "",
+            "Single-reference editing profile.",
+            f"Prepared reference: {reference['width']}×{reference['height']}; SHA-256 `{reference['sha256']}`.",
+            f"Preprocessing: `{reference['preprocessing']}`. Reference encoding and conditioning are included in pipeline work.",
+            "Reference upload, file decoding and normalization precede measurement; the pipeline includes VAE reference encoding and conditioning.",
+            "Mirrored-reference controls in the fixed-seed suite must repeat exactly and differ from the primary reference.",
+        ]
     text(folder / "DETAILS.md", "\n".join(details))
 
 
-def archive(data, root):
+def archive(data, root, chart_prefix="", chart_base=""):
     data = portable(data)
     folder = root / DIRECTORIES[data["suite"]] / "runs"
     folder.mkdir(parents=True, exist_ok=True)
@@ -306,8 +328,18 @@ def archive(data, root):
         if matches:
             latest = matches[-1].stem
             index.append(
-                f"| {suite} | [{latest}]({directory}/runs/{latest}.json) | [History]({directory}/BENCHMARKS.md) | [{suite}.svg]({suite}.svg) |"
+                f"| {suite} | [{latest}]({directory}/runs/{latest}.json) | [History]({directory}/BENCHMARKS.md) | [{chart_prefix}{suite}.svg]({chart_base}{chart_prefix}{suite}.svg) |"
             )
+    extra_profiles = [
+        path
+        for path in sorted(root.glob("*/BENCHMARKS.md"))
+        if path.parent.name not in {"memory", "speed", "fixed-seed", "history"}
+    ]
+    if extra_profiles:
+        index += ["", "Additional workload profiles:", ""] + [
+            f"- [{path.parent.name}]({path.parent.name}/BENCHMARKS.md)"
+            for path in extra_profiles
+        ]
     text(
         root / "BENCHMARKS.md",
         "\n".join(
@@ -315,7 +347,13 @@ def archive(data, root):
             + [
                 "",
                 "Methodology and commands: [README.md](README.md).",
-                "Historical results: [allocator comparison](history/allocator-comparison/README.md).",
+                *(
+                    [
+                        "Historical results: [allocator comparison](history/allocator-comparison/README.md)."
+                    ]
+                    if (root / "history/allocator-comparison/README.md").is_file()
+                    else []
+                ),
                 "",
             ]
         ),
@@ -330,25 +368,47 @@ def main():
     parser.add_argument("--artifacts", type=Path, default=Path("outputs/benchmarks"))
     parser.add_argument("--root", type=Path, default=Path("benchmarks"))
     parser.add_argument("--plot", action="store_true")
+    parser.add_argument(
+        "--profile",
+        choices=("refine",),
+        help="Keep single-reference results separate from text-only reports",
+    )
     args = parser.parse_args()
+    report_root = args.root / args.profile if args.profile else args.root
     if args.input == "latest":
         matches = sorted(args.artifacts.glob(f"{args.suite}-*/summary.json"))
         if not matches:
-            parser.error(f"No local {args.suite} summary found")
+            # Published snapshots are enough to regenerate reports and charts.
+            matches = sorted(
+                (report_root / DIRECTORIES[args.suite] / "runs").glob("*.json")
+            )
+        if not matches:
+            parser.error(f"No local or archived {args.suite} summary found")
         source = matches[-1]
     else:
         source = Path(args.input)
     data = json.loads(source.read_text(encoding="utf-8"))
     if data["suite"] != args.suite:
         parser.error("The selected input belongs to another suite")
-    archived = archive(data, args.root)
+    if (
+        args.profile
+        and data.get("generation_profile", {}).get("mode") != "single-reference"
+    ):
+        parser.error("Refine reports require a measured single-reference profile")
+    archived = archive(
+        data,
+        report_root,
+        (args.profile + "-") if args.profile else "",
+        "../" if args.profile else "",
+    )
     if args.plot:
         from plot_benchmark import render as plot
 
         latest = sorted(archived.parent.glob("*.json"))[-1]
+        chart_name = (args.profile + "-" if args.profile else "") + args.suite + ".svg"
         plot(
             json.loads(latest.read_text(encoding="utf-8")),
-            args.root / f"{args.suite}.svg",
+            args.root / chart_name,
         )
     print(archived)
 

@@ -15,7 +15,7 @@ def serve(connection):
     if offline_default():
         os.environ["HF_HUB_OFFLINE"] = "1"
     import torch
-    from PIL import ImageStat
+    from PIL import Image, ImageStat
 
     from .cli import MODEL_ID, MODEL_REVISION, doctor
     from .inference import check_residency, check_step, load_pipeline
@@ -43,6 +43,17 @@ def serve(connection):
                 torch.cuda.empty_cache()
                 connection.send({"phase": "completed", "report": report})
                 continue
+            reference = None
+            if settings.get("_reference_path"):
+                with Image.open(settings["_reference_path"]) as source:
+                    reference = source.convert("RGB")
+                import hashlib
+
+                if (
+                    hashlib.sha256(reference.tobytes()).hexdigest()
+                    != settings["reference"]["pixel_sha256"]
+                ):
+                    raise RuntimeError("Reference image does not match its recipe")
             connection.send({"phase": "generating"})
             torch.cuda.synchronize()
             start = time.perf_counter()
@@ -55,6 +66,7 @@ def serve(connection):
                     guidance_scale=1.0,
                     generator=torch.Generator("cuda").manual_seed(settings["seed"]),
                     callback_on_step_end=check_step,
+                    **({"image": reference} if reference is not None else {}),
                 ).images[0]
             torch.cuda.synchronize()
             seconds = time.perf_counter() - start
@@ -66,7 +78,11 @@ def serve(connection):
             check_residency(pipe)
             report["placement_after_generation"] = check_residency(pipe)
             recipe = {
-                **settings,
+                **{
+                    key: value
+                    for key, value in settings.items()
+                    if not key.startswith("_")
+                },
                 "model": MODEL_ID,
                 "revision": MODEL_REVISION,
                 "reduction": "ordered",

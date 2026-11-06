@@ -1,0 +1,2 @@
+width,height,megapixels,status,completed_calls,loading_allocated_peak_bytes,loading_reserved_peak_bytes,allocated_peak_bytes,reserved_peak_bytes,baseline_device_mib,loading_device_peak_mib,generation_device_peak_mib,loading_device_delta_mib,generation_device_delta_mib,sampled_device_headroom_mib,vae_tiling,vae_slicing,failure_allocated_peak_bytes
+1024,1024,1.048576,passed,7,5382767616,5387583488,7982599680,8480882688,2428,7834,10802,5406,8374,5194,False,False,

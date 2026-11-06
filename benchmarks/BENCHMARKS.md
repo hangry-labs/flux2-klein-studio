@@ -10,3 +10,8 @@ Per-size results remain separate by suite and run.
 
 Methodology and commands: [README.md](README.md).
 Historical results: [allocator comparison](history/allocator-comparison/README.md).
+
+Single-reference editing has a separate [profile history](refine/BENCHMARKS.md):
+[VRAM](refine-memory.svg), [speed](refine-speed.svg) and
+[fixed-seed correctness](refine-fixed-seed.svg). These measurements are not pooled
+with the text-only baseline.

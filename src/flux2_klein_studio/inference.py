@@ -273,12 +273,23 @@ def run(arguments):
     if arguments.offline:
         os.environ["HF_HUB_OFFLINE"] = "1"
     import torch
-    from PIL import ImageStat
+    from PIL import ImageStat, ImageOps
     from PIL.PngImagePlugin import PngInfo
 
     measure_memory = arguments.command == "memory"
     test_seed = arguments.command == "seed-test"
     measure_speed = arguments.command == "benchmark"
+    reference = None
+    reference_metadata = None
+    if getattr(arguments, "reference_image", None):
+        from io import BytesIO
+        from PIL import Image
+        from .references import normalize_reference
+
+        data, reference_metadata = normalize_reference(
+            arguments.reference_image.read_bytes()
+        )
+        reference = Image.open(BytesIO(data)).convert("RGB")
     selected_jobs = jobs(arguments)
     output = arguments.output_dir / datetime.now(timezone.utc).strftime(
         "%Y%m%dT%H%M%S%fZ"
@@ -303,9 +314,17 @@ def run(arguments):
         "source_sha256": {
             name: file_sha256(Path(__file__).with_name(name))
             for name in ("inference.py", "ordered_reduction.py", "workloads.py")
+            + (("references.py",) if reference_metadata else ())
         },
         "generation_profile": {"per_step_finite_check": True},
     }
+    if reference_metadata:
+        report["reference"] = reference_metadata
+        report["generation_profile"]["mode"] = "single-reference"
+        report["generation_profile"]["reference"] = reference_metadata
+        report["workload_sha256"] = fingerprint(
+            {"jobs": selected_jobs, "reference": reference_metadata}
+        )
     write_json(report_path, report)
     sampler = None
     try:
@@ -342,6 +361,15 @@ def run(arguments):
                         guidance_scale=1.0,
                         generator=torch.Generator("cuda").manual_seed(job["seed"]),
                         callback_on_step_end=check_step,
+                        **(
+                            {
+                                "image": ImageOps.mirror(reference)
+                                if job.get("reference_variant") == "mirror"
+                                else reference
+                            }
+                            if reference is not None
+                            else {}
+                        ),
                     ).images[0]
                 torch.cuda.synchronize()
                 seconds = time.perf_counter() - start
@@ -375,6 +403,11 @@ def run(arguments):
                             "steps": arguments.steps,
                             "guidance_scale": 1.0,
                             "reduction": arguments.reduction,
+                            **(
+                                {"reference": reference_metadata}
+                                if reference_metadata
+                                else {}
+                            ),
                         }
                     ),
                 )

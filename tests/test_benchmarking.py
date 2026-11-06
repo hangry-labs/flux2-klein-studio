@@ -305,6 +305,59 @@ class WorkloadTests(unittest.TestCase):
 
 
 class ReportingTests(unittest.TestCase):
+    def test_reference_control_requires_changed_pixels_and_repeatability(self):
+        records = [
+            {"label": label, "pixel_sha256": digest}
+            for label, digest in (
+                ("warmup-1", "a"),
+                ("measured-1", "a"),
+                ("measured-2", "a"),
+                ("changed-seed-1", "b"),
+                ("changed-seed-2", "b"),
+                ("changed-prompt", "c"),
+                ("changed-reference-1", "d"),
+                ("changed-reference-2", "d"),
+            )
+        ]
+        self.assertTrue(seed_checks(records)["changed_reference_bit_exact"])
+        self.assertTrue(seed_checks(records)["changed_reference_changes_pixels"])
+        records[-1]["pixel_sha256"] = "drift"
+        self.assertFalse(seed_checks(records)["changed_reference_bit_exact"])
+        for item in records[-2:]:
+            item["pixel_sha256"] = "a"
+        self.assertFalse(seed_checks(records)["changed_reference_changes_pixels"])
+
+    def test_reference_is_forwarded_to_fresh_process_and_fingerprinted_without_path(
+        self,
+    ):
+        from flux2_klein_studio.cli import parser
+        from flux2_klein_studio.resolution_sweep import plan, command_for
+        from PIL import Image
+
+        with tempfile.TemporaryDirectory() as temporary:
+            reference = Path(temporary) / "private-reference-name.png"
+            Image.new("RGB", (64, 64), "blue").save(reference)
+            args = parser().parse_args(
+                [
+                    "resolution-sweep",
+                    "--suite",
+                    "fixed-seed",
+                    "--reference-image",
+                    str(reference),
+                    "--plan",
+                ]
+            )
+            workload = plan(args)
+            self.assertIn("reference", workload)
+            self.assertNotIn("private-reference-name", json.dumps(workload))
+            restart = command_for(args, 1024, 1024, Path(temporary), restart=True)
+            self.assertEqual(
+                restart[restart.index("--reference-image") + 1], str(reference)
+            )
+            baseline = workload["workload_sha256"]
+            Image.new("RGB", (64, 64), "red").save(reference)
+            self.assertNotEqual(plan(args)["workload_sha256"], baseline)
+
     def test_public_projection_and_history_are_separate_and_immutable(self):
         data = {
             "schema_version": 2,

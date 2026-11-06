@@ -93,7 +93,8 @@ class AgentAPITests(unittest.TestCase):
                 t["name"]: t for t in self.rpc("tools/list").json()["result"]["tools"]
             }
             self.assertEqual(
-                set(tools), {"get_status", "list_resolutions", "generate_image"}
+                set(tools),
+                {"get_status", "list_resolutions", "generate_image", "refine_image"},
             )
             schema = tools["generate_image"]["inputSchema"]
             self.assertEqual(

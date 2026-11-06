@@ -61,7 +61,7 @@ generations can finish with their original settings.
 The default remains square_big while enabled; otherwise it becomes the first
 enabled preset in catalog order. The UI displays that default. Omitting a size,
 using HTTP auto/null, or omitting MCP resolution uses the current default.
-Disabling every preset hides generate_image from MCP discovery and makes agent
+Disabling every preset hides generate_image and refine_image from MCP discovery and makes agent
 generation/readiness return unavailable (HTTP 503). The read-only MCP tools
 remain accessible. Local browser canvas controls and CLI generation remain
 operator-controlled.
@@ -122,7 +122,7 @@ See [download behavior](studio.md#gallery-and-files).
 
 `response_format="b64_json"` is accepted; URL output is not offered by this
 initial API. Quality may be omitted, `auto` or `standard`; these use the same
-four-step profile. Other quality modes, streaming, edits and additional
+four-step profile. Other quality modes, streaming and additional
 OpenAI image controls are rejected rather than silently approximated.
 Validation errors use HTTP 400 with an OpenAI-style `error` object. Runtime
 failures use 502, request timeouts 504. Browser API validation keeps its existing
@@ -152,6 +152,68 @@ other callers' jobs continue. Completed opt-in gallery images remain available.
 This is synchronous multi-image generation, without an OpenAI Batch API/job-file
 endpoint or a prompt-list field; send concurrent requests for different prompts.
 
+## Reference-image editing
+
+`POST /v1/images/edits` accepts one reference plus an edit instruction. It uses the
+same named sizes, seed rules, `n=1..16`, queue, output formats and opt-in gallery
+storage as generation. The response envelope is identical; each recipe adds
+`reference` hashes, prepared dimensions and preprocessing details.
+
+Existing OpenAI Python clients can send a multipart image:
+
+```python
+with open("reference.png", "rb") as image:
+    result = client.images.edit(
+        model="flux2-klein-4b",
+        image=image,
+        prompt="Keep the subject, but change the lighting to warm sunset.",
+        size="1024x1024",
+        extra_body={"seed": 12345},
+    )
+```
+
+The route accepts multipart `image` or a single `image[]` field, and JSON with
+`images: [{"image_url": "data:image/png;base64,..."}]`. JSON `image` also accepts
+base64 or a base64 data URL as a local extension. Remote image URLs and the OpenAI
+Files API are not implemented. This runs the local model without calling OpenAI.
+The request format follows the
+[Images edit reference](https://developers.openai.com/api/reference/resources/images/methods/edit).
+
+For a completed result from this instance, avoid uploading it again:
+
+```json
+{"prompt":"Make the orchids blue.","source_job_id":"<returned job ID>","size":"square_big","seed":12345}
+```
+
+Alternatively, `reference_id` reuses a temporary upload from `POST /api/references`.
+Supply exactly one source. IDs are **instance-local**: a gateway distributing edits
+between replicas should forward image bytes/data URLs or route a job/reference
+ID back to its originating instance.
+
+Uploads are limited to 16 MiB (24 MiB for the whole HTTP/MCP request), one still
+image, edges of 32–16384 pixels and at most 32 Mi pixels. Supported decoding
+includes PNG, JPEG and WebP. Orientation is applied, transparency is composited
+onto white, and metadata is stripped. The prepared RGB reference is limited to
+1024×1024 total pixels and dimensions aligned to 16. Its aspect ratio is retained
+apart from alignment rounding. Output size remains independent.
+
+An admitted edit receives its own prepared reference copy, so deleting the
+source job or temporary upload does not break waiting work. Upload handles are
+temporary (up to one hour idle, with a 64-reference retention limit). By default,
+reference copies and edited results remain temporary too. With
+`save_gallery=true`, the prepared reference PNG and its recipe stay with the
+saved result and are deleted with that gallery job. Retrieve the saved input at
+`GET /api/jobs/{job_id}/reference` for reproducibility. The original uploaded file
+and its private metadata are not retained as gallery assets.
+
+This is instruction-based reference conditioning. Masks and strength parameters
+are unsupported and rejected; there is no dedicated masked inpainting/outpainting
+workflow. Start at 1024×1024: reference
+conditioning adds GPU work and memory, and the System size table describes the
+text-only baseline. See [editing benchmarks](../benchmarks/refine/README.md).
+`task api:refine` checks paired HTTP/MCP edits, multi-image outputs and iterative
+reuse at 1024, and removes only its own test jobs.
+
 ## MCP tools
 
 Configure an MCP client for Streamable HTTP at `/mcp/` (keep the trailing slash).
@@ -163,6 +225,7 @@ with stateless HTTP and JSON responses.
 | `get_status` | Check whether this instance can accept work; inspect residency |
 | `list_resolutions` | Discover exact named sizes and aspect ratios |
 | `generate_image` | Generate 1–16 images and return image content plus recipes |
+| `refine_image` | Edit one reference with an instruction; return 1–16 images |
 
 Example generate_image arguments:
 
@@ -182,6 +245,12 @@ image blocks and `structuredContent.images` in the same order. Fixed seeds follo
 the same increment rule as HTTP. Tool schemas expose the resolution enum
 and no width/height fields. The result includes an MCP image block, human-readable
 recipe JSON and structured metadata with the actual seed/settings.
+
+For `refine_image`, provide the edit `prompt` and exactly one of `image_base64`,
+`source_job_id` or `reference_id`. `image_base64` accepts raw base64 or a data URL;
+it is the portable choice across replicas. Resolution, seed, format, `n` and
+save-gallery options follow `generate_image`. Its result carries native MCP image
+blocks plus reference provenance in the structured recipe.
 
 ## Balancing and deployment behavior
 

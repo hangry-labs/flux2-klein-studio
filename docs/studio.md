@@ -1,5 +1,49 @@
 # Browser studio
 
+## Refine a picture
+
+Open **Refine** and upload one still picture, choose **Send to Refine** under a
+generated result, or choose **Refine** on a gallery card. The left image is the
+reference; the right image becomes the edited result. Describe the changes and
+the details to keep, select output dimensions and generate. Random seeds start
+enabled; disable that switch and keep the reference/settings to repeat an edit.
+
+**Use this result** makes the new version your next reference. You can continue
+changing the picture without saving every intermediate version. PNG, lossless
+WebP, JPEG and recipe downloads work as on Generate. Preparing a source upload
+uses no GPU or model load. Orientation is applied, metadata is removed,
+transparency is composited onto white, and the reference is bounded to one
+megapixel with aligned dimensions.
+
+Selecting a saved refinement in Gallery opens its original prepared reference,
+result and fixed-seed recipe in Refine. The separate **Refine** button starts a
+new edit from that result instead.
+
+**Save refinement and reference to gallery** is unchecked initially. Enabling it
+keeps the result, normalized reference and recipe together; gallery deletion
+removes all those files. The original uploaded file is not retained. Without
+saving, references and results are temporary; upload handles can expire after
+an hour idle or when the bounded upload collection fills.
+
+Start at 1024×1024. Reference conditioning consumes additional GPU work and
+memory; the existing System VRAM table measures text-only generation. Refine
+shares the generation queue and residency settings. Masks, region painting and
+strength sliders are not part of this workflow.
+
+### Examples
+
+The reference is on the left and the edited result on the right in each screenshot.
+Both examples start from the same generated greenhouse picture at 1024×1024.
+
+| Edit instruction | Before and after |
+| --- | --- |
+| “replace flowers with lollipops and make it happening in the night” | [Change objects and lighting](../assets/ui/refine-night-lollipops.webp) |
+| “Remove the robot” | [Remove an object and fill its background](../assets/ui/refine-remove-robot.webp) |
+
+The [README showcase](../README.md#refine-in-action) displays both comparisons.
+
+## Start the studio
+
 ```shell
 task build
 task ui

@@ -19,3 +19,15 @@ Smaller display copies live in [ui/](ui/): header at 1440×480, mascot at 360×3
 and badge at 512×512. They use the same artwork with transparency preserved.
 The app serves these files at `/assets/`; Docker packages them directly from this
 folder, keeping the repository's artwork in one visible place.
+
+## Refine screenshots
+
+User-supplied screenshots showcase single-reference editing in the
+[README](../README.md#refine-in-action) and [studio guide](../docs/studio.md#examples).
+These full-resolution WebP files preserve the PNG source pixels exactly, with
+metadata removed. The PNG originals were removed after round-trip verification.
+
+| Screenshot | Dimensions | Example |
+| --- | --- | --- |
+| [refine-night-lollipops.webp](ui/refine-night-lollipops.webp) | 1432×1037 | Replace orchids with lollipops and change daylight to night |
+| [refine-remove-robot.webp](ui/refine-remove-robot.webp) | 1412×1022 | Remove the robot and fill the greenhouse background |

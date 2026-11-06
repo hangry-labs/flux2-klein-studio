@@ -74,21 +74,27 @@ class GenerationQueue:
                         id=identifier,
                         status="queued",
                         created=time.time(),
-                        settings=settings.model_dump(),
+                        settings=settings.model_dump(exclude_none=True),
                         error=None,
                     )
                     self.folder(item).mkdir()
                     items.append(item)
+                    if settings.reference_id:
+                        item["settings"]["reference"] = self.references.copy_to(
+                            settings.reference_id, self.folder(item) / "reference.png"
+                        )
                     self.save(item)
-            except OSError:
+            except (OSError, HTTPException) as exc:
                 # Atomic batch admission: nothing starts if preparation fails.
                 import shutil
 
                 for item in items:
                     shutil.rmtree(self.folder(item), ignore_errors=True)
+                if isinstance(exc, HTTPException):
+                    raise
                 raise HTTPException(
                     503, "Could not prepare image jobs; check available storage."
-                ) from None
+                ) from exc
             for item in items:
                 identifier = item["id"]
                 self.items[identifier] = item
@@ -163,9 +169,12 @@ class GenerationQueue:
             try:
                 if event.is_set():
                     raise RuntimeError("Generation cancelled")
-                result = self.model.generate(
-                    self.items[identifier]["settings"], phase, event
-                )
+                settings = dict(self.items[identifier]["settings"])
+                if settings.get("reference"):
+                    settings["_reference_path"] = str(
+                        self.folder(self.items[identifier]) / "reference.png"
+                    )
+                result = self.model.generate(settings, phase, event)
                 with self.lock:
                     self.items[identifier]["status"] = "processing"
                     self.finishing.add(identifier)

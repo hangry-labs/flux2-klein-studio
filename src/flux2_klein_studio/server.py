@@ -31,6 +31,7 @@ from .resolution_policy import ResolutionPolicy, ResolutionSettings
 from . import __version__
 from .build_info import build_identity
 from .job_queue import GenerationQueue
+from .references import ReferenceStore, MAX_REQUEST_BYTES
 
 STATIC = Path(__file__).with_name("static")
 ASSETS = Path(__file__).resolve().parents[2] / "assets"
@@ -64,6 +65,7 @@ class Jobs(GenerationQueue):
         self.init_queue()
         self.active = None
         self.temporary = tempfile.TemporaryDirectory(prefix="klein-studio-")
+        self.references = ReferenceStore(Path(self.temporary.name) / "references")
         self.model = ModelWorker()
         self.worker = None
         self.closing = False
@@ -255,7 +257,7 @@ def create_app(root=Path("/data/outputs/studio")):
         streamable_http_path="/",
         stateless_http=True,
         json_response=True,
-        max_request_body_size=64 * 1024,
+        max_request_body_size=MAX_REQUEST_BYTES,
         # The enclosing app enforces the same Host/Origin policy for every route.
         transport_security=TransportSecuritySettings(
             enable_dns_rebinding_protection=False
@@ -513,6 +515,9 @@ def create_app(root=Path("/data/outputs/studio")):
     def telemetry():
         return gpu.snapshot()
 
+    from .reference_api import attach_reference_api
+
+    attach_reference_api(app, jobs)
     attach_image_api(app, jobs)
     app.add_middleware(DisconnectMonitor)
     app.mount("/mcp", mcp_app, name="mcp")

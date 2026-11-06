@@ -57,6 +57,16 @@ def jobs(arguments):
                 "seed": arguments.seed,
             }
         )
+    if fixed and getattr(arguments, "reference_image", None):
+        result += [
+            {
+                "label": f"changed-reference-{i + 1}",
+                "prompt": arguments.prompt,
+                "seed": arguments.seed,
+                "reference_variant": "mirror",
+            }
+            for i in range(2)
+        ]
     return result
 
 
@@ -90,7 +100,7 @@ def seed_checks(records):
     control = next(
         (r["pixel_sha256"] for r in records if r["label"] == "changed-prompt"), None
     )
-    return {
+    result = {
         "same_seed_bit_exact": len(set(fixed)) == 1 and len(fixed) >= 3,
         "changed_seed_bit_exact": len(alternate) == 2 and len(set(alternate)) == 1,
         "changed_seed_changes_pixels": bool(
@@ -101,3 +111,17 @@ def seed_checks(records):
         ),
         "reference_pixel_sha256": fixed[0] if fixed else None,
     }
+
+    changed_reference = [
+        r["pixel_sha256"]
+        for r in records
+        if r["label"].startswith("changed-reference-")
+    ]
+    if changed_reference:
+        result["changed_reference_bit_exact"] = (
+            len(changed_reference) == 2 and len(set(changed_reference)) == 1
+        )
+        result["changed_reference_changes_pixels"] = bool(
+            fixed and changed_reference[0] != fixed[0]
+        )
+    return result

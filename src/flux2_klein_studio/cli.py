@@ -114,6 +114,11 @@ def parser():
     for name in ("generate", "benchmark", "memory", "seed-test", "resolution-sweep"):
         command = commands.add_parser(name)
         command.add_argument("--prompt", default=DEFAULT_PROMPT)
+        command.add_argument(
+            "--reference-image",
+            type=Path,
+            help="One reference image for instruction-based editing",
+        )
         command.add_argument("--seed", type=int, default=12345)
         command.add_argument("--steps", type=int, default=4)
         if name != "resolution-sweep":

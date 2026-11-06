@@ -1,0 +1,2 @@
+width,height,megapixels,status,completed_calls,median_seconds,mean_seconds,min_seconds,max_seconds,stdev_seconds,p95_seconds,images_per_second,first_call_seconds,loading_seconds
+1024,1024,1.048576,passed,7,3.0222945759996946,3.0386470558005385,3.0119337389987777,3.092514410000149,0.029893301764579452,3.0839073628005282,0.3290938307860002,4.097635384001478,2.4791903029981768

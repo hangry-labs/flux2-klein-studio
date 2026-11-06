@@ -19,6 +19,8 @@ from .generation_service import (
 from .presets import Resolution
 from .transport import client_disconnected
 from . import __version__
+from .reference_api import prepare_reference
+from .references import MAX_REQUEST_BYTES
 
 
 class ResolutionServer(MCPServer):
@@ -31,7 +33,7 @@ class ResolutionServer(MCPServer):
             default = self.resolution_policy.default()
         result = []
         for tool in tools:
-            if tool.name == "generate_image":
+            if tool.name in {"generate_image", "refine_image"}:
                 if not allowed:
                     continue
                 tool = tool.model_copy(deep=True)
@@ -57,7 +59,9 @@ def create_mcp_server(jobs):
         "Omit seed for a random image; reuse the returned seed and settings to reproduce it. "
         "Results include inline image content and a recipe. Gallery storage is opt-in. "
         "Concurrent requests wait in a shared queue; one image uses the GPU at a time. "
-        "Use n for multiple images. Retry another instance only when the queue is full.",
+        "Use n for multiple images. Retry another instance only when the queue is full. "
+        "Use refine_image with one reference and an edit instruction. Job/reference IDs are instance-local; "
+        "use image_base64 when routing between replicas.",
     )
     server.resolution_policy = jobs.resolutions
     read = ToolAnnotations(
@@ -161,5 +165,89 @@ def create_mcp_server(jobs):
             ],
             structured_content=recipe,
         )
+
+    @server.tool(
+        annotations=ToolAnnotations(
+            read_only_hint=False,
+            destructive_hint=False,
+            idempotent_hint=False,
+            open_world_hint=False,
+        )
+    )
+    async def refine_image(
+        prompt: Annotated[
+            str,
+            Field(
+                min_length=1,
+                max_length=4000,
+                description="Describe what to change in the reference picture.",
+            ),
+        ],
+        context: Context,
+        resolution: Resolution | None = None,
+        image_base64: Annotated[
+            str | None,
+            Field(
+                max_length=MAX_REQUEST_BYTES,
+                description="One image as base64 or a base64 data URL.",
+            ),
+        ] = None,
+        source_job_id: Annotated[
+            str | None,
+            Field(
+                pattern=r"^[a-f0-9]{32}$",
+                description="Reuse a completed image from this instance.",
+            ),
+        ] = None,
+        reference_id: Annotated[str | None, Field(pattern=r"^[a-f0-9]{32}$")] = None,
+        seed: Annotated[int | None, Field(ge=0, le=2**53 - 1)] = None,
+        output_format: Literal["png", "webp", "jpeg"] = "png",
+        save_gallery: bool = False,
+        n: Annotated[int, Field(ge=1, le=MAX_BATCH)] = 1,
+    ) -> CallToolResult:
+        """Refine one picture using an instruction. Supply exactly one image source.
+
+        This is reference-guided generation: masks and strength controls are not
+        supported. Keep gallery saving off unless the user requests persistence.
+        """
+        identifier, owned = None, False
+        try:
+            identifier, owned = await prepare_reference(
+                jobs,
+                reference_id=reference_id,
+                source_job_id=source_job_id,
+                image_data=image_base64,
+            )
+            images = await run_generation(
+                jobs,
+                prompt,
+                resolution,
+                seed=seed,
+                output_format=output_format,
+                save_gallery=save_gallery,
+                count=n,
+                reference_id=identifier,
+                disconnected=lambda: client_disconnected(
+                    context.request_context.request
+                ),
+            )
+            metadata = [item[1] for item in images]
+            recipe = metadata[0] if n == 1 else {"count": n, "images": metadata}
+            return CallToolResult(
+                content=[TextContent(text=json.dumps(recipe))]
+                + [
+                    ImageContent(
+                        data=base64.b64encode(data).decode("ascii"),
+                        mime_type=f"image/{output_format}",
+                    )
+                    for data, _ in images
+                ],
+                structured_content=recipe,
+            )
+        except HTTPException as exc:
+            raise ToolError(f"{exc.detail} (HTTP {exc.status_code})") from exc
+        finally:
+            if owned:
+                jobs.references.delete(identifier)
 
     return server

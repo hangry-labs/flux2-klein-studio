@@ -1,4 +1,5 @@
 import {loadResolutionSettings} from './resolutions.js';
+import {initializeRefine, configureRefine, refineFromJob, reviewRefinement, refineRunning} from './refine.js';
 const $ = (id) => document.getElementById(id);
 const examples = [
   'A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed',
@@ -19,7 +20,7 @@ async function request(path, options = {}) {
 function switchView(next) {
   view = next; storage.set('view', next);
   document.querySelectorAll('[data-view]').forEach((button) => button.setAttribute('aria-selected', String(button.dataset.view === view)));
-  ['generate', 'gallery', 'system'].forEach((name) => $(`${name}-panel`).hidden = name !== view);
+  ['generate', 'refine', 'gallery', 'system'].forEach((name) => $(`${name}-panel`).hidden = name !== view);
   if (view === 'gallery') refreshGallery().catch((error) => message(error.message));
   if (view === 'system') {refreshGPU(); loadResolutionSettings();}
 }
@@ -96,6 +97,8 @@ $('generation-form').onsubmit = async (event) => {
   try {busy(await request('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)}));}
   catch (error) {message(error.message); $('generate').disabled = false;}
 };
+initializeRefine({request, switchView, refreshGallery, randomSeed});
+$('send-refine').onclick = () => {if (selected) refineFromJob(selected);};
 $('cancel').onclick = async () => {try {if (active) busy(await request(`/api/jobs/${active.id}/cancel`, {method: 'POST'}));} catch (error) {message(error.message);}};
 let galleryItems = [], marked = new Set(), pendingDelete = [], deleting = false;
 function selectionCount() { $('delete-selected').disabled = deleting || !marked.size; $('delete-selected').textContent = `Delete selected (${marked.size})`; }
@@ -120,7 +123,7 @@ async function refreshGallery() {
     const info = document.createElement('div'), title = document.createElement('strong'), prompt = document.createElement('p');
     title.textContent = `${item.settings.width} × ${item.settings.height} · ${item.status === 'completed' ? item.seconds.toFixed(2) + ' s' : item.status}`;
     prompt.textContent = item.settings.prompt; info.append(title, prompt); preview.append(info);
-    preview.onclick = () => {Object.entries(item.settings).forEach(([key, value]) => {if ($(key) && key !== 'save_gallery') $(key).value = value;}); $('random-seed').checked = false; seedMode(); updatePrompt(); sizeHelp(); showResult(item); switchView('generate');};
+    preview.onclick = () => {if (item.settings.reference) {reviewRefinement(item); return;} Object.entries(item.settings).forEach(([key, value]) => {if ($(key) && key !== 'save_gallery') $(key).value = value;}); $('random-seed').checked = false; seedMode(); updatePrompt(); sizeHelp(); showResult(item); switchView('generate');};
     card.append(preview);
     const controls = document.createElement('div'); controls.className = 'gallery-controls';
     if (terminal.has(item.status)) {
@@ -129,7 +132,9 @@ async function refreshGallery() {
       check.onchange = () => {if (check.checked) marked.add(item.id); else marked.delete(item.id); selectionCount();};
       label.append(check, document.createTextNode(' Select'));
       const remove = document.createElement('button'); remove.textContent = 'Delete'; remove.className = 'danger'; remove.onclick = () => confirmDelete([item.id]);
-      controls.append(label, remove);
+      controls.append(label);
+      if (item.status === 'completed') {const refine = document.createElement('button'); refine.textContent = 'Refine'; refine.className = 'secondary'; refine.onclick = () => refineFromJob(item); controls.append(refine);}
+      controls.append(remove);
     }
     card.append(controls); $('gallery').append(card);
   });
@@ -200,12 +205,12 @@ try {gpuHistory = JSON.parse(storage.get('gpu-history', '[]'));} catch {gpuHisto
 async function start() {
   $('generate').disabled = true;
   try {
-    config = await request('/api/status'); $('version').textContent = config.version;
+    config = await request('/api/status'); configureRefine(config); $('version').textContent = config.version;
     $('download-format').replaceChildren(...config.download_formats.map(format => new Option(format.label, format.value)));
     $('resolution').replaceChildren(...config.presets.map(([width, height]) => new Option(`${width} × ${height}${width === height ? ' · Square' : width > height ? ' · Landscape' : ' · Portrait'}`, `${width}x${height}`)), new Option('Custom size', 'custom'));
     const items = await refreshGallery(); const job = config.active_job ? await request(`/api/jobs/${config.active_job}`) : null;
     const last = items.find((item) => item.status === 'completed'); if (last) showResult(last);
-    busy(job || null); sizeHelp(); switchView(['generate', 'gallery', 'system'].includes(storage.get('view', 'generate')) ? storage.get('view', 'generate') : 'generate');
+    busy(job || null); sizeHelp(); switchView(['generate', 'refine', 'gallery', 'system'].includes(storage.get('view', 'generate')) ? storage.get('view', 'generate') : 'generate');
   } catch (error) {message(`Studio connection failed: ${error.message}. Reload to reconnect.`); $('runtime').textContent = 'Disconnected';}
 }
 start();
@@ -215,7 +220,7 @@ async function residencyStatus() {
   try {
     const status = await request('/api/status'); const model = status.model_residency;
     $('model-state').textContent = model.state === 'ready' ? (model.keep_loaded ? 'Weights loaded. Kept ready by the residency policy.' : `Weights loaded. Unload in ${model.unload_in_seconds} seconds if idle.`) : `Model ${model.state}.`;
-    if (!active || terminal.has(active.status)) $('runtime').textContent = model.state === 'ready' ? 'Model loaded · Ready' : 'Ready to load';
+    if ((!active || terminal.has(active.status)) && !refineRunning()) $('runtime').textContent = model.state === 'ready' ? 'Model loaded · Ready' : 'Ready to load';
     $('unload-model').disabled = Boolean(status.active_job) || model.state === 'unloaded';
   } catch { /* Keep prior state during reconnects. */ }
 }
