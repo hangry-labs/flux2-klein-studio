@@ -8,15 +8,18 @@ import threading
 import time
 import uuid
 import tempfile
+from io import BytesIO
+from typing import Literal
 from collections import deque
 from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from PIL import Image
 
 from .cli import MODEL_ID, MODEL_REVISION
 from .residency import ModelWorker
@@ -402,6 +405,11 @@ def create_app(root=Path("/data/outputs/studio")):
             },
             "reduction": "ordered",
             "offloading": False,
+            "download_formats": [
+                {"value": "png", "label": "PNG · Original", "extension": "png"},
+                {"value": "webp", "label": "WebP · Lossless", "extension": "webp"},
+                {"value": "jpeg", "label": "JPEG · Smaller, lossy", "extension": "jpg"},
+            ],
         }
 
     @app.get("/api/settings")
@@ -461,8 +469,7 @@ def create_app(root=Path("/data/outputs/studio")):
     def cancel(identifier: str):
         return jobs.cancel(identifier)
 
-    @app.get("/api/jobs/{identifier}/image")
-    def image(identifier: str):
+    def image_path(identifier):
         item = jobs.get(identifier)
         folder = jobs.folder(item)
         paths = list(folder.glob("*/generate.png"))
@@ -470,11 +477,57 @@ def create_app(root=Path("/data/outputs/studio")):
             paths.append(folder / "generate.png")
         if item["status"] != "completed" or len(paths) != 1:
             raise HTTPException(404, "Image is not available")
+        return item, paths[0]
+
+    @app.get("/api/jobs/{identifier}/image")
+    def image(identifier: str):
+        item, path = image_path(identifier)
         return FileResponse(
-            paths[0],
+            path,
             media_type="image/png",
             filename=f"flux2-{item['settings']['seed']}.png",
             content_disposition_type="inline",
+        )
+
+    @app.get("/api/jobs/{identifier}/download")
+    def download(identifier: str, format: Literal["png", "webp", "jpeg"] = "png"):
+        item, path = image_path(identifier)
+        filename = f"flux2-{item['settings']['seed']}"
+        if format == "png":
+            return FileResponse(
+                path, media_type="image/png", filename=filename + ".png"
+            )
+        # Convert on demand, without creating files or changing the canonical PNG.
+        try:
+            with Image.open(path) as source:
+                recipe = source.info.get("generation") or json.dumps(
+                    {
+                        "model": MODEL_ID,
+                        "revision": MODEL_REVISION,
+                        **item["settings"],
+                        "reduction": "ordered",
+                    }
+                )
+                exif = Image.Exif()
+                exif[270] = recipe  # ImageDescription: portable generation recipe.
+                output = BytesIO()
+                options = (
+                    {"lossless": True, "method": 4}
+                    if format == "webp"
+                    else {"quality": 95, "subsampling": 0}
+                )
+                source.convert("RGB").save(
+                    output, format=format.upper(), exif=exif.tobytes(), **options
+                )
+        except FileNotFoundError as exc:
+            raise HTTPException(404, "Image is not available") from exc
+        extension = "jpg" if format == "jpeg" else format
+        return Response(
+            output.getvalue(),
+            media_type=f"image/{format}",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}.{extension}"'
+            },
         )
 
     @app.get("/system/gpu")

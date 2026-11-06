@@ -53,6 +53,10 @@ release is published. The browser service uses port 7860; explicit CLI commands
 remain available. Check **Save result to gallery** to retain an image and recipe
 under `outputs/studio/`; otherwise the result is a temporary downloadable preview.
 System controls the model idle timeout (five minutes by default) and manual unload.
+Random seed starts enabled and chooses a new seed per generation; switch it off
+to repeat a fixed seed. Downloads offer original PNG, lossless WebP and JPEG.
+See the [capability review](docs/model-capabilities.md) for model features we could
+add next, including reference-image editing.
 
 ## Runtime commands
 

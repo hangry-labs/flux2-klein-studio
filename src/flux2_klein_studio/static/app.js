@@ -38,7 +38,16 @@ function idea() {$('prompt').value = examples[Math.floor(Math.random() * example
 ['examples', 'sample', 'empty-example'].forEach((id) => $(id).onclick = idea);
 function updatePrompt() {$('characters').textContent = `${$('prompt').value.length} / 4000`;}
 $('prompt').oninput = updatePrompt;
-$('random-seed').onclick = () => {$('seed').value = crypto.getRandomValues(new Uint32Array(1))[0];};
+function randomSeed() {
+  const words = crypto.getRandomValues(new Uint32Array(2));
+  return (words[0] & 0x1fffff) * 2 ** 32 + words[1];
+}
+function seedMode() {
+  $('seed').readOnly = $('random-seed').checked;
+  $('seed-help').textContent = $('random-seed').checked ? 'A fresh seed is chosen each time you generate.' : 'Fixed seed: reuse these settings to repeat a picture.';
+}
+$('random-seed').onchange = seedMode;
+$('seed').value = randomSeed(); seedMode();
 $('resolution').onchange = () => {const [width, height] = $('resolution').value.split('x'); if (width && height) {$('width').value = width; $('height').value = height;} sizeHelp();};
 function sizeHelp() {
   const width = Number($('width').value), height = Number($('height').value);
@@ -61,9 +70,17 @@ function showResult(item) {
   $('result-title').textContent = 'A little imagination, made real.';
   $('result-meta').textContent = `${item.settings.width} × ${item.settings.height} · Seed ${item.settings.seed} · ${item.seconds.toFixed(2)} s generation`;
   $('result-prompt').textContent = item.settings.prompt;
-  $('download').href = item.image; $('download').download = `klein-${item.settings.seed}.png`;
+  updateDownload();
   $('result-state').textContent = 'Completed';
 }
+function updateDownload() {
+  if (!selected || !config) return;
+  const format = config.download_formats.find(item => item.value === $('download-format').value);
+  if (!format) return;
+  $('download').href = `/api/jobs/${selected.id}/download?format=${format.value}`;
+  $('download').download = `flux2-${selected.settings.seed}.${format.extension}`;
+}
+$('download-format').onchange = updateDownload;
 $('recipe').onclick = () => {
   if (!selected) return;
   const url = URL.createObjectURL(new Blob([JSON.stringify({model: config.model, revision: config.revision, ...selected.settings, reduction: 'ordered'}, null, 2)], {type: 'application/json'}));
@@ -71,6 +88,7 @@ $('recipe').onclick = () => {
 };
 $('generation-form').onsubmit = async (event) => {
   event.preventDefault(); message();
+  if ($('random-seed').checked) $('seed').value = randomSeed();
   const payload = {prompt: $('prompt').value, save_gallery: $('save_gallery').checked, ...Object.fromEntries(['width', 'height', 'seed', 'steps'].map((id) => [id, Number($(id).value)]))};
   if (!Number.isSafeInteger(payload.seed)) return message('Choose a whole-number seed within the displayed range.');
   $('generate').disabled = true;
@@ -101,7 +119,7 @@ async function refreshGallery() {
     const info = document.createElement('div'), title = document.createElement('strong'), prompt = document.createElement('p');
     title.textContent = `${item.settings.width} × ${item.settings.height} · ${item.status === 'completed' ? item.seconds.toFixed(2) + ' s' : item.status}`;
     prompt.textContent = item.settings.prompt; info.append(title, prompt); preview.append(info);
-    preview.onclick = () => {Object.entries(item.settings).forEach(([key, value]) => {if ($(key) && key !== 'save_gallery') $(key).value = value;}); updatePrompt(); sizeHelp(); showResult(item); switchView('generate');};
+    preview.onclick = () => {Object.entries(item.settings).forEach(([key, value]) => {if ($(key) && key !== 'save_gallery') $(key).value = value;}); $('random-seed').checked = false; seedMode(); updatePrompt(); sizeHelp(); showResult(item); switchView('generate');};
     card.append(preview);
     const controls = document.createElement('div'); controls.className = 'gallery-controls';
     if (terminal.has(item.status)) {
@@ -182,6 +200,7 @@ async function start() {
   $('generate').disabled = true;
   try {
     config = await request('/api/status'); $('version').textContent = config.version;
+    $('download-format').replaceChildren(...config.download_formats.map(format => new Option(format.label, format.value)));
     $('resolution').replaceChildren(...config.presets.map(([width, height]) => new Option(`${width} × ${height}${width === height ? ' · Square' : width > height ? ' · Landscape' : ' · Portrait'}`, `${width}x${height}`)), new Option('Custom size', 'custom'));
     const items = await refreshGallery(); const job = config.active_job ? await request(`/api/jobs/${config.active_job}`) : null;
     const last = items.find((item) => item.status === 'completed'); if (last) showResult(last);

@@ -2,10 +2,12 @@ import json
 import tempfile
 import threading
 import unittest
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
+from PIL import Image, PngImagePlugin
 
 from flux2_klein_studio.server import Generation, Jobs, create_app
 from flux2_klein_studio.residency import ModelWorker
@@ -173,6 +175,83 @@ class StudioTests(unittest.TestCase):
             self.assertEqual(recovered.model.idle_seconds, 42)
         finally:
             recovered.close()
+
+    def test_download_formats_preserve_recipe_without_creating_files(self):
+        for saved in (True, False):
+            with self.subTest(saved=saved):
+                item, folder = self.completed(saved=saved)
+                # Varied pixels catch accidental lossy WebP encoding.
+                original = Image.new("RGB", (32, 32))
+                original.putdata(
+                    [(x * 7 % 256, x * 13 % 256, x * 29 % 256) for x in range(1024)]
+                )
+                recipe = json.dumps({**item["settings"], "prompt": "orchids \u2728"})
+                metadata = PngImagePlugin.PngInfo()
+                metadata.add_text("generation", recipe)
+                path = folder / "generate.png"
+                original.save(path, pnginfo=metadata)
+                canonical = path.read_bytes()
+                before = set(folder.rglob("*"))
+                for format, extension in (
+                    ("png", "png"),
+                    ("webp", "webp"),
+                    ("jpeg", "jpg"),
+                ):
+                    response = self.client.get(
+                        f"/api/jobs/{item['id']}/download?format={format}"
+                    )
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(
+                        response.headers["content-type"], f"image/{format}"
+                    )
+                    self.assertIn(
+                        "attachment;", response.headers["content-disposition"]
+                    )
+                    self.assertIn(
+                        f".{extension}", response.headers["content-disposition"]
+                    )
+                    with Image.open(BytesIO(response.content)) as decoded:
+                        self.assertEqual(decoded.size, original.size)
+                        if format == "png":
+                            self.assertEqual(response.content, canonical)
+                            self.assertEqual(decoded.info["generation"], recipe)
+                        else:
+                            self.assertEqual(decoded.getexif()[270], recipe)
+                        if format != "jpeg":
+                            self.assertEqual(
+                                decoded.convert("RGB").tobytes(), original.tobytes()
+                            )
+                self.assertEqual(set(folder.rglob("*")), before)
+                self.assertEqual(path.read_bytes(), canonical)
+                self.assertEqual(
+                    self.client.get(
+                        f"/api/jobs/{item['id']}/download?format=gif"
+                    ).status_code,
+                    422,
+                )
+                self.client.delete(f"/api/jobs/{item['id']}")
+                self.assertEqual(
+                    self.client.get(
+                        f"/api/jobs/{item['id']}/download?format=webp"
+                    ).status_code,
+                    404,
+                )
+
+    def test_legacy_png_download_includes_recipe_and_missing_image_is_404(self):
+        item, folder = self.completed()
+        Image.new("RGB", (16, 16)).save(folder / "generate.png")
+        with Image.open(
+            BytesIO(
+                self.client.get(f"/api/jobs/{item['id']}/download?format=webp").content
+            )
+        ) as decoded:
+            recipe = json.loads(decoded.getexif()[270])
+            self.assertEqual(recipe["seed"], item["settings"]["seed"])
+            self.assertEqual(recipe["reduction"], "ordered")
+        (folder / "generate.png").unlink()
+        self.assertEqual(
+            self.client.get(f"/api/jobs/{item['id']}/download").status_code, 404
+        )
 
     def test_delete_refuses_linked_directory(self):
         identifier = "a" * 32

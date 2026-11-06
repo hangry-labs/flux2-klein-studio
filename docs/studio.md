@@ -18,7 +18,10 @@ same CLI `--offline` path already qualified by the generation tests.
 ## Generate
 
 Describe your picture, select a canvas size and generate. Examples fill the prompt
-without altering other settings. Four steps and seed 12345 are the initial defaults.
+without altering other settings. Four steps and **Random seed on** are the initial
+browser defaults. Each Generate request chooses a fresh seed; the seed field and
+completed result show the actual value used. Turn Random seed off to enter or keep
+a fixed seed. The CLI and HTTP API retain their explicit seed default of 12345.
 The seed controls starting randomness: keep prompt, size, seed and steps to repeat
 an image on the qualified GPU and stack. More steps are not automatically better.
 Custom dimensions must be 64–1920 pixels and divisible by 16. This first UI bounds
@@ -27,7 +30,7 @@ input to that range; actual fit depends on the GPU and other applications.
 One job runs at a time. A second request receives HTTP 409 instead of consuming
 another model's worth of GPU memory. Loading and generation states are shown;
 Cancel terminates the active worker. A five-minute worker timeout bounds stalled
-jobs. Raw diagnostics remain in the job's local `worker.log`.
+jobs. Raw diagnostics remain in the service logs (`task ui:logs`).
 
 A resident inference worker uses the same pipeline loader, ordered reduction,
 default expandable allocator and numerical checks as the CLI. It loads the model
@@ -53,9 +56,15 @@ if you want to keep it. A reload does not restore unsaved previews to the galler
 Checked generations persist under `outputs/studio/<job-id>/` with their settings.
 
 Saved images appear in Gallery. Selecting an image shows it and restores its
-prompt, seed, dimensions and steps without starting another generation. Download
-PNG retains the embedded generation metadata. Recipe JSON downloads portable
-settings and the pinned model revision. Browser prompts are not stored separately
+prompt, seed, dimensions and steps without starting another generation. Reusing
+a gallery recipe turns Random seed off so its seed can be repeated.
+The download format selector offers **PNG** (original), **WebP** (lossless) and
+**JPEG** (quality 95, lossy). PNG and WebP preserve the generated RGB pixels;
+JPEG changes pixels and is unsuitable for pixel-equality comparisons. PNG keeps
+its embedded generation metadata; WebP and JPEG carry the recipe in EXIF
+ImageDescription. Conversion uses the existing Pillow dependency, requires no
+FFmpeg, and runs only on download without saving extra files. Recipe JSON
+downloads portable settings and the pinned model revision. Browser prompts are not stored separately
 in browser storage. Reusing a gallery recipe does not silently opt the next image
 into saving; the checkbox remains under your control.
 
@@ -105,6 +114,7 @@ documentation is required by the application.
 | `GET /api/jobs/{id}` | Progress or terminal state |
 | `POST /api/jobs/{id}/cancel` | Cancel an active worker |
 | `GET /api/jobs/{id}/image` | Completed PNG only |
+| `GET /api/jobs/{id}/download?format=png\|webp\|jpeg` | Attachment in the chosen format; defaults to original PNG |
 | `GET /system/gpu` | Demand-driven bounded GPU history |
 
 The web dependencies are pinned separately in `requirements-ui.txt` and
