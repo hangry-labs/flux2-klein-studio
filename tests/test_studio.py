@@ -63,6 +63,33 @@ class StudioTests(unittest.TestCase):
                 self.client.get("/assets/hangrylabs_logo.webp").status_code, 200
             )
 
+    def test_explicit_preload_trim_and_persistent_keep_loaded(self):
+        model = self.app.state.jobs.model
+        with (
+            patch.object(model, "preload", return_value={"state": "ready"}) as load,
+            patch.object(model, "trim", return_value={"state": "ready"}) as trim,
+        ):
+            self.assertEqual(self.client.post("/api/model/load").status_code, 200)
+            self.assertEqual(self.client.post("/api/model/trim").status_code, 200)
+            self.app.state.jobs.active = "active-fixture"
+            self.assertEqual(self.client.post("/api/model/load").status_code, 409)
+            self.assertEqual(self.client.post("/api/model/trim").status_code, 409)
+            self.app.state.jobs.active = None
+            load.assert_called_once()
+            trim.assert_called_once()
+        self.assertEqual(
+            self.client.put(
+                "/api/settings", json={"idle_seconds": 42, "keep_loaded": True}
+            ).status_code,
+            200,
+        )
+        recovered = Jobs(Path(self.directory.name))
+        try:
+            self.assertTrue(recovered.model.keep_loaded)
+            self.assertEqual(recovered.model.idle_seconds, 42)
+        finally:
+            recovered.close()
+
     def test_validation_rejects_invalid_sizes_and_blank_prompts(self):
         for payload in (
             {"prompt": " "},
@@ -98,9 +125,10 @@ class StudioTests(unittest.TestCase):
             jobs.cancel(first["id"])
             self.assertEqual(jobs.get(first["id"])["status"], "cancelling")
             jobs.worker = None
-        self.assertEqual(
-            self.client.post("/api/jobs", json={"prompt": "another"}).status_code, 409
-        )
+        queued = self.client.post("/api/jobs", json={"prompt": "another"})
+        self.assertEqual(queued.status_code, 202)
+        self.assertEqual(queued.json()["status"], "queued")
+        jobs.cancel(queued.json()["id"])
         recovered = Jobs(Path(self.directory.name))
         self.assertEqual(recovered.get(first["id"])["status"], "failed")
         recovered.close()
@@ -279,6 +307,35 @@ class StudioTests(unittest.TestCase):
 
 
 class ResidencyTests(unittest.TestCase):
+    def test_preload_and_trim_reuse_process_without_image_settings(self):
+        worker = ModelWorker()
+        worker.stop.set()
+        worker.monitor.join(timeout=2)
+        process = Mock(pid=1)
+        process.is_alive.return_value = False
+        connection = Mock()
+        connection.poll.return_value = True
+        connection.recv.return_value = {"phase": "completed"}
+        worker.process, worker.connection = process, connection
+        try:
+            self.assertEqual(worker.preload()["state"], "ready")
+            self.assertEqual(worker.trim()["state"], "ready")
+            self.assertIs(worker.process, process)
+            self.assertEqual(
+                [call.args[0] for call in connection.send.call_args_list],
+                [{"_operation": "load"}, {"_operation": "trim"}],
+            )
+            worker.keep_loaded = True
+            self.assertIsNone(worker.snapshot()["unload_in_seconds"])
+            with (
+                patch.object(worker.stop, "wait", side_effect=[False, True]),
+                patch.object(worker, "unload") as unload,
+            ):
+                worker.expire()
+                unload.assert_not_called()
+        finally:
+            worker.close()
+
     def test_warm_requests_reuse_worker_and_restart_idle_deadline(self):
         worker = ModelWorker()
         worker.stop.set()

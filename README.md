@@ -69,6 +69,10 @@ add next, including reference-image editing.
 Applications can use the **OpenAI-compatible Images API** at `/v1` with model
 `flux2-klein-4b`, or connect an agent to **MCP Streamable HTTP** at `/mcp/`.
 Agents choose named sizes such as `square_big`, `portrait_medium` or `panorama_big`.
+Concurrent calls wait in a shared FIFO queue; one image runs on the GPU at a time.
+HTTP and MCP support `n=1` through `n=16` for multiple images in one synchronous
+response. CPU image output can overlap the next generation; queue capacity
+defaults to 64 outstanding images and is configurable with `STUDIO_QUEUE_LIMIT`.
 See the [agent API guide](docs/agent-api.md) for presets, client examples, keys,
 readiness and load-balancing behavior. `task api:check` verifies discovery without
 loading the model; `task api:smoke` checks real 1024 generation through both APIs.

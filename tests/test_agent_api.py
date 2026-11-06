@@ -160,7 +160,7 @@ class AgentAPITests(unittest.TestCase):
             {"size": "999x999"},
             {"size": "portrait"},
             {"width": 512},
-            {"n": 2},
+            {"n": 17},
             {"n": True},
             {"model": "gpt-image-1"},
             {"prompt": " "},
@@ -375,7 +375,8 @@ class AgentAPITests(unittest.TestCase):
             )
             self.assertIsNotNone(row["memory"]["reserved_peak_bytes"])
 
-    def test_busy_is_shared_with_browser_and_does_not_cancel_another_job(self):
+    def test_queue_full_is_shared_with_browser_and_does_not_cancel_another_job(self):
+        self.jobs.queue_limit = 1
         with patch("threading.Thread.start"):
             item = self.jobs.submit(Generation(prompt="browser"))
             self.jobs.worker = None
@@ -386,12 +387,13 @@ class AgentAPITests(unittest.TestCase):
             )
             self.assertEqual(response.status_code, 429)
             self.assertEqual(response.headers["retry-after"], "1")
+            self.assertEqual(response.json()["error"]["code"], "queue_full")
             result = self.rpc(
                 "tools/call",
                 {"name": "generate_image", "arguments": {"prompt": "agent"}},
             ).json()["result"]
             self.assertTrue(result["isError"])
-            self.assertIn("busy", result["content"][0]["text"])
+            self.assertIn("queue is full", result["content"][0]["text"])
             self.assertEqual(self.jobs.active, item["id"])
             self.assertFalse(self.jobs.cancel_event.is_set())
         finally:

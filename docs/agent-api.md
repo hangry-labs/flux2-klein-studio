@@ -14,7 +14,9 @@ the expandable allocator and opt-in gallery storage. No second model is loaded.
 | Admission readiness | `GET /health/ready` |
 
 Start with `task build` and `task ui`. `task api:check` inspects discovery and MCP
-tools without loading weights. `task api:smoke` generates matching 1024×1024
+tools without loading weights. `task api:queue` checks five concurrent calls and
+two-image batches through HTTP and MCP (nine 1024×1024 images).
+`task api:smoke` generates matching 1024×1024
 images through HTTP and MCP and verifies their pixels. `task api:resolutions`
 also generates every named size. These are workflow checks, not performance
 benchmarks; they remove only their own temporary test jobs.
@@ -77,7 +79,7 @@ shapes may reserve more than a fresh worker per size.
 
 The request/response envelope follows [OpenAI's image generation API](https://developers.openai.com/api/reference/resources/images/methods/generate).
 This service runs the local Klein model; it does not call OpenAI or require an
-OpenAI account. The initial subset supports one image per request (`n=1`),
+OpenAI account. Requests support 1–16 images (`n`, default 1),
 non-streaming base64 output, PNG/lossless WebP/JPEG, and model discovery.
 `GET /v1/models` lists the model, and `GET /v1/models/flux2-klein-4b` retrieves it.
 The pinned Hugging Face repository ID is also accepted as a model identifier.
@@ -91,7 +93,7 @@ from openai import OpenAI
 client = OpenAI(
     base_url="http://localhost:7860/v1",
     api_key=os.getenv("STUDIO_API_KEY") or "local",  # SDK requires a value.
-    timeout=330.0,
+    timeout=1240.0,
     max_retries=0,
 )
 result = client.images.generate(
@@ -120,11 +122,35 @@ See [download behavior](studio.md#gallery-and-files).
 
 `response_format="b64_json"` is accepted; URL output is not offered by this
 initial API. Quality may be omitted, `auto` or `standard`; these use the same
-four-step profile. Other quality modes, batches, streaming, edits and additional
+four-step profile. Other quality modes, streaming, edits and additional
 OpenAI image controls are rejected rather than silently approximated.
 Validation errors use HTTP 400 with an OpenAI-style `error` object. Runtime
 failures use 502, request timeouts 504. Browser API validation keeps its existing
 HTTP 422 behavior. The OpenAPI schema is available at `/openapi.json`.
+
+### Multiple images and concurrent requests
+
+Set `n` to request several images with the same prompt and size:
+
+```json
+{"prompt":"An orange sailboat at sunrise","size":"square_big","n":3,"seed":12345}
+```
+
+`data` contains three base64 images in request order. With `n=1`, the response
+and `studio` metadata keep their existing shape. With `n>1`, `studio` contains
+`count` and an `images` list with a recipe, job ID, actual seed, queue wait and
+original pixel hash for each corresponding result. A fixed seed increments per
+image (12345, 12346, 12347), wrapping at 2^53; omitted seeds are independently
+random. Repeating a batch repeats those seeds on the qualified stack.
+
+Images enter the same queue as individual requests and the browser. Batch
+admission is atomic: if there is insufficient capacity, no part of that batch
+starts. GPU generation stays sequential, so `n` does not multiply model VRAM.
+The response waits until every image completes. If an image fails or the caller
+cancels, remaining unfinished images belonging to that request are cancelled;
+other callers' jobs continue. Completed opt-in gallery images remain available.
+This is synchronous multi-image generation, without an OpenAI Batch API/job-file
+endpoint or a prompt-list field; send concurrent requests for different prompts.
 
 ## MCP tools
 
@@ -136,7 +162,7 @@ with stateless HTTP and JSON responses.
 | --- | --- |
 | `get_status` | Check whether this instance can accept work; inspect residency |
 | `list_resolutions` | Discover exact named sizes and aspect ratios |
-| `generate_image` | Generate one image and return image content plus a recipe |
+| `generate_image` | Generate 1–16 images and return image content plus recipes |
 
 Example generate_image arguments:
 
@@ -151,28 +177,53 @@ Example generate_image arguments:
 ```
 
 Only prompt is required. Resolution defaults to square_big, format to PNG, seed
-to random, and gallery storage to false. Tool schemas expose the resolution enum
+to random, gallery storage to false and `n` to 1. Set `n` up to 16 for multiple
+image blocks and `structuredContent.images` in the same order. Fixed seeds follow
+the same increment rule as HTTP. Tool schemas expose the resolution enum
 and no width/height fields. The result includes an MCP image block, human-readable
 recipe JSON and structured metadata with the actual seed/settings.
 
 ## Balancing and deployment behavior
 
-Each instance admits **one generation at a time**, shared with the browser.
-There is no hidden request queue. Busy HTTP requests return 429 with
-Retry-After: 1; MCP returns a tool error describing the busy instance.
-Liveness remains 200; readiness is 503 while busy and 200 when another generation
-can be admitted. An unloaded model is ready to load on demand; model_state lets
-the balancer distinguish that from a warm worker. Readiness is a snapshot, so
-clients must still handle a busy response after a successful readiness check.
+Each instance accepts concurrent requests into a **shared FIFO queue** and runs
+**one image on the GPU at a time**. The browser, HTTP API and MCP share the queue.
+Request validation, random-seed selection and job preparation can run while the
+GPU is occupied. PNG encoding, pixel hashing, disk output and download conversion
+use bounded CPU workers and can overlap the next generation. Model execution,
+text encoding and VAE work remain sequential; no second model is loaded.
+
+`STUDIO_QUEUE_LIMIT` controls capacity in outstanding images, including active
+and CPU-processing work (default 64, range 1–1024). Queued jobs hold settings and
+storage metadata; at most four generated raw pixel buffers are handed to CPU
+output workers. An ordinary busy GPU does not reject new requests. Only a full
+queue returns HTTP 429 with `Retry-After: 1` and `error.code=queue_full`; MCP
+returns a corresponding tool error. Batches consume one slot per image.
+
+Readiness stays HTTP 200 while enabled image sizes and queue capacity are
+available, including while the GPU is generating. It becomes 503 when full,
+shutting down or disabled. Liveness remains 200. HTTP readiness, MCP `get_status`
+and `/api/status` expose queue capacity, outstanding/queued/processing counts,
+available slots and the active GPU job. Individual browser job responses include
+`queue_position`. An unloaded model is ready to load on demand. Readiness is a
+snapshot; callers must still handle an admission race with other requests.
+
+Queue waiting has its own deadline: `STUDIO_QUEUE_TIMEOUT_SECONDS` defaults to
+900 seconds. Each image then has a 310-second generation/response deadline,
+backed by the existing 300-second worker limit. Use proxy/client timeouts that
+cover queue waiting, cold loading, generation and transfer; a 310-second overall
+proxy timeout may be too short for queued requests. Compose forwards both queue
+settings from the environment. `queue_seconds` in each recipe reports actual
+waiting separately from generation `seconds`. Queued jobs are local to this
+process; restart marks saved unfinished jobs failed rather than replaying them.
 
 Both protocols return image bytes in the completed response. There are no
 MCP session IDs or follow-up download URLs requiring sticky routing. Configure
-proxy/client timeouts to exceed cold loading plus generation (the server's
-request deadline is 310 seconds). Client retries are disabled in the example
-because retrying a lost response can generate another image; there is no
+proxy/client timeouts to cover the queue deadlines above. Client retries are
+disabled in the example because retrying a lost response can generate another image; there is no
 cross-instance idempotency or job store. Cancellation of the owned request/task
-stops its active generation when the HTTP connection closes. Current MCP clients
-use HTTP cancellation; older clients that only send a separate cancellation
+removes its waiting jobs and stops its active generation when the HTTP connection
+closes. Cancelling a waiting job does not unload another caller’s active model.
+Current MCP clients use HTTP cancellation; older clients that only send a separate cancellation
 notification may leave generation running until completion or timeout, because
 stateless instances do not share request IDs. The original CLI worker still has its 300-second
 execution timeout. No automatic retry, CPU offload or larger-memory fallback occurs.

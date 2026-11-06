@@ -11,7 +11,11 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import CallToolResult, ImageContent, TextContent, ToolAnnotations
 from pydantic import Field
 
-from .generation_service import MODEL_ALIAS, generate_image as run_generation
+from .generation_service import (
+    MODEL_ALIAS,
+    MAX_BATCH,
+    generate_images as run_generation,
+)
 from .presets import Resolution
 from .transport import client_disconnected
 from . import __version__
@@ -52,7 +56,8 @@ def create_mcp_server(jobs):
         "list_resolutions describes the current choices and default. "
         "Omit seed for a random image; reuse the returned seed and settings to reproduce it. "
         "Results include inline image content and a recipe. Gallery storage is opt-in. "
-        "Busy instances reject requests; retry or select another instance.",
+        "Concurrent requests wait in a shared queue; one image uses the GPU at a time. "
+        "Use n for multiple images. Retry another instance only when the queue is full.",
     )
     server.resolution_policy = jobs.resolutions
     read = ToolAnnotations(
@@ -77,9 +82,9 @@ def create_mcp_server(jobs):
         with jobs.lock:
             return {
                 "model": MODEL_ALIAS,
-                "accepting_requests": not jobs.closing
-                and jobs.active is None
+                "accepting_requests": jobs.queue_status()["accepting_requests"]
                 and bool(jobs.resolutions.allowed()),
+                "queue": jobs.queue_status(),
                 "default_resolution": jobs.resolutions.default(),
                 "model_residency": jobs.model.snapshot(),
             }
@@ -113,6 +118,14 @@ def create_mcp_server(jobs):
         ] = None,
         output_format: Literal["png", "webp", "jpeg"] = "png",
         save_gallery: bool = False,
+        n: Annotated[
+            int,
+            Field(
+                ge=1,
+                le=MAX_BATCH,
+                description="Number of images; generated sequentially. Fixed seeds increment per image.",
+            ),
+        ] = 1,
     ) -> CallToolResult:
         """Generate one image at a named size. Return image content and its exact recipe.
 
@@ -121,28 +134,32 @@ def create_mcp_server(jobs):
         Keep save_gallery=false unless the user wants persistent gallery storage.
         """
         try:
-            data, metadata = await run_generation(
+            images = await run_generation(
                 jobs,
                 prompt,
                 resolution,
                 seed,
                 output_format,
                 save_gallery,
+                count=n,
                 disconnected=lambda: client_disconnected(
                     context.request_context.request
                 ),
             )
         except HTTPException as exc:
             raise ToolError(f"{exc.detail} (HTTP {exc.status_code})") from exc
+        metadata = [item[1] for item in images]
+        recipe = metadata[0] if n == 1 else {"count": n, "images": metadata}
         return CallToolResult(
-            content=[
-                TextContent(text=json.dumps(metadata)),
+            content=[TextContent(text=json.dumps(recipe))]
+            + [
                 ImageContent(
                     data=base64.b64encode(data).decode("ascii"),
                     mime_type=f"image/{output_format}",
-                ),
+                )
+                for data, _ in images
             ],
-            structured_content=metadata,
+            structured_content=recipe,
         )
 
     return server

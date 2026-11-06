@@ -1,5 +1,6 @@
 """A documented OpenAI Images subset with discoverable local extensions."""
 
+import asyncio
 import base64
 from typing import Literal
 
@@ -14,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .cli import MODEL_ID
-from .generation_service import MODEL_ALIAS, generate_image
+from .generation_service import MODEL_ALIAS, MAX_BATCH, generate_images
 from .presets import catalog, resolve_size
 from .schemas import Generation
 from .transport import client_disconnected
@@ -33,7 +34,7 @@ class ImageRequest(BaseModel):
             + [r["size"] for r in catalog()]
         },
     )
-    n: int = Field(default=1, ge=1, le=1)
+    n: int = Field(default=1, ge=1, le=MAX_BATCH)
     response_format: Literal["b64_json"] = "b64_json"
     output_format: Literal["png", "webp", "jpeg"] = "png"
     quality: Literal["auto", "standard"] = "auto"
@@ -68,7 +69,7 @@ def error_response(status, message, param=None, headers=None):
                 "message": message,
                 "type": "invalid_request_error" if status < 500 else "server_error",
                 "param": param,
-                "code": "instance_busy" if status == 429 else str(status),
+                "code": "queue_full" if status == 429 else str(status),
             }
         },
         status_code=status,
@@ -137,7 +138,8 @@ def attach_image_api(app, jobs):
     def ready():
         with jobs.lock:
             enabled = bool(jobs.resolutions.allowed())
-            available = not jobs.closing and jobs.active is None and enabled
+            queue = jobs.queue_status()
+            available = queue["accepting_requests"] and enabled
             return JSONResponse(
                 {
                     "status": "ready"
@@ -148,13 +150,14 @@ def attach_image_api(app, jobs):
                     "accepting_requests": available,
                     "model": MODEL_ALIAS,
                     "model_state": jobs.model.snapshot()["state"],
+                    "queue": queue,
                 },
                 status_code=200 if available else 503,
             )
 
     @app.post("/v1/images/generations")
     async def generate(options: ImageRequest, request: Request):
-        data, metadata = await generate_image(
+        images = await generate_images(
             jobs,
             options.prompt,
             resolve_size(options.size) if options.size not in (None, "auto") else None,
@@ -162,11 +165,21 @@ def attach_image_api(app, jobs):
             output_format=options.output_format,
             save_gallery=options.save_gallery,
             disconnected=lambda: client_disconnected(request),
+            count=options.n,
+        )
+        metadata = [item[1] for item in images]
+        data = await asyncio.to_thread(
+            lambda: [
+                {"b64_json": base64.b64encode(item[0]).decode("ascii")}
+                for item in images
+            ]
         )
         return {
-            "created": metadata["created"],
-            "data": [{"b64_json": base64.b64encode(data).decode("ascii")}],
-            "size": f"{metadata['width']}x{metadata['height']}",
+            "created": metadata[0]["created"],
+            "data": data,
+            "size": f"{metadata[0]['width']}x{metadata[0]['height']}",
             "output_format": options.output_format,
-            "studio": metadata,
+            "studio": metadata[0]
+            if len(metadata) == 1
+            else {"count": len(metadata), "images": metadata},
         }

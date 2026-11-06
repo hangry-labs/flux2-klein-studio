@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import threading
 import time
-import uuid
 import tempfile
 from typing import Literal
 from collections import deque
@@ -31,6 +30,7 @@ from .transport import DisconnectMonitor
 from .resolution_policy import ResolutionPolicy, ResolutionSettings
 from . import __version__
 from .build_info import build_identity
+from .job_queue import GenerationQueue
 
 STATIC = Path(__file__).with_name("static")
 ASSETS = Path(__file__).resolve().parents[2] / "assets"
@@ -51,15 +51,17 @@ PRESETS = [
 class Settings(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     idle_seconds: int = Field(default=300, ge=0, le=86400)
+    keep_loaded: bool = False
 
 
-class Jobs:
+class Jobs(GenerationQueue):
     def __init__(self, root):
         self.root = root
         self.lock = threading.RLock()
         root.mkdir(parents=True, exist_ok=True)
         self.resolutions = ResolutionPolicy(root / "agent-resolutions.json", self.lock)
         self.items = {}
+        self.init_queue()
         self.active = None
         self.temporary = tempfile.TemporaryDirectory(prefix="klein-studio-")
         self.model = ModelWorker()
@@ -69,9 +71,9 @@ class Jobs:
         settings_path = root / "settings.json"
         if settings_path.exists():
             with suppress(ValueError, OSError, TypeError):
-                self.model.idle_seconds = Settings(
-                    **json.loads(settings_path.read_text())
-                ).idle_seconds
+                options = Settings(**json.loads(settings_path.read_text()))
+                self.model.idle_seconds = options.idle_seconds
+                self.model.keep_loaded = options.keep_loaded
         for path in sorted(
             root.glob("*/job.json"), key=lambda path: path.stat().st_mtime, reverse=True
         )[:100]:
@@ -105,99 +107,15 @@ class Jobs:
         temporary.write_text(json.dumps(item, indent=2), encoding="utf-8")
         temporary.replace(path)
 
-    def submit(self, options):
-        with self.lock:
-            if self.closing or self.active:
-                raise HTTPException(
-                    409, "A generation is already active. Wait or cancel it first."
-                )
-            identifier = uuid.uuid4().hex
-            item = {
-                "id": identifier,
-                "status": "loading",
-                "created": time.time(),
-                "settings": options.model_dump(),
-                "error": None,
-            }
-            self.folder(item).mkdir()
-            self.items[identifier] = item
-            # Temporary previews must not evict saved gallery records.
-            cohort = [
-                key
-                for key in self.items
-                if self.items[key]["settings"].get("save_gallery", True)
-                == options.save_gallery
-            ]
-            if len(cohort) > 100:
-                oldest = min(cohort, key=lambda key: self.items[key]["created"])
-                if not self.items[oldest]["settings"].get("save_gallery", True):
-                    self.delete(oldest)
-                else:
-                    del self.items[oldest]
-            self.active = identifier
-            self.cancel_event = threading.Event()
-            self.save(item)
-            self.worker = threading.Thread(
-                target=self.execute, args=(identifier,), daemon=True
-            )
-            self.worker.start()
-            return dict(item)
-
-    def execute(self, identifier):
-        def phase(value):
-            with self.lock:
-                if self.items[identifier]["status"] != "cancelling":
-                    self.items[identifier]["status"] = value
-
-        try:
-            with self.lock:
-                item = self.items[identifier]
-                if item["status"] == "cancelling":
-                    item["status"] = "cancelled"
-                    return
-            result = self.model.generate(item["settings"], phase, self.cancel_event)
-            with self.lock:
-                if item["status"] == "cancelling":
-                    item["status"] = "cancelled"
-                else:
-                    folder = self.folder(item)
-                    (folder / "generate.png").write_bytes(result["png"])
-                    (folder / "report.json").write_text(
-                        json.dumps(result.get("report", {}), indent=2), encoding="utf-8"
-                    )
-                    item.update(
-                        status="completed",
-                        seconds=result["seconds"],
-                        pixel_sha256=result["pixel_sha256"],
-                        image=f"/api/jobs/{identifier}/image",
-                    )
-        except (EOFError, OSError, ValueError, KeyError, RuntimeError):
-            with self.lock:
-                item = self.items[identifier]
-                if item["status"] == "cancelling":
-                    item["status"] = "cancelled"
-                else:
-                    item.update(
-                        status="failed",
-                        error="Generation failed. Check service logs; try a smaller canvas if VRAM is full.",
-                    )
-        finally:
-            with self.lock:
-                try:
-                    self.save(self.items[identifier])
-                except OSError:
-                    self.items[identifier].update(
-                        status="failed",
-                        error="Could not save job metadata. Check free disk space and file permissions.",
-                    )
-                finally:
-                    self.active = None
-
     def get(self, identifier):
         with self.lock:
             if identifier not in self.items:
                 raise HTTPException(404, "Image job not found")
             item = dict(self.items[identifier])
+            if identifier in self.pending:
+                item["queue_position"] = self.pending.index(identifier) + 1
+            else:
+                item["queue_position"] = 0
             return item
 
     def image_path(self, identifier):
@@ -210,32 +128,18 @@ class Jobs:
             raise HTTPException(404, "Image is not available")
         return item, paths[0]
 
-    def cancel(self, identifier):
-        with self.lock:
-            item = self.get(identifier)
-            if item["status"] not in TERMINAL:
-                self.items[identifier]["status"] = "cancelling"
-                self.cancel_event.set()
-                self.model.unload()
-            return self.get(identifier)
-
-    def close(self):
-        with self.lock:
-            self.closing = True
-            if self.active:
-                self.cancel(self.active)
-        self.model.close()
-        if self.worker:
-            self.worker.join(timeout=8)
-        self.temporary.cleanup()
-
     def delete(self, identifier):
         """Remove only a known, inactive job directory and all its local artifacts."""
         with self.lock:
             if not re.fullmatch(r"[a-f0-9]{32}", identifier):
                 raise HTTPException(404, "Image job not found")
             item = self.get(identifier)
-            if identifier == self.active or item["status"] not in TERMINAL:
+            if (
+                identifier == self.active
+                or item["status"] not in TERMINAL
+                or identifier in self.protected
+                or identifier in self.finishing
+            ):
                 raise HTTPException(
                     409, "Cancel the job and wait for it to stop before deleting it."
                 )
@@ -262,6 +166,7 @@ class Jobs:
                     "Could not remove all job files. Close any open downloads and retry.",
                 ) from exc
             del self.items[identifier]
+            self.events.pop(identifier, None)
             return {"id": identifier, "deleted": True}
 
 
@@ -438,6 +343,7 @@ def create_app(root=Path("/data/outputs/studio")):
         return {
             "state": "busy" if jobs.active else "ready",
             "active_job": jobs.active,
+            "queue": jobs.queue_status(),
             "model": MODEL_ID,
             "revision": MODEL_REVISION,
             "version": __version__,
@@ -468,7 +374,10 @@ def create_app(root=Path("/data/outputs/studio")):
 
     @app.get("/api/settings")
     def settings():
-        return {"idle_seconds": jobs.model.idle_seconds}
+        return {
+            "idle_seconds": jobs.model.idle_seconds,
+            "keep_loaded": jobs.model.keep_loaded,
+        }
 
     @app.put("/api/settings")
     def configure(options: Settings):
@@ -479,6 +388,7 @@ def create_app(root=Path("/data/outputs/studio")):
             temporary.replace(path)
             with jobs.model.lock:
                 jobs.model.idle_seconds = options.idle_seconds
+                jobs.model.keep_loaded = options.keep_loaded
         return options.model_dump()
 
     @app.get("/api/resolutions")
@@ -496,6 +406,34 @@ def create_app(root=Path("/data/outputs/studio")):
             ) from exc
         app.openapi_schema = None
         return result
+
+    @app.post("/api/model/load")
+    def load_model():
+        with jobs.lock:
+            if jobs.active:
+                raise HTTPException(
+                    409, "Wait for generation before loading the model."
+                )
+            try:
+                return jobs.model.preload()
+            except (OSError, RuntimeError) as exc:
+                raise HTTPException(
+                    503, "Model preload failed; inspect service health."
+                ) from exc
+
+    @app.post("/api/model/trim")
+    def trim_model():
+        with jobs.lock:
+            if jobs.active:
+                raise HTTPException(
+                    409, "Wait for generation before trimming the allocator."
+                )
+            try:
+                return jobs.model.trim()
+            except (OSError, RuntimeError) as exc:
+                raise HTTPException(
+                    503, "Allocator trim failed; inspect service health."
+                ) from exc
 
     @app.post("/api/model/unload")
     def unload_model():

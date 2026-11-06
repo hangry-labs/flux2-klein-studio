@@ -1,7 +1,5 @@
 """Resident inference worker. The HTTP process never imports CUDA libraries."""
 
-import hashlib
-import io
 import os
 import time
 from types import SimpleNamespace
@@ -18,11 +16,9 @@ def serve(connection):
         os.environ["HF_HUB_OFFLINE"] = "1"
     import torch
     from PIL import ImageStat
-    from PIL.PngImagePlugin import PngInfo
 
     from .cli import MODEL_ID, MODEL_REVISION, doctor
     from .inference import check_residency, check_step, load_pipeline
-    import json
 
     pipe = None
     report = {}
@@ -39,6 +35,14 @@ def serve(connection):
                     SimpleNamespace(offline=offline_default(), reduction="ordered"),
                     report,
                 )
+            if settings.get("_operation") in ("load", "trim"):
+                # Lifecycle commands do not denoise, decode, or create outputs.
+                # Release unused allocator blocks while keeping model tensors.
+                check_residency(pipe)
+                torch.cuda.synchronize()
+                torch.cuda.empty_cache()
+                connection.send({"phase": "completed", "report": report})
+                continue
             connection.send({"phase": "generating"})
             torch.cuda.synchronize()
             start = time.perf_counter()
@@ -61,27 +65,20 @@ def serve(connection):
                 raise RuntimeError("Generation produced an invalid image")
             check_residency(pipe)
             report["placement_after_generation"] = check_residency(pipe)
-            metadata = PngInfo()
-            metadata.add_text(
-                "generation",
-                json.dumps(
-                    {
-                        **settings,
-                        "model": MODEL_ID,
-                        "revision": MODEL_REVISION,
-                        "reduction": "ordered",
-                        "guidance_scale": 1.0,
-                    }
-                ),
-            )
-            output = io.BytesIO()
-            image.save(output, format="PNG", pnginfo=metadata)
+            recipe = {
+                **settings,
+                "model": MODEL_ID,
+                "revision": MODEL_REVISION,
+                "reduction": "ordered",
+                "guidance_scale": 1.0,
+            }
             connection.send(
                 {
                     "phase": "completed",
-                    "png": output.getvalue(),
+                    "pixels": image.tobytes(),
+                    "size": image.size,
+                    "recipe": recipe,
                     "seconds": seconds,
-                    "pixel_sha256": hashlib.sha256(image.tobytes()).hexdigest(),
                     "report": report,
                 }
             )

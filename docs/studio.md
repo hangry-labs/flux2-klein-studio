@@ -27,9 +27,10 @@ an image on the qualified GPU and stack. More steps are not automatically better
 Custom dimensions must be 64–1920 pixels and divisible by 16. This first UI bounds
 input to that range; actual fit depends on the GPU and other applications.
 
-One job runs at a time. A second request receives HTTP 409 instead of consuming
-another model's worth of GPU memory. Loading and generation states are shown;
-Cancel terminates the active worker. A five-minute worker timeout bounds stalled
+One image uses the GPU at a time. Concurrent requests wait in a shared FIFO queue
+instead of loading another model. The studio shows queue position, loading,
+generation and CPU output preparation. Cancelling a waiting image removes only
+that job; cancelling the active GPU image stops its worker. A five-minute worker timeout bounds stalled
 jobs. Raw diagnostics remain in the service logs (`task ui:logs`).
 
 A resident inference worker uses the same pipeline loader, ordered reduction,

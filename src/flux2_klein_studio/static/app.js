@@ -60,9 +60,9 @@ function busy(job) {
   active = job; const running = job && !terminal.has(job.status);
   $('generate').disabled = !config || running; $('cancel').hidden = !running;
   $('busy').hidden = !running; $('empty').hidden = Boolean(selected) || running;
-  $('runtime').textContent = running ? (job.status === 'loading' ? 'Loading model' : 'Generating image') : 'Ready for an idea';
+  $('runtime').textContent = running ? (job.status === 'queued' ? `Queued · Position ${job.queue_position}` : job.status === 'processing' ? 'Preparing image download' : job.status === 'loading' ? 'Loading model' : 'Generating image') : 'Ready for an idea';
   $('result-state').textContent = running ? job.status : selected ? 'Completed' : 'Ready to create';
-  $('busy-title').textContent = job?.status === 'cancelling' ? 'Stopping generation…' : job?.status === 'loading' ? 'Loading your local model…' : 'Creating your image…';
+  $('busy-title').textContent = job?.status === 'cancelling' ? 'Stopping generation…' : job?.status === 'queued' ? `Waiting in queue · Position ${job.queue_position}` : job?.status === 'processing' ? 'Preparing your image…' : job?.status === 'loading' ? 'Loading your local model…' : 'Creating your image…';
   $('cancel').disabled = job?.status === 'cancelling';
 }
 function showResult(item) {
@@ -214,14 +214,15 @@ async function residencyStatus() {
   if (document.hidden || !config) return;
   try {
     const status = await request('/api/status'); const model = status.model_residency;
-    $('model-state').textContent = model.state === 'ready' ? `Weights loaded. Unload in ${model.unload_in_seconds} seconds if idle.` : `Model ${model.state}.`;
+    $('model-state').textContent = model.state === 'ready' ? (model.keep_loaded ? 'Weights loaded. Kept ready by the residency policy.' : `Weights loaded. Unload in ${model.unload_in_seconds} seconds if idle.`) : `Model ${model.state}.`;
     if (!active || terminal.has(active.status)) $('runtime').textContent = model.state === 'ready' ? 'Model loaded · Ready' : 'Ready to load';
     $('unload-model').disabled = Boolean(status.active_job) || model.state === 'unloaded';
   } catch { /* Keep prior state during reconnects. */ }
 }
 $('save-residency').onclick = async () => {
   try {const idle_seconds = Number($('idle-seconds').value); if (!Number.isInteger(idle_seconds) || idle_seconds < 0 || idle_seconds > 86400) throw new Error('Choose 0–86400 whole seconds.');
-    await request('/api/settings', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({idle_seconds})}); $('settings-message').textContent = 'Idle timeout saved.'; await residencyStatus();
+    const residency = await request('/api/settings');
+    await request('/api/settings', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({...residency, idle_seconds})}); $('settings-message').textContent = 'Idle timeout saved.'; await residencyStatus();
   } catch(error) {$('settings-message').textContent = error.message;}
 };
 $('unload-model').onclick = async () => {try {await request('/api/model/unload', {method:'POST'}); await residencyStatus();} catch(error) {message(error.message);}};

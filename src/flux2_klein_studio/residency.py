@@ -15,6 +15,7 @@ class ModelWorker:
         self.state = "unloaded"
         self.last_used = 0
         self.idle_seconds = idle_seconds
+        self.keep_loaded = False
         self.stop = threading.Event()
         self.monitor = threading.Thread(target=self.expire, daemon=True)
         self.monitor.start()
@@ -24,6 +25,7 @@ class ModelWorker:
             with self.lock:
                 if (
                     self.state == "ready"
+                    and not self.keep_loaded
                     and time.monotonic() - self.last_used >= self.idle_seconds
                 ):
                     self.unload()
@@ -46,12 +48,24 @@ class ModelWorker:
             return {
                 "state": self.state,
                 "idle_seconds": self.idle_seconds,
+                "keep_loaded": self.keep_loaded,
                 "unload_in_seconds": max(
                     0, round(self.idle_seconds - (time.monotonic() - self.last_used))
                 )
-                if self.state == "ready"
+                if self.state == "ready" and not self.keep_loaded
                 else None,
             }
+
+    def preload(self):
+        self.generate({"_operation": "load"}, lambda _phase: None, threading.Event())
+        return self.snapshot()
+
+    def trim(self):
+        with self.lock:
+            if self.process is None:
+                return self.snapshot()
+        self.generate({"_operation": "trim"}, lambda _phase: None, threading.Event())
+        return self.snapshot()
 
     def generate(self, settings, phase, cancelled):
         with self.lock:
@@ -79,6 +93,8 @@ class ModelWorker:
         deadline = time.monotonic() + 300
         try:
             while time.monotonic() < deadline:
+                if cancelled.is_set():
+                    raise RuntimeError("Generation cancelled")
                 if not connection.poll(0.2):
                     continue
                 event = connection.recv()

@@ -236,3 +236,27 @@ qualification logs, generated images and exported build evidence stay in ignored
 `.ci-build/`. No registry publication, Git push or release tag was performed.
 Cross-registry digest verification is implemented and tested with fixtures; actual
 registry identity can only be qualified after an authorized publication succeeds.
+
+
+## Concurrent generation queue, 2026-11-06
+
+All 83 GPU-enabled container tests passed. The CPU build passed with the two GPU
+numerical tests explicitly skipped. Queue tests exercise five simultaneous calls,
+FIFO order and one GPU slot, HTTP/MCP multi-image results, atomic admission,
+queue-full responses, independent waiting/generation deadlines, owned cancellation,
+worker-start/failure recovery, CPU output overlap, four-buffer backpressure and
+old-preview cleanup failures. Existing gateway lifecycle tests for preload, trim
+and persistent keep-loaded behavior pass alongside the new scheduler.
+
+An isolated container with networking disabled ran five simultaneous 1024×1024
+calls (three HTTP, two MCP), followed by two-image HTTP and MCP batches: nine
+images in total. Sampling observed five outstanding jobs and four queued. All
+seed-12345 results matched the existing greenhouse golden pixel hash; seed 12346
+also matched between the two protocols. The raw RGB handoff and concurrent CPU
+PNG output preserved image pixels. One resident worker served the complete run,
+with the existing model-placement guards and no application offloading.
+
+This qualifies API scheduling and correctness on the pinned RTX 5070 Ti stack;
+it is a smoke test, not a speed or VRAM benchmark. `task api:queue` repeats it and
+removes only its own temporary jobs. Local logs remain under ignored `.ci-build/`.
+No benchmark history or summary chart was replaced by these smoke-test timings.

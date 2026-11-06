@@ -35,6 +35,10 @@ tasks:
     desc: Generate matching 1024 images over HTTP and MCP, verify pixels and remove own test jobs
     cmds: [docker compose exec -T studio python tools/probe_agent_api.py --generate]
 
+  api:queue:
+    desc: Verify five concurrent HTTP/MCP calls plus two-image batches at 1024 (nine images total)
+    cmds: [docker compose exec -T studio python tools/probe_queue.py]
+
   api:resolutions:
     desc: Generate each named API size and verify its output (workflow check, not a benchmark)
     cmds: [docker compose exec -T studio python tools/probe_agent_api.py --all-resolutions]
