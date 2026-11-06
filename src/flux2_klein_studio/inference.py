@@ -13,8 +13,7 @@ from pathlib import Path
 from .cli import MODEL_ID, MODEL_REVISION, doctor
 from .workloads import fingerprint, jobs, seed_checks, timing_summary
 
-KERNEL_REPOSITORY = "rootonchair/nunchaku-lite-kernels"
-KERNEL_REVISION = "d04512b422d7c9d029ae760449687fb09f33bf58"
+from .model_catalog import KERNEL_REPOSITORY, KERNEL_REVISION
 
 
 def check_residency(pipe):

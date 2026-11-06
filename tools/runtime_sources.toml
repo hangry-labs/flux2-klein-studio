@@ -1,0 +1,49 @@
+# Exact wheel inputs; torch debuglink identifies gcc-8.5.0-28.el8_10.alma.1.
+# Bundled binary hashes bind this review to the pinned wheels.
+
+[wheels."torch"]
+version = "2.14.0+cu130"
+native_pattern = "libgomp"
+sources = ["gcc-8.5.0-28.el8_10.alma.1.src.rpm", "torch-repair-wheel.py"]
+[wheels."torch".native]
+"torch/lib/libgomp.so.1" = "061688b54658fde866d0e5d83f10ac56aaa9b6493d436d2247bdd961bd62c204"
+
+[wheels."numpy"]
+version = "2.5.4"
+native_pattern = "libgfortran|libquadmath"
+sources = ["gcc-8.5.0-28.el8_10.alma.1.src.rpm"]
+[wheels."numpy".native]
+"numpy.libs/libgfortran-83c28eba-468e71e5.so.5.0.0" = "a6a368328d02a5d8a149746f13f6268f8cc9192df5c18777b25c3c9b5ef52160"
+"numpy.libs/libquadmath-2284e583-a9307bba.so.0.0.0" = "6bc3069003caec1f075be3c51ae8355332f081fa9465910c4b5724e7fe7d8ad4"
+
+[wheels."certifi"]
+version = "2026.10.23"
+native_pattern = "(?!)"
+sources = ["certifi-2026.10.23.tar.gz"]
+[wheels."certifi".native]
+
+[wheels."tqdm"]
+version = "4.70.1"
+native_pattern = "(?!)"
+sources = ["tqdm-4.70.1.tar.gz"]
+[wheels."tqdm".native]
+
+[sources."gcc-8.5.0-28.el8_10.alma.1.src.rpm"]
+url = "https://repo.almalinux.org/vault/8.10/BaseOS/Source/Packages/gcc-8.5.0-28.el8_10.alma.1.src.rpm"
+size = 65715094
+sha256 = "c94dbbd2cd6d5d01a5a6822ea18f8ce34942c25a80e17b4682d547d5e652dbd0"
+
+[sources."certifi-2026.10.23.tar.gz"]
+url = "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz"
+size = 136225
+sha256 = "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
+
+[sources."tqdm-4.70.1.tar.gz"]
+url = "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz"
+size = 171846
+sha256 = "cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4"
+
+[sources."torch-repair-wheel.py"]
+url = "https://raw.githubusercontent.com/pytorch/pytorch/v2.14.0/.ci/manywheel/repair_wheel.py"
+size = 19797
+sha256 = "1a32ff030461014d443adf1b4c298bbeab78a89ee9cd5164d214d0bf7de57db5"

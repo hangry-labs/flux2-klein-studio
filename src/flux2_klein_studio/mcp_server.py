@@ -14,6 +14,7 @@ from pydantic import Field
 from .generation_service import MODEL_ALIAS, generate_image as run_generation
 from .presets import Resolution
 from .transport import client_disconnected
+from . import __version__
 
 
 class ResolutionServer(MCPServer):
@@ -44,7 +45,7 @@ class ResolutionServer(MCPServer):
 def create_mcp_server(jobs):
     server = ResolutionServer(
         "flux2-klein-studio",
-        version="0.1.0-dev",
+        version=__version__,
         log_level="WARNING",
         subscriptions=False,
         instructions="Use the currently advertised tools for local image generation. Choose an enabled named resolution; "

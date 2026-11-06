@@ -28,3 +28,9 @@
 **/*.cred
 **/*.key
 **/*.pem
+
+!VERSION
+!NOTICE
+!README.md
+!LICENSE
+!LICENSE.md

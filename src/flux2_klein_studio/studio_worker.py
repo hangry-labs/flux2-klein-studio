@@ -6,13 +6,15 @@ import os
 import time
 from types import SimpleNamespace
 
+from .build_info import offline_default
+
 
 def serve(connection):
     os.environ.setdefault(
         "PYTORCH_ALLOC_CONF",
         os.getenv("PYTORCH_CUDA_ALLOC_CONF") or "expandable_segments:True",
     )
-    if os.getenv("STUDIO_OFFLINE") == "1":
+    if offline_default():
         os.environ["HF_HUB_OFFLINE"] = "1"
     import torch
     from PIL import ImageStat
@@ -34,9 +36,7 @@ def serve(connection):
                 connection.send({"phase": "loading"})
                 report["environment"] = doctor()
                 pipe = load_pipeline(
-                    SimpleNamespace(
-                        offline=os.getenv("STUDIO_OFFLINE") == "1", reduction="ordered"
-                    ),
+                    SimpleNamespace(offline=offline_default(), reduction="ordered"),
                     report,
                 )
             connection.send({"phase": "generating"})

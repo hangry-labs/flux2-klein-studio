@@ -29,6 +29,8 @@ from .images import encode_image
 from .presets import catalog
 from .transport import DisconnectMonitor
 from .resolution_policy import ResolutionPolicy, ResolutionSettings
+from . import __version__
+from .build_info import build_identity
 
 STATIC = Path(__file__).with_name("static")
 ASSETS = Path(__file__).resolve().parents[2] / "assets"
@@ -368,7 +370,7 @@ def create_app(root=Path("/data/outputs/studio")):
 
     app = FastAPI(
         title="FLUX.2 Klein Studio",
-        version="0.1.0-dev",
+        version=__version__,
         lifespan=lifespan,
         docs_url=None,
         redoc_url=None,
@@ -438,7 +440,8 @@ def create_app(root=Path("/data/outputs/studio")):
             "active_job": jobs.active,
             "model": MODEL_ID,
             "revision": MODEL_REVISION,
-            "version": "0.1.0-dev",
+            "version": __version__,
+            "build": build_identity(),
             "model_lifecycle": "Resident worker with configurable idle unload",
             "model_residency": jobs.model.snapshot(),
             "presets": PRESETS,

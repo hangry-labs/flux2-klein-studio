@@ -192,3 +192,41 @@ tasks:
   docker:down:
     desc: Remove project containers/network while preserving model caches
     cmds: [docker compose down]
+
+
+  docker:build:tiny:
+    desc: Build the local download-on-first-use image (no registry push)
+    cmds: [docker build --target tiny -t flux2-klein-studio:tiny .]
+
+  docker:build:full:
+    desc: Build the local full image with pinned model/kernel assets (no registry push)
+    cmds: [docker build --target baked -t flux2-klein-studio:full .]
+
+  docker:build:sources:
+    desc: Collect exact runtime sources and build the local source image
+    cmds: [docker build --target sources -t flux2-klein-studio:sources .]
+
+  docker:evidence:
+    desc: Export runtime notices and model/source manifests into ignored .ci-build
+    cmds:
+      - docker build --target evidence --output type=local,dest=.ci-build/evidence .
+
+  validate:
+    env:
+      PYTHONPATH: "{{.ROOT_DIR}}/src"
+    desc: Run lightweight source, version, publication and release transition checks
+    cmds:
+      - uv run --no-project --python 3.13 --with ruff==0.16.10 ruff check src tests tools
+      - uv run --no-project --python 3.13 --with ruff==0.16.10 ruff format --check src tests tools
+      - uv run --no-project --python 3.13 python tools/check_release.py
+      - uv run --no-project --python 3.13 python -m unittest discover -s tests -p test_publication.py -v
+
+  release:dry-run:
+    desc: Validate promotion and the next snapshot in memory, without changing refs or files
+    cmds:
+      - uv run --no-project --python 3.13 python tools/release.py --dry-run {{.CLI_ARGS}}
+
+  release:
+    desc: Promote snapshot, create annotated tag and next snapshot, atomically push refs (publishes via CI)
+    cmds:
+      - uv run --no-project --python 3.13 python tools/release.py {{.CLI_ARGS}}

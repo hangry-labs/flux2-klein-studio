@@ -198,3 +198,41 @@ send a separate cancellation notification have the limitation described in the
 Run `task api:check` for discovery, `task api:smoke` for paired 1024 generation,
 and `task api:resolutions` for all named sizes. Test artifacts are temporary and
 the probe removes only the jobs it creates; existing gallery files are preserved.
+
+
+## Container publication preparation, 2026-11-06
+
+The local full (`baked`) and tiny image targets were built from the pinned runtime
+stack. Full downloaded the pinned model and the single Linux CUDA kernel variant
+without GPU access during its build. With networking disabled and an initially
+empty application cache, it seeded the bundled assets and generated a 1024×1024
+image. A fresh-container offline restart and a tiny-image offline run against the
+existing cache produced the same RGB pixel hash as the prior studio golden:
+
+```text
+bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440
+```
+
+The prompt was the default greenhouse robot, seed 12345, four steps, ordered
+reduction and expandable allocation. Placement checks kept transformer, encoder
+and VAE on GPU, without application offload, VAE tiling or slicing. This is a
+packaging smoke check on the existing RTX 5070 Ti, rather than a new speed or
+memory benchmark. The initial full-image cache used a temporary host-backed data
+directory because the shared Docker disk was nearly full; it contained no prior
+model cache. No host source mount supplied application code during inference.
+
+All 70 tests passed with GPU access; the CPU image build passed with the two
+numerical GPU tests explicitly skipped. Lightweight publication/release checks,
+release transformation dry runs, Compose validation, Ruff and actionlint v1.7.12
+passed. Runtime notice collection found zero missing-notice items after the
+reviewed wheel supplements. The source image collected and verified 220 files
+(565,799,184 bytes) for 69 Debian source packages and four reviewed wheel packages.
+The exact older tzdata descriptor is recorded in `tools/debian-source-index.txt`;
+archive hash locators retain SHA256 and size verification for downloaded files.
+
+The rebuilt studio passed readiness, OpenAI model/resolution discovery and MCP
+tool discovery, and retained the two existing gallery entries. Container
+qualification logs, generated images and exported build evidence stay in ignored
+`.ci-build/`. No registry publication, Git push or release tag was performed.
+Cross-registry digest verification is implemented and tested with fixtures; actual
+registry identity can only be qualified after an authorized publication succeeds.

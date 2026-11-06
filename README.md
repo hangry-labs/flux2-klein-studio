@@ -14,6 +14,12 @@ prompts and seeds produced pixel-identical images on the tested GPU and pinned
 stack, including after restarting the container. Other GPUs and software versions
 have not been qualified. See [validation](docs/validation.md#ordered-reduction).
 
+Development version **v0.1.0-snapshot**.
+
+Container build and publication follow the [release workflow](docs/RELEASING.md).
+Full images bundle the model; tiny images download it on first use. See the
+[container guide](docs/dockerhub.md) for planned tags and persistent storage.
+
 ## Run locally
 
 Requires Docker with Compose GPU support and NVIDIA GPU access. The current
@@ -231,3 +237,21 @@ Inference runs locally. Initial installation and model/kernel acquisition requir
 network access; prompts are not sent to a hosted image-generation service. Avoid
 misleading impersonation and obtain permission for private or identifying material.
 Generated images can contain errors and do not establish that a depicted event occurred.
+
+
+## Version History
+
+<details open>
+<summary><strong>v0.1.0-snapshot development notes</strong></summary>
+
+### v0.1.0-snapshot
+
+Initial development snapshot. Registry images have not been published yet.
+
+- Local text-to-image CLI, browser studio, gallery controls and model residency.
+- OpenAI-compatible image generation and MCP with configurable named sizes.
+- Ordered reductions, expandable allocation and separated memory/speed/seed benchmarks.
+- Full/tiny Docker targets, matching Docker Hub/GHCR publication, corresponding
+  sources, provenance, SBOM, digest verification and release dry runs.
+
+</details>

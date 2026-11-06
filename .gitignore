@@ -12,6 +12,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .task/
+.ci-build/
+dist/
 outputs/
 .cache/
 models/

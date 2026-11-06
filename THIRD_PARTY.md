@@ -24,3 +24,39 @@ files. The downloaded model snapshot includes LICENSE.md. Kernel files are acqui
 separately through the Hugging Face cache. Review complete transitive dependencies
 and redistribution notices before publishing a container release or baking weights
 into an image. Model licensing does not assign a license to this application's source.
+
+
+## Container publication evidence
+
+Full images bundle the pinned public model snapshot and matching Linux CUDA
+kernel. Tiny images download these into the persistent cache when first needed.
+The full image retains model LICENSE.md and kernel notices in that cache.
+Both variants include `/app/licenses/runtime/inventory.json`, Python/Debian
+license files and source-package identities. The workflow collects exact Debian
+sources and reviewed wheel sources in a separate `*_sources` image before
+publishing application images. Its manifest and checksums describe the evidence;
+they are not automatic legal approval. CUDA/NVIDIA components retain their own
+redistribution terms. Source collection does not relicense the combined image.
+
+The torch 2.14 CUDA wheel's libgomp ELF build ID matches AlmaLinux
+`gcc-8.5.0-28.el8_10.alma.1`; the debuglink identifies the same build. The wheel's
+binary hash differs after wheel repair and is checked independently. NumPy's
+bundled Fortran/quadmath hashes match the reviewed Faster Qwen source inventory.
+`tools/runtime_sources.toml` binds the reviewed versions, native hashes and source
+archives. Dependency changes require updating this review.
+
+Publication planning, release promotion, runtime license/source collection and
+cache merge logic are adapted from Faster Qwen3 TTS Studio; the original MIT
+notice is retained in `licenses/faster-qwen-MIT.txt`.
+
+## Supplemental notices for installed wheels
+
+These exact installed wheels omit a license file from RECORD. The upstream
+versioned license texts are retained under licenses/; this table fills only the
+identified packaging gaps. Other versions require a fresh review.
+
+| Package | Supplemental notice |
+| --- | --- |
+| kernels 0.18.1 | Hugging Face kernels, Apache-2.0; `licenses/kernels-Apache-2.0.txt`, from upstream v0.18.1/LICENSE. |
+| tokenizers 0.23.3 | Hugging Face tokenizers, Apache-2.0; `licenses/tokenizers-Apache-2.0.txt`, from upstream v0.23.3/LICENSE. |
+| cuda-toolkit 13.0.3.0 | NVIDIA metadata-only package: its RECORD contains only dist-info, no software payload. Installed NVIDIA component wheels supply their own license notices, collected separately. |

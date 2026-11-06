@@ -1,0 +1,6 @@
+# Isolated ephemeral GitHub-hosted builder only.
+[worker.oci]
+gc = true
+reservedSpace = "35GB"
+maxUsedSpace = "55GB"
+minFreeSpace = "10GB"

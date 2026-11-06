@@ -1,13 +1,13 @@
 services:
   studio:
-    image: flux2-klein-studio:dev
+    image: ${STUDIO_IMAGE:-flux2-klein-studio:dev}
     build:
       context: .
-      target: runtime
+      target: ${STUDIO_BUILD_TARGET:-tiny}
     gpus: all
     init: true
     environment:
-      STUDIO_OFFLINE: ${STUDIO_OFFLINE:-0}
+      STUDIO_OFFLINE: ${STUDIO_OFFLINE:-}
       STUDIO_API_KEY: ${STUDIO_API_KEY:-}
       STUDIO_ALLOWED_HOSTS: "${STUDIO_ALLOWED_HOSTS:-localhost,127.0.0.1,[::1],testserver}"
     volumes:

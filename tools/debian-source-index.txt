@@ -1,0 +1,16 @@
+# Reviewed descriptor from https://deb.debian.org/debian/pool/main/t/tzdata/tzdata_2026e-0+deb13u1.dsc
+# SHA256 d30d2263399c388a0903ee15114a80ee4583464faaa8fc08f753739ca5841cd6; retained verbatim in the source image.
+# This supplements the rolling index only for the pinned older base package.
+Package: tzdata
+Version: 2026e-0+deb13u1
+Directory: pool/main/t/tzdata
+Checksums-Sha1:
+ 119a62cdde6126115c42c733be1db12d0ee8d11e 481989 tzdata_2026e.orig.tar.gz
+ 77d5204f862de12e83acf3a891274f8ebfa185cf 833 tzdata_2026e.orig.tar.gz.asc
+ a2c0b1ac45b63360b576b49ec8313ad1d7161283 128776 tzdata_2026e-0+deb13u1.debian.tar.xz
+ 5ba8e7facbcf78ad0800c77b4231bd51dd033f66 2466 tzdata_2026e-0+deb13u1.dsc
+Checksums-Sha256:
+ b26882805f26aac59d5b222978e6580484b834ccdc98be89df2f05a6dc53a652 481989 tzdata_2026e.orig.tar.gz
+ 91b37052145786c4a238115bc69f5edb947d9cdd19164910c40c249be27a7eda 833 tzdata_2026e.orig.tar.gz.asc
+ 5d14cd956e43a40b887413c6fe2de79036179648ef7f35aa7498b3bb1008e4bb 128776 tzdata_2026e-0+deb13u1.debian.tar.xz
+ d30d2263399c388a0903ee15114a80ee4583464faaa8fc08f753739ca5841cd6 2466 tzdata_2026e-0+deb13u1.dsc

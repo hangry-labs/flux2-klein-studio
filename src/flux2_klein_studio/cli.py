@@ -7,8 +7,9 @@ import os
 import subprocess
 from pathlib import Path
 
-MODEL_ID = "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32"
-MODEL_REVISION = "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216"
+from .model_catalog import MODEL_ID, MODEL_REVISION
+from .build_info import offline_default
+
 DEFAULT_PROMPT = "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed"
 DEFAULT_RESOLUTIONS = "512x512,768x768,1024x1024,1280x1280,1536x1024,1024x1536,1920x1088,1088x1920,1536x1536"
 
@@ -119,7 +120,9 @@ def parser():
             command.add_argument("--width", type=dimension, default=1024)
             command.add_argument("--height", type=dimension, default=1024)
         command.add_argument("--output-dir", type=Path, default=Path("/data/outputs"))
-        command.add_argument("--offline", action="store_true")
+        command.add_argument(
+            "--offline", action="store_true", default=offline_default()
+        )
         command.add_argument(
             "--save-images",
             action="store_true",
