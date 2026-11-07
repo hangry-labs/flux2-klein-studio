@@ -6,6 +6,28 @@ from types import SimpleNamespace
 
 from .build_info import offline_default
 
+WORKSPACE_IDLE_SECONDS = 1.0
+
+
+def trim_workspace(torch, report, reason):
+    """Return unused CUDA blocks without releasing live model/adapter tensors."""
+    start = time.perf_counter()
+    torch.cuda.synchronize()
+    before = {
+        "allocated_bytes": torch.cuda.memory_allocated(),
+        "reserved_bytes": torch.cuda.memory_reserved(),
+    }
+    torch.cuda.empty_cache()
+    report["last_workspace_trim"] = {
+        "reason": reason,
+        "before": before,
+        "after": {
+            "allocated_bytes": torch.cuda.memory_allocated(),
+            "reserved_bytes": torch.cuda.memory_reserved(),
+        },
+        "seconds": time.perf_counter() - start,
+    }
+
 
 def serve(connection):
     os.environ.setdefault(
@@ -29,8 +51,15 @@ def serve(connection):
     pipe = None
     current_adapter = None
     report = {}
+    cache_dirty = False
+    previous_workload = 0
     while True:
         try:
+            # Queued work reuses the allocator. Return spare blocks once the
+            # worker is quiet, without restarting the model's idle-unload timer.
+            if cache_dirty and not connection.poll(WORKSPACE_IDLE_SECONDS):
+                trim_workspace(torch, report, "idle")
+                cache_dirty = False
             settings = connection.recv()
         except EOFError:
             break
@@ -46,8 +75,8 @@ def serve(connection):
                 # Lifecycle commands do not denoise, decode, or create outputs.
                 # Release unused allocator blocks while keeping model tensors.
                 check_residency(pipe)
-                torch.cuda.synchronize()
-                torch.cuda.empty_cache()
+                trim_workspace(torch, report, settings["_operation"])
+                cache_dirty = False
                 connection.send({"phase": "completed", "report": report})
                 continue
             reference = None
@@ -66,7 +95,8 @@ def serve(connection):
                 connection.send({"phase": "loading"})
                 remove_lora(pipe.transformer)
                 report.pop("lora", None)
-                torch.cuda.empty_cache()
+                trim_workspace(torch, report, "adapter-change")
+                cache_dirty = False
                 if selected_adapter:
                     report["lora"] = load_adapter(
                         pipe.transformer, selected_adapter, offline=offline_default()
@@ -74,6 +104,14 @@ def serve(connection):
                 current_adapter = selected_adapter
                 report["quantization"] = check_quantization(pipe)
                 report["placement"] = check_residency(pipe)
+            workload = settings["width"] * settings["height"]
+            if settings.get("reference"):
+                workload += (
+                    settings["reference"]["width"] * settings["reference"]["height"]
+                )
+            if cache_dirty and workload < previous_workload:
+                trim_workspace(torch, report, "smaller-workload")
+                cache_dirty = False
             if settings.get("_reference_path"):
                 with Image.open(settings["_reference_path"]) as source:
                     reference = source.convert("RGB")
@@ -107,6 +145,10 @@ def serve(connection):
                 raise RuntimeError("Generation produced an invalid image")
             check_residency(pipe)
             report["placement_after_generation"] = check_residency(pipe)
+            report["allocator_after_generation"] = {
+                "allocated_bytes": torch.cuda.memory_allocated(),
+                "reserved_bytes": torch.cuda.memory_reserved(),
+            }
             recipe = {
                 **{
                     key: value
@@ -119,6 +161,8 @@ def serve(connection):
                 "guidance_scale": 1.0,
                 **({"lora": report["lora"]} if current_adapter else {}),
             }
+            cache_dirty = True
+            previous_workload = workload
             connection.send(
                 {
                     "phase": "completed",

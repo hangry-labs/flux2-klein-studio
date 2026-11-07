@@ -98,6 +98,9 @@ development images use `latest` and `latest_tiny`. The browser uses port 7860; C
 remain available. Check **Save result to gallery** to retain an image and recipe
 under `outputs/studio/`; otherwise the result is a temporary downloadable preview.
 System controls the model idle timeout (five minutes by default) and manual unload.
+Unused GPU working memory is released after a short pause and before smaller
+generations, while model and adapter weights remain loaded. System also offers
+**Release unused VRAM** for immediate cleanup.
 Random seed starts enabled and chooses a new seed per generation; switch it off
 to repeat a fixed seed. Downloads offer original PNG, lossless WebP and JPEG.
 See the [capability review](docs/model-capabilities.md) for model features we could

@@ -204,6 +204,7 @@ async function residencyStatus() {
       else runtimeState(model.state === 'error' ? 'error' : ['loading', 'unloading'].includes(model.state) ? 'busy' : 'ready', model.state === 'ready' ? 'Model loaded · Ready' : model.state === 'unloaded' ? 'Ready to load' : `Model ${model.state}`);
     }
     $('unload-model').disabled = Boolean(status.active_job) || model.state === 'unloaded';
+    $('trim-workspace').disabled = Boolean(status.active_job) || model.state === 'unloaded';
   } catch { /* Keep prior state during reconnects. */ }
 }
 $('save-residency').onclick = async () => {
@@ -213,5 +214,6 @@ $('save-residency').onclick = async () => {
   } catch(error) {$('settings-message').textContent = error.message;}
 };
 $('unload-model').onclick = async () => {try {await request('/api/model/unload', {method:'POST'}); await residencyStatus();} catch(error) {message(error.message);}};
+$('trim-workspace').onclick = async () => {try {const model = await request('/api/model/trim', {method:'POST'}); $('settings-message').textContent = model.state === 'unloaded' ? 'The model is already unloaded.' : 'Unused GPU memory released. Model weights remain loaded.'; await residencyStatus();} catch(error) {$('settings-message').textContent = error.message;}};
 request('/api/settings').then(settings => {$('idle-seconds').value = settings.idle_seconds;}).catch(error => message(error.message));
 setInterval(residencyStatus, 2000);

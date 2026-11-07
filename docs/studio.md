@@ -109,6 +109,18 @@ and release its weights. The next request then loads a fresh worker. Loading and
 the first kernel compilation are additional to the displayed generation time.
 CLI commands and benchmark workers retain their existing lifecycle.
 
+Unused temporary GPU memory is released automatically after one second without
+another inference request, and before switching to a smaller workload. This
+releases PyTorch's unused cached blocks while retaining loaded model and adapter
+weights. A continuous queue at the same size reuses its working buffers. The next
+request after a release may need to allocate those buffers again.
+
+**Release unused VRAM** in System performs the same cleanup immediately without
+unloading weights. **Unload now** releases the model as well. GPU telemetry includes
+other applications, driver allocations and the loaded model, so idle usage will
+not fall to zero. Automatic cache cleanup does not restart the idle-unload timer
+and also runs when the keep-loaded policy is enabled.
+
 ## Gallery and files
 
 **Save result to gallery** is unchecked by default. An unchecked generation remains
@@ -201,6 +213,7 @@ with named resolution presets. These share the browser worker and gallery opt-in
 | `GET /api/settings`, `PUT /api/settings` | Read/save the model idle timeout |
 | `GET /api/resolutions`, `PUT /api/resolutions` | Reference VRAM table and persistent enabled agent presets |
 | `POST /api/model/unload` | Release idle model weights; rejected during generation |
+| `POST /api/model/trim` | Release unused cached GPU memory while keeping model/adapter weights; rejected during generation |
 | `GET /api/jobs/{id}` | Progress or terminal state |
 | `POST /api/jobs/{id}/cancel` | Cancel an active worker |
 | `GET /api/jobs/{id}/image` | Completed PNG only |
