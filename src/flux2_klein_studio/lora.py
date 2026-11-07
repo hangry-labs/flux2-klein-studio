@@ -8,7 +8,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from .adapters import PIXEL_ART
+from .adapters import ADAPTERS
+from .adapters import PIXEL_ART as PIXEL_ART
 
 
 class AdditiveLoRALinear(nn.Module):
@@ -159,30 +160,35 @@ def remove_lora(transformer):
                 setattr(parent, name, module.base)
 
 
-def load_pixel_art(transformer, *, offline=False, strength=1.0):
-    """Load only the pinned, hash-verified pilot adapter; never execute Hub code."""
+def load_adapter(transformer, adapter, *, offline=False, strength=1.0):
+    """Load a curated, hash-verified adapter; never execute Hub code."""
     from diffusers import Flux2KleinPipeline
     from huggingface_hub import hf_hub_download
 
+    weights = ADAPTERS[adapter]["weights"]
     hf_hub_download(
-        PIXEL_ART["repository"],
-        "LICENSE",
-        revision=PIXEL_ART["revision"],
+        weights["repository"],
+        weights.get("license_file", "LICENSE"),
+        revision=weights["revision"],
         local_files_only=offline,
     )
     path = Path(
         hf_hub_download(
-            PIXEL_ART["repository"],
-            PIXEL_ART["filename"],
-            revision=PIXEL_ART["revision"],
+            weights["repository"],
+            weights["filename"],
+            revision=weights["revision"],
             local_files_only=offline,
         )
     )
     with path.open("rb") as stream:
-        if hashlib.file_digest(stream, "sha256").hexdigest() != PIXEL_ART["sha256"]:
-            raise ValueError("Pixel-art adapter file does not match its pinned hash")
+        if hashlib.file_digest(stream, "sha256").hexdigest() != weights["sha256"]:
+            raise ValueError(f"{adapter} adapter file does not match its pinned hash")
     state, metadata = Flux2KleinPipeline.lora_state_dict(
         str(path), use_safetensors=True, return_lora_metadata=True
     )
     details = install_lora(transformer, state, metadata, strength)
-    return {**PIXEL_ART, **details}
+    return {**weights, **details}
+
+
+def load_pixel_art(transformer, *, offline=False, strength=1.0):
+    return load_adapter(transformer, "pixel-art", offline=offline, strength=strength)

@@ -8,7 +8,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from flux2_klein_studio.adapters import compose_prompt
+from flux2_klein_studio.adapters import ADAPTERS, cached, compose_prompt
 from flux2_klein_studio.server import create_app
 
 
@@ -18,13 +18,14 @@ class AdapterTests(unittest.TestCase):
             patch.dict(os.environ, {"STUDIO_OFFLINE": "1"}),
             patch("huggingface_hub.try_to_load_from_cache", return_value=None),
         ):
-            profile = self.client.get("/api/status").json()["adapters"][0]
-            self.assertFalse(profile["available"])
-            response = self.client.post(
-                "/api/jobs", json={"prompt": "robot", "adapter": "pixel-art"}
-            )
-            self.assertEqual(response.status_code, 503)
-            self.assertIn("STUDIO_OFFLINE=0", response.json()["detail"])
+            for profile in self.client.get("/api/status").json()["adapters"]:
+                with self.subTest(adapter=profile["id"]):
+                    self.assertFalse(profile["available"])
+                    response = self.client.post(
+                        "/api/jobs", json={"prompt": "robot", "adapter": profile["id"]}
+                    )
+                    self.assertEqual(response.status_code, 503)
+                    self.assertIn("STUDIO_OFFLINE=0", response.json()["detail"])
         self.assertEqual(self.calls, [])
 
     def setUp(self):
@@ -76,6 +77,66 @@ class AdapterTests(unittest.TestCase):
             ", game asset, solid green screen background, flat uniform green background, isolated character",
         )
         self.assertEqual(self.calls, [])
+
+    def test_koni_prompt_matches_browser_http_and_mcp_without_green_background(self):
+        description = "A traveler in a snowy mountain village at night"
+        expected = "anime_style, " + description
+        request = {"prompt": description, "adapter": "koni-anime"}
+        response = self.client.post("/api/jobs", json={**request, "save_gallery": True})
+        self.assertEqual(response.status_code, 202, response.text)
+        browser = self.completed(response.json()["id"])["settings"]
+        response = self.client.post(
+            "/v1/images/generations", json={**request, "size": "square_small"}
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        http = response.json()["studio"]
+        response = self.client.post(
+            "/mcp/",
+            headers={"Accept": "application/json, text/event-stream"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "generate_image",
+                    "arguments": {**request, "resolution": "square_small"},
+                },
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        mcp = response.json()["result"]["structuredContent"]
+        for settings in (browser, http, mcp):
+            self.assertEqual(settings["prompt"], description)
+            self.assertEqual(settings["effective_prompt"], expected)
+            self.assertEqual(
+                settings["adapter_profile"]["weights"]["repository"],
+                "Sawata97/flux2_4b_koni_animestyle",
+            )
+            self.assertEqual(settings["adapter_profile"]["suffix"], "")
+        self.assertEqual(len(self.calls), 3)
+        for adapter in ADAPTERS:
+            response = self.client.post(
+                "/v1/images/edits",
+                json={
+                    "prompt": "change it",
+                    "adapter": adapter,
+                    "source_job_id": "a" * 32,
+                },
+            )
+            self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(self.calls), 3)
+
+    def test_koni_cache_retains_its_model_card_license_declaration(self):
+        with patch(
+            "huggingface_hub.try_to_load_from_cache",
+            side_effect=lambda repo, filename, **kwargs: (
+                "/cached/" + filename
+                if filename in {"Flux_klein_4b_anime_Koni.safetensors", "README.md"}
+                else None
+            ),
+        ):
+            self.assertTrue(cached("koni-anime"))
+            self.assertFalse(cached("pixel-art"))
 
     def test_browser_job_preserves_description_and_replay_does_not_double_wrap(self):
         request = {
@@ -192,7 +253,7 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200, response.text)
             return response.json()["result"]
 
-        from flux2_klein_studio.mcp_server import SKILL_URI, SKILL_PATH
+        from flux2_klein_studio.mcp_server import SKILL_URI, SKILL_PATH, SKILL_VERSION
 
         with patch(
             "subprocess.Popen", side_effect=AssertionError("Unexpected model load")
@@ -213,7 +274,7 @@ class AdapterTests(unittest.TestCase):
             self.assertFalse(result.get("isError", False))
             guide = result["structuredContent"]
             self.assertTrue(guide["skill_loaded"])
-            self.assertEqual(guide["skill_version"], "1")
+            self.assertEqual(guide["skill_version"], SKILL_VERSION)
             self.assertEqual(guide["default_resolution"], "square_small")
             self.assertEqual([r["id"] for r in guide["resolutions"]], ["square_small"])
             self.assertEqual(guide["adapters"][0]["id"], "pixel-art")

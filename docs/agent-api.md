@@ -154,7 +154,8 @@ endpoint or a prompt-list field; send concurrent requests for different prompts.
 
 ## Style adapters
 
-Generation also accepts the local extension `adapter: "pixel-art"` through
+Generation also accepts the local extension `adapter: "pixel-art"` or
+`adapter: "koni-anime"` through
 `POST /v1/images/generations` and MCP `generate_image`. Put only the user's
 description in `prompt`; the server adds the fixed trigger text. For example:
 
@@ -170,9 +171,13 @@ HTTP `size`:
 {"prompt":"a brave knight holding a sword","adapter":"pixel-art","resolution":"square_big","seed":12345}
 ```
 
-The server adds the sprite trigger words and green-screen background wording.
+For Pixel Art, the server adds the sprite trigger words and green-screen background wording.
 Do not include the adapter template in `prompt`. The result is RGB with a green
 background; automatic background removal and alpha output are not implemented.
+For Koni Anime, set `adapter: "koni-anime"` instead. The server prepends
+`anime_style, ` with no fixed suffix; describe the scene and background normally.
+Both styles use strength 1. Switch by choosing the adapter for each request;
+the worker replaces the previous adapter automatically.
 Omitting `adapter` uses the base model without prompt wrapping. Adapter selection
 is currently text-to-image only; edit requests reject it. See the
 [adapter guide](lora.md) for caching, fixed strength and export details.

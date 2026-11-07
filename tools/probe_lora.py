@@ -24,7 +24,8 @@ from flux2_klein_studio.inference import (
     memory,
     write_json,
 )
-from flux2_klein_studio.lora import AdditiveLoRALinear, load_pixel_art, remove_lora
+from flux2_klein_studio.lora import AdditiveLoRALinear, load_adapter, remove_lora
+from flux2_klein_studio.adapters import ADAPTERS
 from flux2_klein_studio.cli import doctor
 
 PROMPTS = [
@@ -33,16 +34,36 @@ PROMPTS = [
     "pixel art sprite, a fire-breathing dragon with red scales and spread wings, game asset, plain white background, 16-bit pixel art",
 ]
 
+KONI_PROMPTS = [
+    "anime_style, a young adult woman with long light blue wavy hair and emerald green eyes, wearing a white short-sleeved shirt and navy blue pleated skirt, sitting on grass beneath a leafy tree, relaxed hands resting on her knees, dappled sunlight, peaceful expression, lush park in the background",
+    "anime_style, a tiny orange robot tending orchids inside a sunlit glass greenhouse, cinematic composition, lush leaves and detailed glass reflections",
+    "anime_style, an adult traveler with a red backpack standing in a golden field, looking toward a colossal futuristic ring above a distant hill town, blue sky and soft clouds, wide environmental illustration",
+]
 
-def gallery(output, report):
+
+def gallery(output, report, prompts):
     rows = []
-    for index, prompt in enumerate(PROMPTS, 1):
+    adapter = report["adapter_id"]
+    label = html.escape(ADAPTERS[adapter]["label"])
+    for index, prompt in enumerate(prompts, 1):
         rows.append(
             f"<h2>Seed {12344 + index}</h2><p>{html.escape(prompt)}</p>"
             f'<div class="pair"><figure><figcaption>Base model</figcaption><a href="{index:02}-base.png"><img src="{index:02}-base.png" alt="Base result"></a></figure>'
-            f'<figure><figcaption>Pixel-art LoRA, strength 1</figcaption><a href="{index:02}-pixel-art.png"><img src="{index:02}-pixel-art.png" alt="LoRA result"></a></figure></div>'
+            f'<figure><figcaption>{label}, strength 1</figcaption><a href="{index:02}-{adapter}.png"><img src="{index:02}-{adapter}.png" alt="LoRA result"></a></figure></div>'
         )
-    text = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel-art LoRA comparisons</title><style>body{font:16px system-ui;background:#111214;color:#f3f3f4;max-width:1300px;margin:auto;padding:24px}p{line-height:1.6}.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}figure{margin:0}figcaption{padding:10px 0}img{width:100%;display:block}a{color:#ff984d}@media(max-width:600px){.pair{grid-template-columns:1fr}}</style><h1>Pixel-art LoRA comparisons</h1><p>1024×1024 · 4 steps · matched prompts and seeds · ordered NVFP4 + NF4 · no offloading</p><p>The prompt itself already asks for pixel art. Compare how the adapter changes the result; this is not a claim of universal quality improvement.</p>'
+    text = (
+        '<!doctype html><html lang="en"><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f"<title>{label} comparisons</title>"
+        "<style>body{font:16px system-ui;background:#111214;color:#f3f3f4;max-width:1300px;margin:auto;padding:24px}"
+        "p{line-height:1.6}.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px}figure{margin:0}"
+        "figcaption{padding:10px 0}img{width:100%;display:block}a{color:#ff984d}"
+        "@media(max-width:600px){.pair{grid-template-columns:1fr}}</style>"
+        f"<h1>{label} comparisons</h1>"
+        "<p>1024×1024 · 4 steps · matched prompts and seeds · ordered NVFP4 + NF4 · no offloading</p>"
+        "<p>Both images use the same prompt, including style trigger words. Compare how the adapter changes the result; "
+        "this is not a claim of universal quality improvement.</p>"
+    )
     text += f'<p>Adapter weight allocation: {report["adapter_allocation_delta_bytes"] / 1024**2:.2f} MiB. <a href="report.json">Full diagnostic report</a></p>'
     (output / "index.html").write_text(
         text + "".join(rows) + "</html>", encoding="utf-8"
@@ -51,15 +72,18 @@ def gallery(output, report):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--adapter", choices=tuple(ADAPTERS), default="pixel-art")
     parser.add_argument("--offline", action="store_true")
-    parser.add_argument(
-        "--output-dir", type=Path, default=Path("/data/outputs/lora-pixel-art")
-    )
+    parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
-    output = args.output_dir / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    prompts = KONI_PROMPTS if args.adapter == "koni-anime" else PROMPTS
+    output = (
+        args.output_dir or Path(f"/data/outputs/lora-{args.adapter}")
+    ) / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     output.mkdir(parents=True, exist_ok=False)
     report = {
         "status": "starting",
+        "adapter_id": args.adapter,
         "visual_review": "required",
         "width": 1024,
         "height": 1024,
@@ -79,16 +103,16 @@ def main():
         report["base_loaded_memory"] = memory()
         for profile in (
             "base",
-            "pixel-art",
-            "pixel-art-repeat",
+            args.adapter,
+            args.adapter + "-repeat",
             "zero-strength",
             "removed",
         ):
-            if profile == "pixel-art":
+            if profile == args.adapter:
                 torch.cuda.empty_cache()
                 before = torch.cuda.memory_allocated()
-                report["adapter"] = load_pixel_art(
-                    pipe.transformer, offline=args.offline
+                report["adapter"] = load_adapter(
+                    pipe.transformer, args.adapter, offline=args.offline
                 )
                 torch.cuda.synchronize()
                 report["adapter_allocation_delta_bytes"] = (
@@ -108,7 +132,7 @@ def main():
                 "placement": check_residency(pipe),
             }
             for index, prompt in enumerate(
-                PROMPTS if profile in ("base", "pixel-art") else PROMPTS[:1], 1
+                prompts if profile in ("base", args.adapter) else prompts[:1], 1
             ):
                 seed = 12344 + index
                 torch.cuda.reset_peak_memory_stats()
@@ -140,7 +164,7 @@ def main():
                         {
                             **row,
                             "adapter": report.get("adapter")
-                            if profile.startswith("pixel-art")
+                            if profile.startswith(args.adapter)
                             else None,
                         }
                     ),
@@ -155,16 +179,16 @@ def main():
                     and pixel_hash != hashes["base", index]
                 ):
                     raise RuntimeError(f"{profile} differs from base pixels")
-                if profile == "pixel-art" and pixel_hash == hashes["base", index]:
+                if profile == args.adapter and pixel_hash == hashes["base", index]:
                     raise RuntimeError("Adapter had no effect")
                 if (
-                    profile == "pixel-art-repeat"
-                    and pixel_hash != hashes["pixel-art", index]
+                    profile == args.adapter + "-repeat"
+                    and pixel_hash != hashes[args.adapter, index]
                 ):
                     raise RuntimeError("Adapter repeat changed pixels")
                 print(json.dumps(row), flush=True)
         report["status"] = "numerical_checks_passed"
-        gallery(output, report)
+        gallery(output, report, prompts)
     except Exception as exc:
         report["status"] = "failed"
         report["error"] = f"{type(exc).__name__}: {exc}"

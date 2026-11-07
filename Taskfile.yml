@@ -82,6 +82,16 @@ tasks:
     cmds:
       - docker compose run --rm --entrypoint python studio tools/probe_lora.py {{.CLI_ARGS}}
 
+  lora:koni-anime:
+    desc: Generate a 1024-default anime illustration with the pinned Koni LoRA
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio generate --lora koni-anime --lora-strength {{.STRENGTH | default "1"}} --width {{.WIDTH}} --height {{.HEIGHT}} --seed {{.SEED}} --steps {{.STEPS}} --prompt "anime_style, an adult traveler with a red backpack in a snowy mountain village at night, warm window lights" {{.CLI_ARGS}}
+
+  lora:koni-check:
+    desc: Compare three Koni/base pairs and repeat/zero/removal controls at 1024
+    cmds:
+      - docker compose run --rm --entrypoint python studio tools/probe_lora.py --adapter koni-anime {{.CLI_ARGS}}
+
   benchmark:
     desc: Measure warmed speed at one resolution (no VRAM sampling or seed assertion)
     aliases: [bench]

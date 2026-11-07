@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .model_catalog import MODEL_ID, MODEL_REVISION
 from .build_info import offline_default
+from .adapters import ADAPTERS
 
 DEFAULT_PROMPT = "A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed"
 DEFAULT_RESOLUTIONS = "512x512,768x768,1024x1024,1280x1280,1536x1024,1024x1536,1920x1088,1088x1920,1536x1536"
@@ -142,8 +143,8 @@ def parser():
         if name == "generate":
             command.add_argument(
                 "--lora",
-                choices=("pixel-art",),
-                help="Experimental pinned pixel-art adapter (CLI pilot)",
+                choices=tuple(ADAPTERS),
+                help="Curated pinned style adapter; CLI prompts include trigger words verbatim",
             )
             command.add_argument(
                 "--lora-strength",

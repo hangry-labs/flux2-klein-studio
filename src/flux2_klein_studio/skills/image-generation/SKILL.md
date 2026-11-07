@@ -1,8 +1,8 @@
 ---
 name: flux2-klein-image-generation
-description: Generate images or refine an existing picture with FLUX.2 Klein Studio's MCP tools, including its curated Pixel Art adapter.
+description: Generate images or refine an existing picture with FLUX.2 Klein Studio's MCP tools, including its curated Pixel Art and Koni Anime adapters.
 metadata:
-  version: "1"
+  version: "2"
 ---
 
 # FLUX.2 Klein Studio image skill
@@ -22,6 +22,9 @@ there is no guide token to pass to generation.
 - For pixel-art character sprites, use `generate_image` with
   `adapter: "pixel-art"` when that style matches the request. The skill result
   includes current adapter availability; do not select an unavailable adapter.
+- For anime illustrations, use `generate_image` with `adapter: "koni-anime"`
+  when that style matches the request. It supports character and scene
+  descriptions without Pixel Art's fixed green-screen background.
 - Omit `adapter` for ordinary base-model generation. Only adapters advertised
   by this server are supported; arbitrary LoRA names, uploads, strengths and
   adapter stacking are not exposed by these tools.
@@ -45,7 +48,7 @@ background as part of this adapter's normal workflow. Its output is RGB with a
 green background, not an alpha channel. Exact green RGB/hex values are not
 guaranteed. Background removal is not implemented. If the user specifically
 wants a scene background, explain this adapter's fixed green-screen behaviour
-and use base-model generation when appropriate.
+and choose Koni for anime illustration or the base model as appropriate.
 
 Example `generate_image` arguments:
 
@@ -57,6 +60,27 @@ Example `generate_image` arguments:
   "output_format": "png"
 }
 ```
+
+For Koni Anime, supply your description without the trigger. The server builds:
+
+```text
+anime_style, [your description]
+```
+
+Koni has no fixed suffix or green background requirement. Describe the setting,
+background and lighting you want. For example:
+
+```json
+{
+  "prompt": "an adult traveler with a red backpack in a snowy mountain village at night, warm window lights",
+  "adapter": "koni-anime",
+  "resolution": "square_big"
+}
+```
+
+Both adapters use fixed strength 1 in MCP/HTTP. Only one adapter is active for an
+image. Switching adapter, returning to the base model or refining an image is
+handled by the service; do not ask the user to unload weights manually.
 
 ## Choose a size and seed
 
@@ -80,7 +104,7 @@ Call `refine_image` with the change in `prompt` and exactly one of:
   transferring between replicas.
 
 Refine uses the base model and does not accept an adapter. It can take a Pixel
-Art result as a reference, but it does not keep that LoRA loaded for the edit.
+Art or Koni result as a reference, but it does not keep that LoRA loaded for the edit.
 Masks, inpainting strength and multiple references are not exposed. For another
 edit, use the latest returned image as the next reference. IDs are instance-local;
 do not assume a different load-balanced instance can resolve them.
@@ -105,7 +129,7 @@ training, arbitrary adapters or exact pixel-level edits.
 
 The same workflows are available at `POST /v1/images/generations` and
 `POST /v1/images/edits`. Use HTTP `size` for the named preset; MCP calls use
-`resolution`. HTTP generation accepts the same `adapter: "pixel-art"` and bare
+`resolution`. HTTP generation accepts the same `adapter` choice and bare
 `prompt`; the server adds the template. Use the deployment's configured base URL
 and bearer authentication if enabled. Read the live schemas and resolution
 catalog instead of copying instance-local settings into requests.

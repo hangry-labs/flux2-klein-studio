@@ -50,13 +50,20 @@ Publication planning, release promotion, runtime license/source collection and
 cache merge logic are adapted from Faster Qwen3 TTS Studio; the original MIT
 notice is retained in `licenses/faster-qwen-MIT.txt`.
 
-## Optional pixel-art adapter
+## Optional style adapters
 
 The optional pixel-art LoRA pilot downloads
 [Limbicnation/pixel-art-lora](https://huggingface.co/Limbicnation/pixel-art-lora),
 an Apache-2.0 adapter, at the revision and hash in [the pilot guide](docs/lora.md).
 Its license is retained beside its cached weights. The adapter is not baked into
 the standard or tiny image; existing base-model and dependency terms still apply.
+
+The optional [Koni Anime adapter](https://huggingface.co/Sawata97/flux2_4b_koni_animestyle)
+declares Apache-2.0 in its model card. Its pinned revision, filename and SHA-256
+are recorded in [the adapter guide](docs/lora.md). The repository has no separate
+LICENSE file; its pinned README license declaration is retained with the cached
+weights. Koni is also downloaded only on use, without baking its weights into
+either image variant.
 
 ## Supplemental notices for installed wheels
 

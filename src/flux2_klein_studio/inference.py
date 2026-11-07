@@ -243,10 +243,11 @@ def load_pipeline(arguments, report):
             raise RuntimeError(f"Expected 100 ordered SVDQ modules, got {replaced}")
         report["ordered_modules"] = replaced
     if getattr(arguments, "lora", None):
-        from .lora import load_pixel_art
+        from .lora import load_adapter
 
-        report["lora"] = load_pixel_art(
+        report["lora"] = load_adapter(
             pipe.transformer,
+            arguments.lora,
             offline=arguments.offline,
             strength=arguments.lora_strength,
         )
@@ -334,10 +335,10 @@ def run(arguments):
             {"jobs": selected_jobs, "reference": reference_metadata}
         )
     if getattr(arguments, "lora", None):
-        from .lora import PIXEL_ART
+        from .adapters import ADAPTERS
 
         report["generation_profile"]["lora"] = {
-            **PIXEL_ART,
+            **ADAPTERS[arguments.lora]["weights"],
             "strength": arguments.lora_strength,
         }
         report["source_sha256"]["lora.py"] = file_sha256(

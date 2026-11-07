@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .cli import MODEL_ID
+from .adapters import Adapter
 from .generation_service import MODEL_ALIAS, MAX_BATCH, generate_images
 from .presets import catalog, resolve_size
 from .schemas import Generation
@@ -43,7 +44,7 @@ class ImageRequest(BaseModel):
     stream: Literal[False] = False
     seed: int | None = Field(default=None, ge=0, le=2**53 - 1)
     save_gallery: bool = False
-    adapter: Literal["pixel-art"] | None = Field(
+    adapter: Adapter | None = Field(
         default=None,
         description="Curated style adapter; prompt is the description and fixed trigger text is added automatically.",
     )

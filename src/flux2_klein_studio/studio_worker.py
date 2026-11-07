@@ -61,15 +61,15 @@ def serve(connection):
                     "Adapter prompt/identity does not match its job snapshot"
                 )
             if selected_adapter != current_adapter:
-                from .lora import remove_lora, load_pixel_art
+                from .lora import remove_lora, load_adapter
 
                 connection.send({"phase": "loading"})
                 remove_lora(pipe.transformer)
                 report.pop("lora", None)
                 torch.cuda.empty_cache()
                 if selected_adapter:
-                    report["lora"] = load_pixel_art(
-                        pipe.transformer, offline=offline_default()
+                    report["lora"] = load_adapter(
+                        pipe.transformer, selected_adapter, offline=offline_default()
                     )
                 current_adapter = selected_adapter
                 report["quantization"] = check_quantization(pipe)

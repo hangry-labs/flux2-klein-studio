@@ -22,13 +22,13 @@ from .transport import client_disconnected
 from . import __version__
 from .reference_api import prepare_reference
 from .references import MAX_REQUEST_BYTES
-from .adapters import catalog as adapter_catalog
+from .adapters import Adapter, catalog as adapter_catalog
 from .build_info import offline_default
 
 SKILL_URI = "flux2-klein-studio://skills/image-generation"
 SKILL_PATH = "/skills/image-generation/SKILL.md"
 SKILL_FILE = Path(__file__).with_name("skills") / "image-generation" / "SKILL.md"
-SKILL_VERSION = "1"
+SKILL_VERSION = "2"
 
 
 class ResolutionServer(MCPServer):
@@ -67,7 +67,8 @@ def create_mcp_server(jobs):
         "No guide token is required. Use the currently advertised tools for local image generation. Choose an enabled named resolution; "
         "list_resolutions describes the current choices and default. "
         "For pixel-art character sprites, select adapter='pixel-art' in generate_image. "
-        "Supply only the subject description in prompt: the server adds the sprite trigger words and green screen background instructions. "
+        "For anime illustrations, select adapter='koni-anime'; the server adds anime_style without a fixed background suffix. "
+        "Supply only the image description in prompt: the server adds the selected adapter's trigger words and any fixed background suffix. "
         "Do not add the adapter template yourself. Omit adapter for ordinary base-model generation. "
         "Pixel Art outputs are RGB with a green background, not transparent; background removal is not provided. "
         "refine_image uses the base model and does not accept an adapter. "
@@ -95,8 +96,8 @@ def create_mcp_server(jobs):
     async def skill() -> dict[str, Any]:
         """Read this skill first, once per conversation, before choosing an image tool.
 
-        Covers Generate versus Refine, named sizes, Pixel Art's automatic prompt
-        and green screen background, seeds, queueing and recipes. A successful
+        Covers Generate versus Refine, named sizes, Pixel Art and Koni Anime
+        adapter prompts and backgrounds, seeds, queueing and recipes. A successful
         result means the skill is loaded: continue rather than retrieving again.
         No GPU/model load and no guide token required.
         """
@@ -162,9 +163,9 @@ def create_mcp_server(jobs):
         ] = None,
         output_format: Literal["png", "webp", "jpeg"] = "png",
         adapter: Annotated[
-            Literal["pixel-art"] | None,
+            Adapter | None,
             Field(
-                description="Select pixel-art for pixel-art character sprites on a green screen background. Supply only the subject description; trigger words and background instructions are added automatically. Output is RGB, not transparent. Omit for the base model."
+                description="Select pixel-art for sprites on a green screen, or koni-anime for anime illustrations with your own scene and background. Supply only the image description; adapter trigger words and any fixed suffix are added automatically. Omit for the base model."
             ),
         ] = None,
         save_gallery: bool = False,
@@ -184,6 +185,8 @@ def create_mcp_server(jobs):
         Read skill first if it has not been read in this conversation.
         For pixel-art sprites, set adapter='pixel-art' and provide only the subject
         description. The server adds the fixed sprite and green screen wording.
+        For anime illustrations, set adapter='koni-anime'; anime_style is added
+        automatically, with the scene and background supplied in your description.
         This produces RGB images; it does not remove the background or add alpha.
         Keep save_gallery=false unless the user wants persistent gallery storage.
         """
