@@ -1,6 +1,8 @@
 """Validated generation settings shared by browser, HTTP and MCP."""
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class Generation(BaseModel):
@@ -12,6 +14,15 @@ class Generation(BaseModel):
     steps: int = Field(default=4, ge=1, le=50)
     save_gallery: bool = False
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    adapter: Literal["pixel-art"] | None = None
+
+    @model_validator(mode="after")
+    def adapter_mode(self):
+        if self.adapter and self.reference_id:
+            raise ValueError(
+                "Adapters are currently supported for text-to-image generation only"
+            )
+        return self
 
     @field_validator("prompt")
     @classmethod

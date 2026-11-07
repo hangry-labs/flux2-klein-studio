@@ -139,6 +139,18 @@ def parser():
             default="ordered",
             help="Ordered low-rank accumulation (default), or the original native kernel",
         )
+        if name == "generate":
+            command.add_argument(
+                "--lora",
+                choices=("pixel-art",),
+                help="Experimental pinned pixel-art adapter (CLI pilot)",
+            )
+            command.add_argument(
+                "--lora-strength",
+                type=float,
+                default=1.0,
+                help="Adapter strength from 0 (base result) to 2; default 1",
+            )
         if name != "generate":
             command.add_argument("--runs", type=int, default=5)
             command.add_argument("--warmups", type=int, default=2)
@@ -195,6 +207,8 @@ def main():
         raise SystemExit("Minimum headroom must not be negative.")
     if not getattr(arguments, "prompt", "valid").strip():
         raise SystemExit("The prompt must not be empty.")
+    if not 0 <= getattr(arguments, "lora_strength", 1) <= 2:
+        raise SystemExit("LoRA strength must be finite and between 0 and 2.")
     if (
         getattr(arguments, "suite", None) == "fixed-seed"
         or arguments.command == "seed-test"

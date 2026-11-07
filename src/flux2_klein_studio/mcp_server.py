@@ -121,6 +121,12 @@ def create_mcp_server(jobs):
             ),
         ] = None,
         output_format: Literal["png", "webp", "jpeg"] = "png",
+        adapter: Annotated[
+            Literal["pixel-art"] | None,
+            Field(
+                description="Optional style adapter. Supply only the image description; its fixed prefix and suffix are added automatically."
+            ),
+        ] = None,
         save_gallery: bool = False,
         n: Annotated[
             int,
@@ -146,6 +152,7 @@ def create_mcp_server(jobs):
                 output_format,
                 save_gallery,
                 count=n,
+                **({"adapter": adapter} if adapter else {}),
                 disconnected=lambda: client_disconnected(
                     context.request_context.request
                 ),

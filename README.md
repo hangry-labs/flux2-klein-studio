@@ -102,6 +102,9 @@ Random seed starts enabled and chooses a new seed per generation; switch it off
 to repeat a fixed seed. Downloads offer original PNG, lossless WebP and JPEG.
 See the [capability review](docs/model-capabilities.md) for model features we could
 investigate next, including multiple references and adapter compatibility.
+Generate also offers a curated [Pixel Art adapter](docs/lora.md): choose it from
+the style dropdown and describe your image. Its fixed trigger text is added
+automatically. HTTP/MCP generation supports the same adapter and prompt template.
 
 Applications can use the **OpenAI-compatible Images API** at `/v1` with model
 `flux2-klein-4b`, or connect an agent to **MCP Streamable HTTP** at `/mcp/`.

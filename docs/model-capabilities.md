@@ -20,7 +20,7 @@ GPU memory limits still need their own validation.
 | Single-reference editing | Upload a picture or reuse a generated image, then describe a change: lighting, background, clothing or artistic style. | Implemented in Refine, HTTP edits and MCP refine_image. See the separate 1024×1024 editing benchmarks. |
 | Multiple reference images | Combine a subject from one image with a setting or visual style from another. | Upstream capability; the pipeline accepts a list of references. Establish a measured limit rather than borrowing hosted API limits. |
 | Multiple outputs / prompt batches | Produce several alternatives in one workflow. | Sequential queue and n=1..16 outputs are implemented for HTTP/MCP generation and edits. GPU tensor batching and prompt-list requests remain unqualified. |
-| LoRA adapters | Small additional weights that specialize a model's appearance or subject. | The pipeline has a LoRA loader, but our quantized linear replacements need compatibility work. Treat adapter inference as an investigation, not an available feature. Rank 32 in this checkpoint describes quantization correction, not a user adapter. |
+| LoRA adapters | Small additional weights that specialize a model's appearance or subject. | One curated [pixel-art adapter](lora.md) is available in Generate, HTTP/MCP generation and CLI, using a pinned export and fixed browser/API prompt template. Other adapters remain unqualified. Rank 32 describes quantization correction, not a user adapter. |
 
 The [pinned pipeline implementation](https://github.com/huggingface/diffusers/blob/v0.42.1/src/diffusers/pipelines/flux2/pipeline_flux2_klein.py)
 contains reference-image encoding and concatenation, batch arguments and a LoRA
@@ -55,5 +55,6 @@ remains opt-in. See the separate [editing measurements](../benchmarks/refine/REA
 
 Refine uses 1024×1024 as its benchmark baseline. Next, investigate two references
 at that baseline and measure memory, speed, seed controls and
-subject/style adherence before raising the count. LoRA support should follow a
-focused compatibility proof before adding adapter controls to the UI.
+subject/style adherence before raising the count. The [pixel-art LoRA pilot](lora.md)
+is a first compatibility proof with curated UI/API selection; broader adapter
+support needs its own validation.

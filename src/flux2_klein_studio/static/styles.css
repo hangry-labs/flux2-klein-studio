@@ -117,6 +117,10 @@ textarea {resize: vertical; line-height: 1.65;}
 textarea::placeholder {color: #a0a2ab;}
 .two {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px;}
 .prompt-tools {display: flex; justify-content: space-between; align-items: center; margin-top: 6px;}
+.adapter-template {border: 1px solid var(--line); border-radius: 5px; padding: 10px 12px; background: #121315; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere;}
+.adapter-template strong {font-size: 10px; color: var(--muted);}
+.adapter-template p {margin: 6px 0 0; color: #ffd0ae; white-space: pre-wrap;}
+.adapter-template em {color: var(--text); font-style: normal; border-bottom: 1px dashed var(--orange);}
 .prompt-tools .muted {font-size: 10px;}
 .subtle {border: 0; background: none; color: #ff944d; padding: 6px 0; font-size: 11px;}
 .subtle:hover {background: none; color: #ffd0ae;}

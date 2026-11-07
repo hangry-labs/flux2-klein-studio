@@ -152,6 +152,21 @@ other callers' jobs continue. Completed opt-in gallery images remain available.
 This is synchronous multi-image generation, without an OpenAI Batch API/job-file
 endpoint or a prompt-list field; send concurrent requests for different prompts.
 
+## Style adapters
+
+Generation also accepts the local extension `adapter: "pixel-art"` through
+`POST /v1/images/generations` and MCP `generate_image`. Put only the user's
+description in `prompt`; the server adds the fixed trigger text. For example:
+
+```json
+{"prompt":"a brave knight holding a sword","adapter":"pixel-art","size":"square_big","seed":12345}
+```
+
+Recipes preserve `prompt`, `effective_prompt` and `adapter_profile` separately.
+Omitting `adapter` uses the base model without prompt wrapping. Adapter selection
+is currently text-to-image only; edit requests reject it. See the
+[adapter guide](lora.md) for caching, fixed strength and export details.
+
 ## Reference-image editing
 
 `POST /v1/images/edits` accepts one reference plus an edit instruction. It uses the

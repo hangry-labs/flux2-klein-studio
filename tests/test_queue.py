@@ -273,7 +273,7 @@ class QueueTests(unittest.TestCase):
         ):
             request = pool.submit(self.post, 1, n=5)
             try:
-                self.wait_for(lambda: len(self.calls) == 4)
+                self.wait_for(lambda: self.jobs.queue_status()["processing"] == 4)
                 self.assertEqual(self.jobs.queue_status()["processing"], 4)
                 self.assertEqual(self.calls, [1, 2, 3, 4])
             finally:

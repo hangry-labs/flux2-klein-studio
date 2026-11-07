@@ -36,6 +36,14 @@ initializeShell(storage);
 function idea() {$('prompt').value = examples[Math.floor(Math.random() * examples.length)]; updatePrompt(); switchView('generate'); $('prompt').focus();}
 ['examples', 'sample', 'empty-example'].forEach((id) => $(id).onclick = idea);
 function updatePrompt() {$('characters').textContent = `${$('prompt').value.length} / 4000`;}
+function adapterChanged() {
+  const profile = config?.adapters.find(item => item.id === $('adapter').value);
+  $('adapter-template').hidden = !profile;
+  $('adapter-help').textContent = profile ? profile.help + (profile.unavailable_reason ? ' ' + profile.unavailable_reason : '') : 'Choose a style, then describe your image below.';
+  $('adapter-prefix').textContent = profile?.prefix || '';
+  $('adapter-suffix').textContent = profile?.suffix || '';
+}
+$('adapter').onchange = adapterChanged;
 $('prompt').oninput = updatePrompt;
 function randomSeed() {
   const words = crypto.getRandomValues(new Uint32Array(2));
@@ -68,7 +76,7 @@ function showResult(item) {
   $('result-image').hidden = false; $('empty').hidden = true; $('result-actions').hidden = false;
   $('result-title').textContent = 'A little imagination, made real.';
   $('result-meta').textContent = `${item.settings.width} × ${item.settings.height} · Seed ${item.settings.seed} · ${item.seconds.toFixed(2)} s generation`;
-  $('result-prompt').textContent = item.settings.prompt;
+  $('result-prompt').textContent = item.settings.effective_prompt || item.settings.prompt;
   updateDownload();
   $('result-state').textContent = 'Completed';
 }
@@ -89,6 +97,7 @@ $('generation-form').onsubmit = async (event) => {
   event.preventDefault(); message();
   if ($('random-seed').checked) $('seed').value = randomSeed();
   const payload = {prompt: $('prompt').value, save_gallery: $('save_gallery').checked, ...Object.fromEntries(['width', 'height', 'seed', 'steps'].map((id) => [id, Number($(id).value)]))};
+  if ($('adapter').value) payload.adapter = $('adapter').value;
   if (!Number.isSafeInteger(payload.seed)) return message('Choose a whole-number seed within the displayed range.');
   $('generate').disabled = true;
   try {busy(await request('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)}));}
@@ -120,7 +129,7 @@ async function refreshGallery() {
     const info = document.createElement('div'), title = document.createElement('strong'), prompt = document.createElement('p');
     title.textContent = `${item.settings.width} × ${item.settings.height} · ${item.status === 'completed' ? item.seconds.toFixed(2) + ' s' : item.status}`;
     prompt.textContent = item.settings.prompt; info.append(title, prompt); preview.append(info);
-    preview.onclick = () => {if (item.settings.reference) {reviewRefinement(item); return;} Object.entries(item.settings).forEach(([key, value]) => {if ($(key) && key !== 'save_gallery') $(key).value = value;}); $('random-seed').checked = false; seedMode(); updatePrompt(); sizeHelp(); showResult(item); switchView('generate');};
+    preview.onclick = () => {if (item.settings.reference) {reviewRefinement(item); return;} Object.entries(item.settings).forEach(([key, value]) => {if ($(key) && key !== 'save_gallery') $(key).value = value;}); $('adapter').value = item.settings.adapter || ''; adapterChanged(); $('random-seed').checked = false; seedMode(); updatePrompt(); sizeHelp(); showResult(item); switchView('generate');};
     card.append(preview);
     const controls = document.createElement('div'); controls.className = 'gallery-controls';
     if (terminal.has(item.status)) {
@@ -174,6 +183,8 @@ async function start() {
   $('generate').disabled = true;
   try {
     config = await request('/api/status'); configureRefine(config); $('version').textContent = `v${config.version}`;
+    $('adapter').replaceChildren(new Option('None · Base model', ''), ...config.adapters.map(item => {const option = new Option(item.label + (item.available ? '' : ' · unavailable offline'), item.id); option.disabled = !item.available; return option;}));
+    adapterChanged();
     $('download-format').replaceChildren(...config.download_formats.map(format => new Option(format.label, format.value)));
     $('resolution').replaceChildren(...config.presets.map(([width, height]) => new Option(`${width} × ${height}${width === height ? ' · Square' : width > height ? ' · Landscape' : ' · Portrait'}`, `${width}x${height}`)), new Option('Custom size', 'custom'));
     const items = await refreshGallery(); const job = config.active_job ? await request(`/api/jobs/${config.active_job}`) : null;

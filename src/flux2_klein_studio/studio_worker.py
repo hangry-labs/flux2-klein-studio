@@ -18,9 +18,16 @@ def serve(connection):
     from PIL import Image, ImageStat
 
     from .cli import MODEL_ID, MODEL_REVISION, doctor
-    from .inference import check_residency, check_step, load_pipeline
+    from .inference import (
+        check_residency,
+        check_quantization,
+        check_step,
+        load_pipeline,
+    )
+    from .adapters import ADAPTERS, compose_prompt
 
     pipe = None
+    current_adapter = None
     report = {}
     while True:
         try:
@@ -44,6 +51,29 @@ def serve(connection):
                 connection.send({"phase": "completed", "report": report})
                 continue
             reference = None
+            selected_adapter = settings.get("adapter")
+            effective_prompt = compose_prompt(settings["prompt"], selected_adapter)
+            if selected_adapter and (
+                settings.get("adapter_profile") != ADAPTERS[selected_adapter]
+                or settings.get("effective_prompt") != effective_prompt
+            ):
+                raise RuntimeError(
+                    "Adapter prompt/identity does not match its job snapshot"
+                )
+            if selected_adapter != current_adapter:
+                from .lora import remove_lora, load_pixel_art
+
+                connection.send({"phase": "loading"})
+                remove_lora(pipe.transformer)
+                report.pop("lora", None)
+                torch.cuda.empty_cache()
+                if selected_adapter:
+                    report["lora"] = load_pixel_art(
+                        pipe.transformer, offline=offline_default()
+                    )
+                current_adapter = selected_adapter
+                report["quantization"] = check_quantization(pipe)
+                report["placement"] = check_residency(pipe)
             if settings.get("_reference_path"):
                 with Image.open(settings["_reference_path"]) as source:
                     reference = source.convert("RGB")
@@ -59,7 +89,7 @@ def serve(connection):
             start = time.perf_counter()
             with torch.inference_mode():
                 image = pipe(
-                    prompt=settings["prompt"],
+                    prompt=effective_prompt,
                     width=settings["width"],
                     height=settings["height"],
                     num_inference_steps=settings["steps"],
@@ -87,6 +117,7 @@ def serve(connection):
                 "revision": MODEL_REVISION,
                 "reduction": "ordered",
                 "guidance_scale": 1.0,
+                **({"lora": report["lora"]} if current_adapter else {}),
             }
             connection.send(
                 {

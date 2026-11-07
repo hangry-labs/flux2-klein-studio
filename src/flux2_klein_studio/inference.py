@@ -242,6 +242,14 @@ def load_pipeline(arguments, report):
         if replaced != 100:
             raise RuntimeError(f"Expected 100 ordered SVDQ modules, got {replaced}")
         report["ordered_modules"] = replaced
+    if getattr(arguments, "lora", None):
+        from .lora import load_pixel_art
+
+        report["lora"] = load_pixel_art(
+            pipe.transformer,
+            offline=arguments.offline,
+            strength=arguments.lora_strength,
+        )
     report["vae_tiling"] = getattr(pipe.vae, "use_tiling", None)
     report["vae_slicing"] = getattr(pipe.vae, "use_slicing", None)
     if report["vae_tiling"] or report["vae_slicing"]:
@@ -325,6 +333,23 @@ def run(arguments):
         report["workload_sha256"] = fingerprint(
             {"jobs": selected_jobs, "reference": reference_metadata}
         )
+    if getattr(arguments, "lora", None):
+        from .lora import PIXEL_ART
+
+        report["generation_profile"]["lora"] = {
+            **PIXEL_ART,
+            "strength": arguments.lora_strength,
+        }
+        report["source_sha256"]["lora.py"] = file_sha256(
+            Path(__file__).with_name("lora.py")
+        )
+        report["workload_sha256"] = fingerprint(
+            {
+                "jobs": selected_jobs,
+                "reference": reference_metadata,
+                "lora": report["generation_profile"]["lora"],
+            }
+        )
     write_json(report_path, report)
     sampler = None
     try:
@@ -403,6 +428,7 @@ def run(arguments):
                             "steps": arguments.steps,
                             "guidance_scale": 1.0,
                             "reduction": arguments.reduction,
+                            **({"lora": report["lora"]} if "lora" in report else {}),
                             **(
                                 {"reference": reference_metadata}
                                 if reference_metadata

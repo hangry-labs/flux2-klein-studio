@@ -13,6 +13,9 @@ import uuid
 from fastapi import HTTPException
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
+from .adapters import snapshot as adapter_settings
+from .adapters import ensure_available
+from .build_info import offline_default
 
 TERMINAL = {"completed", "failed", "cancelled"}
 
@@ -69,12 +72,13 @@ class GenerationQueue:
             items = []
             try:
                 for settings in options:
+                    ensure_available(settings.adapter, offline_default())
                     identifier = uuid.uuid4().hex
                     item = dict(
                         id=identifier,
                         status="queued",
                         created=time.time(),
-                        settings=settings.model_dump(exclude_none=True),
+                        settings=adapter_settings(settings),
                         error=None,
                     )
                     self.folder(item).mkdir()

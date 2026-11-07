@@ -16,7 +16,10 @@
     <form id="generation-form" class="panel settings">
       <div class="panel-heading"><span class="eyebrow">01 / YOUR IDEA</span><span class="chip">Text → image</span></div>
       <h2>What do you imagine?</h2><p class="muted">Describe a subject, a setting, and the feeling you want.</p>
-      <label for="prompt">Prompt</label><textarea id="prompt" name="prompt" maxlength="4000" rows="7" required placeholder="A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed"></textarea>
+      <label for="adapter">Style adapter</label><select id="adapter" aria-describedby="adapter-help"><option value="">None · Base model</option></select>
+      <p id="adapter-help" class="help">Choose a style, then describe your image below.</p>
+      <div id="adapter-template" class="adapter-template" role="note" hidden><strong>Fixed adapter prompt</strong><p><span id="adapter-prefix"></span><em>[your description]</em><span id="adapter-suffix"></span></p></div>
+      <label for="prompt">Image description</label><textarea id="prompt" name="prompt" maxlength="4000" rows="7" required placeholder="A glass robot tending orchids in a sunlit greenhouse, cinematic lighting, highly detailed"></textarea>
       <div class="prompt-tools"><button type="button" id="sample" class="subtle">✧ Give me an idea</button><span id="characters" class="muted">0 / 4000</span></div>
       <label for="resolution">Canvas size</label><select id="resolution"><option value="1024x1024">1024 × 1024 · Square</option></select>
       <div class="two"><div><label for="width">Width</label><input id="width" type="number" min="64" max="1920" step="16" value="1024" required></div><div><label for="height">Height</label><input id="height" type="number" min="64" max="1920" step="16" value="1024" required></div></div>

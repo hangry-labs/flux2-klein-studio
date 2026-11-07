@@ -1,6 +1,7 @@
 """Local studio: bounded jobs around the qualified CLI, without importing torch."""
 
 import json
+from .adapters import catalog as adapter_catalog
 import hmac
 import os
 import re
@@ -29,7 +30,7 @@ from .presets import catalog
 from .transport import DisconnectMonitor
 from .resolution_policy import ResolutionPolicy, ResolutionSettings
 from . import __version__
-from .build_info import build_identity
+from .build_info import build_identity, offline_default
 from .job_queue import GenerationQueue
 from .references import ReferenceStore, MAX_REQUEST_BYTES
 
@@ -354,6 +355,7 @@ def create_app(root=Path("/data/outputs/studio")):
             "model_residency": jobs.model.snapshot(),
             "presets": PRESETS,
             "resolution_presets": catalog(),
+            "adapters": adapter_catalog(offline_default()),
             "agent_api": {
                 "openai_base_url": "/v1",
                 "mcp": "/mcp/",

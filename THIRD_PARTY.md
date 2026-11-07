@@ -50,6 +50,14 @@ Publication planning, release promotion, runtime license/source collection and
 cache merge logic are adapted from Faster Qwen3 TTS Studio; the original MIT
 notice is retained in `licenses/faster-qwen-MIT.txt`.
 
+## Optional pixel-art adapter
+
+The optional pixel-art LoRA pilot downloads
+[Limbicnation/pixel-art-lora](https://huggingface.co/Limbicnation/pixel-art-lora),
+an Apache-2.0 adapter, at the revision and hash in [the pilot guide](docs/lora.md).
+Its license is retained beside its cached weights. The adapter is not baked into
+the standard or tiny image; existing base-model and dependency terms still apply.
+
 ## Supplemental notices for installed wheels
 
 These exact installed wheels omit a license file from RECORD. The upstream

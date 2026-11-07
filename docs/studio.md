@@ -1,5 +1,18 @@
 # Browser studio
 
+## Style adapters
+
+Choose **Pixel Art · character sprites** from **Style adapter** in Generate,
+then write your subject or scene in **Image description**. The server places it
+inside the adapter's fixed prefix/suffix, shown in the read-only template panel.
+You do not need to type its trigger words. **None · Base model** generates from
+your description directly. The completed result displays the full prompt used;
+gallery reuse restores the editable description and adapter separately.
+
+The first use caches the adapter's weights. Offline installations need to enable
+network loading once if the adapter is not already cached. See the
+[adapter guide](lora.md) for the pinned export, CLI commands and API fields.
+
 ## Refine a picture
 
 Open **Refine** and upload one still picture, choose **Send to Refine** under a

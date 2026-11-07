@@ -43,6 +43,10 @@ class ImageRequest(BaseModel):
     stream: Literal[False] = False
     seed: int | None = Field(default=None, ge=0, le=2**53 - 1)
     save_gallery: bool = False
+    adapter: Literal["pixel-art"] | None = Field(
+        default=None,
+        description="Curated style adapter; prompt is the description and fixed trigger text is added automatically.",
+    )
 
     @field_validator("prompt")
     @classmethod
@@ -70,6 +74,7 @@ class ImageURL(BaseModel):
 
 
 class EditRequest(ImageRequest):
+    adapter: None = None
     image: str | None = Field(default=None, max_length=MAX_REQUEST_BYTES)
     images: list[ImageURL] | None = Field(default=None, min_length=1, max_length=1)
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
@@ -206,6 +211,7 @@ def attach_image_api(app, jobs):
             save_gallery=options.save_gallery,
             disconnected=lambda: client_disconnected(request),
             count=options.n,
+            **({"adapter": options.adapter} if options.adapter else {}),
         )
         return await image_response(images, options.output_format)
 

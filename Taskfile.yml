@@ -72,6 +72,16 @@ tasks:
     cmds:
       - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio generate --width {{.WIDTH}} --height {{.HEIGHT}} --seed {{.SEED}} --steps {{.STEPS}} {{.CLI_ARGS}}
 
+  lora:pixel-art:
+    desc: Generate a 1024-default pixel-art example with the experimental pinned LoRA
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio generate --lora pixel-art --lora-strength {{.STRENGTH | default "1"}} --width {{.WIDTH}} --height {{.HEIGHT}} --seed {{.SEED}} --steps {{.STEPS}} --prompt "pixel art sprite, a brave knight in shining armor holding a sword and shield, full body, game asset, solid green screen background, flat uniform green background, isolated character" {{.CLI_ARGS}}
+
+  lora:check:
+    desc: Generate three matched LoRA comparisons, repeat/zero/removal controls and local HTML review
+    cmds:
+      - docker compose run --rm --entrypoint python studio tools/probe_lora.py {{.CLI_ARGS}}
+
   benchmark:
     desc: Measure warmed speed at one resolution (no VRAM sampling or seed assertion)
     aliases: [bench]
