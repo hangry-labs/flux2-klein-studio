@@ -20,7 +20,7 @@ Development version **v0.1.0-snapshot**.
 
 Container build and publication follow the [release workflow](docs/RELEASING.md).
 Full images bundle the model; tiny images download it on first use. See the
-[container guide](docs/dockerhub.md) for planned tags and persistent storage.
+[container guide](docs/dockerhub.md) for published tags and persistent storage.
 
 ## Refine in action
 
@@ -52,7 +52,20 @@ with 16 GiB VRAM; other hardware has not been qualified. Windows requires a Dock
 installation configured for Linux containers and NVIDIA GPU passthrough.
 See [validation](docs/validation.md) for measured settings and memory use.
 
-Clone the repository, then run these commands in PowerShell or Bash from its root.
+Start the published full image, then open **http://localhost:7860**:
+
+```shell
+docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2-klein-studio-data,target=/data hangrylabs/flux2-klein-studio:latest
+```
+
+Use `hangrylabs/flux2-klein-studio:latest_tiny` to download the pinned model on
+first use instead. Both variants are also available from
+`ghcr.io/hangry-labs/flux2-klein-studio` with the same tags. Keep the named volume
+for model caches, settings and saved images. These rolling tags follow development;
+see the [container guide](docs/dockerhub.md) for verified image identities.
+
+To build from source, clone the repository and run the following commands in
+PowerShell or Bash from its root.
 
 Build the development image:
 
@@ -80,8 +93,8 @@ Images and JSON reports appear under `outputs/<timestamp>/`. Model and kernel
 caches live in the `flux2-klein-studio-data` Docker volume and survive container
 removal. Keep that volume to avoid downloading the assets again. Removing it,
 including with `docker compose down --volumes`, deletes the cached assets.
-The image is built locally as `flux2-klein-studio:dev`; no registry image or stable
-release is published. The browser service uses port 7860; explicit CLI commands
+Compose builds the source checkout as `flux2-klein-studio:dev`; published
+development images use `latest` and `latest_tiny`. The browser uses port 7860; CLI commands
 remain available. Check **Save result to gallery** to retain an image and recipe
 under `outputs/studio/`; otherwise the result is a temporary downloadable preview.
 System controls the model idle timeout (five minutes by default) and manual unload.
@@ -287,7 +300,8 @@ Generated images can contain errors and do not establish that a depicted event o
 
 ### v0.1.0-snapshot
 
-Initial development snapshot. Registry images have not been published yet.
+Development snapshot, with rolling full and tiny images published on Docker Hub
+and GHCR. Versioned stable tags use the separate release workflow.
 
 - Local text-to-image CLI, browser studio, gallery controls and model residency.
 - OpenAI-compatible image generation and MCP with configurable named sizes.

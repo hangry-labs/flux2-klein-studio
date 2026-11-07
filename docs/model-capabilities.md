@@ -53,6 +53,7 @@ and gallery reuse, before/after viewing and iterative refinement. HTTP
 Reference hashes and preprocessing settings accompany recipes; gallery storage
 remains opt-in. See the separate [editing measurements](../benchmarks/refine/README.md).
 
-Next, investigate two references and measure memory, speed, seed controls and
+Refine uses 1024×1024 as its benchmark baseline. Next, investigate two references
+at that baseline and measure memory, speed, seed controls and
 subject/style adherence before raising the count. LoRA support should follow a
 focused compatibility proof before adding adapter controls to the UI.
