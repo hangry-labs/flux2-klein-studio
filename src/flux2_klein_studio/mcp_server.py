@@ -22,13 +22,13 @@ from .transport import client_disconnected
 from . import __version__
 from .reference_api import prepare_reference
 from .references import MAX_REQUEST_BYTES
-from .adapters import Adapter, catalog as adapter_catalog
+from .adapters import Adapter, EditAdapter, catalog as adapter_catalog
 from .build_info import offline_default
 
 SKILL_URI = "flux2-klein-studio://skills/image-generation"
 SKILL_PATH = "/skills/image-generation/SKILL.md"
 SKILL_FILE = Path(__file__).with_name("skills") / "image-generation" / "SKILL.md"
-SKILL_VERSION = "2"
+SKILL_VERSION = "4"
 
 
 class ResolutionServer(MCPServer):
@@ -71,7 +71,7 @@ def create_mcp_server(jobs):
         "Supply only the image description in prompt: the server adds the selected adapter's trigger words and any fixed background suffix. "
         "Do not add the adapter template yourself. Omit adapter for ordinary base-model generation. "
         "Pixel Art outputs are RGB with a green background, not transparent; background removal is not provided. "
-        "refine_image uses the base model and does not accept an adapter. "
+        "refine_image uses the base model by default. For green-area filling, select adapter='outpaint' with a reference painted pure #00FF00. Omit prompt for natural fill, or provide only optional fill details; the fixed instruction is added automatically. "
         "Omit seed for a random image; reuse the returned seed and settings to reproduce it. "
         "Results include inline image content and a recipe. Gallery storage is opt-in. "
         "Concurrent requests wait in a shared queue; one image uses the GPU at a time. "
@@ -108,7 +108,8 @@ def create_mcp_server(jobs):
                 "skill": image_generation_skill(),
                 "default_resolution": jobs.resolutions.default(),
                 "resolutions": jobs.resolutions.catalog(),
-                "adapters": adapter_catalog(offline_default()),
+                "adapters": adapter_catalog(offline_default(), mode="generate"),
+                "edit_adapters": adapter_catalog(offline_default(), mode="edit"),
                 "next_step": "The guide is loaded. Choose generate_image for a new image or refine_image to edit one reference. Use the current enabled sizes and available adapter choices. Do not retrieve skill again for each call.",
             }
 
@@ -229,16 +230,21 @@ def create_mcp_server(jobs):
         )
     )
     async def refine_image(
+        context: Context,
         prompt: Annotated[
             str,
             Field(
-                min_length=1,
                 max_length=4000,
-                description="Describe what to change in the reference picture.",
+                description="Base editing: describe what to change (required). With outpaint: optional details for filling green space, such as a brick wall; omit or leave empty for natural fill. The fixed instruction is added automatically.",
             ),
-        ],
-        context: Context,
+        ] = "",
         resolution: Resolution | None = None,
+        adapter: Annotated[
+            EditAdapter | None,
+            Field(
+                description="Optional outpaint adapter: supply a reference with pure #00FF00 green areas. The server always adds its fill instruction; prompt is optional extra guidance only."
+            ),
+        ] = None,
         image_base64: Annotated[
             str | None,
             Field(
@@ -261,17 +267,26 @@ def create_mcp_server(jobs):
     ) -> CallToolResult:
         """Refine one picture using an instruction. Supply exactly one image source.
 
-        This is reference-guided generation: masks and strength controls are not
-        supported. Keep gallery saving off unless the user requests persistence.
+        Select adapter='outpaint' for experimental filling of #00FF00 green areas
+        in the reference; otherwise use ordinary base-model editing. For outpaint,
+        omit prompt for natural fill or provide optional fill details. The server
+        always adds the fixed fill instruction. This uses an RGB marked reference, not a separate mask
+        or pixel-preserving compositing operation. Strength controls are not exposed.
+        Keep gallery saving off unless the user requests persistence.
         Read skill first if it has not been read in this conversation.
         """
         identifier, owned = None, False
         try:
+            if adapter is None and not prompt.strip():
+                raise HTTPException(
+                    400, "Describe what to change in the reference picture"
+                )
             identifier, owned = await prepare_reference(
                 jobs,
                 reference_id=reference_id,
                 source_job_id=source_job_id,
                 image_data=image_base64,
+                **({"preserve_green": True} if adapter == "outpaint" else {}),
             )
             images = await run_generation(
                 jobs,
@@ -282,6 +297,7 @@ def create_mcp_server(jobs):
                 save_gallery=save_gallery,
                 count=n,
                 reference_id=identifier,
+                **({"adapter": adapter} if adapter else {}),
                 disconnected=lambda: client_disconnected(
                     context.request_context.request
                 ),

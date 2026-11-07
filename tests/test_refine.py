@@ -15,11 +15,12 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from PIL import Image, PngImagePlugin
+from PIL import Image, ImageDraw, PngImagePlugin
 
 from flux2_klein_studio.references import normalize_reference
 from flux2_klein_studio.schemas import Generation
 from flux2_klein_studio.server import Jobs, create_app
+from flux2_klein_studio.adapters import OUTPAINT_PROMPT
 
 
 def fixture(size=(64, 64), color=(27, 91, 143)):
@@ -30,6 +31,191 @@ def fixture(size=(64, 64), color=(27, 91, 143)):
 
 
 class RefineTests(unittest.TestCase):
+    def test_green_fill_is_edit_only_and_discovered_separately(self):
+        status = self.client.get("/api/status").json()
+        self.assertNotIn("outpaint", [p["id"] for p in status["adapters"]])
+        self.assertEqual(status["edit_adapters"][0]["id"], "outpaint")
+        self.assertEqual(status["edit_adapters"][0]["default_prompt"], OUTPAINT_PROMPT)
+        for path, status_code in (("/api/jobs", 422), ("/v1/images/generations", 400)):
+            self.assertEqual(
+                self.client.post(
+                    path, json={"prompt": OUTPAINT_PROMPT, "adapter": "outpaint"}
+                ).status_code,
+                status_code,
+            )
+        self.assertEqual(self.calls, [])
+
+    @patch("flux2_klein_studio.job_queue.offline_default", new=lambda: False)
+    def test_green_fill_browser_http_and_mcp_preserve_custom_instructions(self):
+        data = fixture(color=(0, 255, 0))
+        upload = self.client.post(
+            "/api/references",
+            files={"image": ("marked.png", data, "image/png")},
+            data={"preserve_green": "true"},
+        )
+        self.assertEqual(upload.status_code, 201, upload.text)
+        reference = upload.json()
+        prompt = "a brick wall"
+        response = self.client.post(
+            "/api/jobs",
+            json={
+                "prompt": prompt,
+                "adapter": "outpaint",
+                "reference_id": reference["id"],
+            },
+        )
+        self.assertEqual(response.status_code, 202, response.text)
+        browser = response.json()["settings"]
+        response = self.client.post(
+            "/v1/images/edits",
+            json={
+                "prompt": prompt,
+                "adapter": "outpaint",
+                "size": "square_small",
+                "image": base64.b64encode(data).decode(),
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        http = response.json()["studio"]
+        response = self.client.post(
+            "/mcp/",
+            headers={"Accept": "application/json, text/event-stream"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "refine_image",
+                    "arguments": {
+                        "prompt": prompt,
+                        "adapter": "outpaint",
+                        "image_base64": base64.b64encode(data).decode(),
+                        "resolution": "square_small",
+                    },
+                },
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        result = response.json()["result"]
+        self.assertFalse(result.get("isError", False), result)
+        for settings in (browser, http, result["structuredContent"]):
+            self.assertEqual(settings["prompt"], prompt)
+            self.assertEqual(
+                settings["effective_prompt"], OUTPAINT_PROMPT + "\n" + prompt
+            )
+            self.assertEqual(settings["adapter_profile"]["strength"], 1.1)
+            self.assertEqual(settings["reference"]["green_mask"]["pixels"], 64 * 64)
+            self.assertEqual(settings["reference"]["green_mask"]["color"], "#00FF00")
+        self.assertEqual(len(self.calls), 3)
+
+    @patch("flux2_klein_studio.job_queue.offline_default", new=lambda: False)
+    def test_green_fill_optional_text_and_legacy_prompt_replay(self):
+        reference = self.upload(fixture(color=(0, 255, 0)))
+        for extra, details in (
+            ({}, ""),
+            ({"prompt": ""}, ""),
+            ({"prompt": "   "}, ""),
+            ({"prompt": OUTPAINT_PROMPT}, ""),
+            ({"prompt": OUTPAINT_PROMPT + "\na brick wall"}, "a brick wall"),
+        ):
+            with self.subTest(extra=extra):
+                response = self.client.post(
+                    "/v1/images/edits",
+                    json={
+                        "adapter": "outpaint",
+                        "reference_id": reference["id"],
+                        "size": "square_small",
+                        **extra,
+                    },
+                )
+                self.assertEqual(response.status_code, 200, response.text)
+                settings = response.json()["studio"]
+                self.assertEqual(settings["prompt"], details)
+                self.assertEqual(
+                    settings["effective_prompt"],
+                    OUTPAINT_PROMPT + ("\n" + details if details else ""),
+                )
+        response = self.client.post(
+            "/api/jobs",
+            json={
+                "adapter": "outpaint",
+                "reference_id": reference["id"],
+                "width": 64,
+                "height": 64,
+            },
+        )
+        self.assertEqual(response.status_code, 202, response.text)
+        self.assertEqual(
+            response.json()["settings"]["effective_prompt"], OUTPAINT_PROMPT
+        )
+        response = self.client.post(
+            "/mcp/",
+            headers={"Accept": "application/json, text/event-stream"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "refine_image",
+                    "arguments": {
+                        "adapter": "outpaint",
+                        "reference_id": reference["id"],
+                        "resolution": "square_small",
+                    },
+                },
+            },
+        )
+        result = response.json()["result"]
+        self.assertFalse(result.get("isError", False), result)
+        self.assertEqual(result["structuredContent"]["prompt"], "")
+        self.assertEqual(
+            result["structuredContent"]["effective_prompt"], OUTPAINT_PROMPT
+        )
+        calls = len(self.calls)
+        for extra in ({}, {"prompt": ""}, {"prompt": "   "}):
+            self.assertEqual(
+                self.client.post(
+                    "/v1/images/edits", json={"reference_id": reference["id"], **extra}
+                ).status_code,
+                400,
+            )
+        self.assertEqual(len(self.calls), calls)
+
+    def test_green_fill_offline_missing_weights_rejects_before_worker(self):
+        with (
+            patch("flux2_klein_studio.job_queue.offline_default", return_value=True),
+            patch("huggingface_hub.try_to_load_from_cache", return_value=None),
+        ):
+            response = self.client.post(
+                "/v1/images/edits",
+                json={
+                    "prompt": OUTPAINT_PROMPT,
+                    "adapter": "outpaint",
+                    "image": base64.b64encode(fixture()).decode(),
+                },
+            )
+        self.assertEqual(response.status_code, 503, response.text)
+        self.assertIn("STUDIO_OFFLINE=0", response.json()["error"]["message"])
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.jobs.references.records, {})
+
+    def test_green_markers_survive_reference_resizing_exactly(self):
+        image = Image.new("RGB", (1600, 800), (30, 42, 90))
+        ImageDraw.Draw(image).rectangle((401, 101, 1198, 698), fill=(0, 255, 0))
+        data = BytesIO()
+        image.save(data, format="PNG")
+        normalized, meta = normalize_reference(data.getvalue(), preserve_green=True)
+        with Image.open(BytesIO(normalized)) as result:
+            self.assertLessEqual(result.width * result.height, 1024**2)
+            self.assertEqual(
+                result.getpixel((result.width // 2, result.height // 2)), (0, 255, 0)
+            )
+            self.assertEqual(result.getpixel((0, 0)), (30, 42, 90))
+            count = sum(pixel == (0, 255, 0) for pixel in result.getdata())
+            self.assertGreaterEqual(count, meta["green_mask"]["pixels"])
+            self.assertGreater(meta["green_mask"]["pixels"], 0)
+        self.assertIn("nearest-green", meta["preprocessing"])
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.app = create_app(Path(self.directory.name))

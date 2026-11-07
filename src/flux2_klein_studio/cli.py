@@ -149,8 +149,8 @@ def parser():
             command.add_argument(
                 "--lora-strength",
                 type=float,
-                default=1.0,
-                help="Adapter strength from 0 (base result) to 2; default 1",
+                default=None,
+                help="Adapter strength from 0 (base result) to 2; default follows the curated profile",
             )
         if name != "generate":
             command.add_argument("--runs", type=int, default=5)
@@ -208,8 +208,16 @@ def main():
         raise SystemExit("Minimum headroom must not be negative.")
     if not getattr(arguments, "prompt", "valid").strip():
         raise SystemExit("The prompt must not be empty.")
+    if hasattr(arguments, "lora_strength") and arguments.lora_strength is None:
+        arguments.lora_strength = ADAPTERS.get(arguments.lora, {}).get("strength", 1.0)
     if not 0 <= getattr(arguments, "lora_strength", 1) <= 2:
         raise SystemExit("LoRA strength must be finite and between 0 and 2.")
+    if getattr(arguments, "lora", None):
+        editing = ADAPTERS[arguments.lora].get("mode") == "edit"
+        if editing != bool(arguments.reference_image):
+            raise SystemExit(
+                "Editing adapters require --reference-image; generation adapters do not accept it."
+            )
     if (
         getattr(arguments, "suite", None) == "fixed-seed"
         or arguments.command == "seed-test"

@@ -1,8 +1,8 @@
 ---
 name: flux2-klein-image-generation
-description: Generate images or refine an existing picture with FLUX.2 Klein Studio's MCP tools, including its curated Pixel Art and Koni Anime adapters.
+description: Generate or refine images with FLUX.2 Klein Studio, including Pixel Art, Koni Anime and experimental green-area outpainting.
 metadata:
-  version: "2"
+  version: "4"
 ---
 
 # FLUX.2 Klein Studio image skill
@@ -19,6 +19,8 @@ there is no guide token to pass to generation.
 - For a change to an existing image, use `refine_image` with an edit instruction
   and exactly one reference source. Preserve the user's requested subject and
   changes; do not turn an editing request into unrelated text-to-image work.
+- For extending an image or filling painted green areas, use `refine_image`
+  with `adapter: "outpaint"` and a prepared RGB reference. See Green Fill below.
 - For pixel-art character sprites, use `generate_image` with
   `adapter: "pixel-art"` when that style matches the request. The skill result
   includes current adapter availability; do not select an unavailable adapter.
@@ -103,11 +105,46 @@ Call `refine_image` with the change in `prompt` and exactly one of:
 - `image_base64`: one image as base64 or a base64 data URL, including when
   transferring between replicas.
 
-Refine uses the base model and does not accept an adapter. It can take a Pixel
-Art or Koni result as a reference, but it does not keep that LoRA loaded for the edit.
-Masks, inpainting strength and multiple references are not exposed. For another
+Refine uses the base model unless `adapter: "outpaint"` is selected. Pixel Art
+and Koni adapters are generation-only, although their results can be references.
+Separate mask files, inpainting strength and multiple references are not exposed. For another
 edit, use the latest returned image as the next reference. IDs are instance-local;
 do not assume a different load-balanced instance can resolve them.
+
+## Green Fill / Outpaint (experimental)
+
+This adapter is editing-only. Supply one image with solid **RGB(0,255,0),
+`#00FF00`** areas where new content should be generated. To extend the picture,
+prepare a larger RGB canvas, fill extra space with that green and place the
+original image on it. Interior green painting is experimental but locally tested.
+The browser Refine editor provides these preparation tools; MCP callers supply
+the already prepared image. Do not pass a separate mask or request the browser
+to paint on behalf of a tool call.
+Small interior marks can remain green. A broader marked region or an explicit
+instruction to remove the marks helped locally; treat these as experiments,
+not guaranteed repairs.
+
+Use `refine_image` with `adapter: "outpaint"`. The server always includes this
+fixed instruction; do not put it in the optional `prompt` yourself:
+
+```text
+Fill the green spaces according to the image
+```
+
+Pass `adapter: "outpaint"`, `image_base64` containing the green-marked image and
+an enabled `resolution`. Omit `prompt` or use `""` for natural contextual fill.
+To guide the result, supply only optional fill details, such as `"a brick wall"`.
+The server appends them after the fixed instruction. HTTP `/v1/images/edits`
+uses the same adapter and optional details, with `size` for output dimensions.
+Strength is fixed at 1.1. Base-model Refine still requires an edit instruction.
+
+Reference preparation preserves exact green markers, including on resize. Larger
+references are still reduced to the existing one-megapixel conditioning limit;
+output size is independent. Output is RGB, not alpha. This is reference-guided
+generation: unpainted pixels may also change, and a drawn region is not a promise
+of pixel-exact preservation outside it. Normal green parts of a supplied picture
+can also be interpreted as fill regions. Inspect the returned image before
+claiming a successful edit.
 
 ## Receive results and handle the queue
 

@@ -12,7 +12,7 @@ gallery reuse restores the editable description and adapter separately.
 Pixel Art requests a green-screen background. Koni adds only `anime_style, `
 before your description, so you can describe its scene and background normally.
 Both adapters use strength 1 and output RGB images. Switching styles is automatic;
-Refine uses the base model even when its reference was generated with an adapter.
+Refine uses the base model unless its separate Green Fill editing adapter is selected.
 
 The first use caches the adapter's weights. Offline installations need to enable
 network loading once if the adapter is not already cached. See the
@@ -45,8 +45,17 @@ an hour idle or when the bounded upload collection fills.
 
 Start at 1024×1024. Reference conditioning consumes additional GPU work and
 memory; the existing System VRAM table measures text-only generation. Refine
-shares the generation queue and residency settings. Masks, region painting and
-strength sliders are not part of this workflow.
+shares the generation queue and residency settings. Separate mask files and
+strength sliders are not part of ordinary Refine.
+
+For experimental green painting and canvas expansion, choose **Green Fill ·
+Outpaint (experimental)** from **Editing adapter**. The brush submits exact
+`#00FF00` regions; restore/undo/clear and picture positioning are available.
+The fixed fill instruction is always included. **Optional: what should fill the
+green space?** accepts extra guidance such as `a brick wall`; leaving it empty
+uses natural contextual fill. Areas outside the green marks may change. See the
+[Green Fill guide](lora.md#green-fill--outpaint-experimental) for preparation,
+saved-reference behaviour and limitations.
 
 ### Examples
 

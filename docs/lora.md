@@ -1,6 +1,7 @@
 # Curated LoRA adapters
 
-Generate supports two curated adapters. This is an experimental inference feature for the existing NVFP4 rank-32
+Generate supports two curated style adapters; Refine also supports the experimental
+Green Fill editing adapter. These use the existing NVFP4 rank-32
 transformer and NF4 encoder. It is available in the browser, HTTP generation API,
 MCP `generate_image` and CLI. One adapter is active per image. Other LoRAs are
 not qualified by these checks.
@@ -12,6 +13,77 @@ not qualified by these checks.
 
 Sources: [Pixel Art](https://huggingface.co/Limbicnation/pixel-art-lora) and
 [Koni Anime](https://huggingface.co/Sawata97/flux2_4b_koni_animestyle).
+
+## Green Fill / Outpaint (experimental)
+
+Source: [fal/flux-2-klein-4B-outpaint-lora](https://huggingface.co/fal/flux-2-klein-4B-outpaint-lora).
+In **Refine**, select **Green Fill · Outpaint (experimental)** and choose a
+reference. Paint with the fixed **#00FF00** brush where content should be filled.
+**Restore picture**, **Undo paint** and **Clear paint** undo current-session marks.
+Increase **Output canvas** width/height to add green borders; the position selector
+anchors the original picture. Smaller canvases fit it proportionally. Painting
+follows the picture when canvas size or position changes.
+
+The fixed instruction is always included:
+
+```text
+Fill the green spaces according to the image
+```
+
+The text box is **Optional: what should fill the green space?** Leave it empty
+for natural contextual fill, or describe additional content, such as `a brick
+wall`. The server appends this guidance on a new line after the fixed instruction.
+The fixed text is displayed read-only and is not part of the editable field.
+Border expansion and interior green marks passed an initial 1024-pixel visual
+trial; results remain subject to the image model's limitations.
+Thin freehand marks remained green in one test. A broader mark and an explicit
+instruction to remove the green stripe both helped in that example; neither
+is a guarantee for other images.
+
+Green Fill is editing-only, with fixed browser/API strength **1.1**. Generation
+style adapters remain unavailable for Refine. The green-marked RGB image is the
+reference, not a separate mask; unpainted pixels may also change. No alpha channel
+or pixel-preserving compositing is added. Naturally pure-green content can also
+be interpreted as a fill region.
+
+HTTP `POST /v1/images/edits` and MCP `refine_image` accept `adapter: "outpaint"`.
+Supply one already green-marked image, a prepared reference ID, or a source job
+whose picture already contains green areas. Omit `prompt` or use `""` for natural
+fill; otherwise supply only optional fill details such as `"a brick wall"`.
+Use named `size` for HTTP or `resolution` for MCP. Changing output size alone
+does not create green borders for API callers: prepare the expanded reference
+first. Recipes retain optional guidance in `prompt` and the composed instruction
+in `effective_prompt`. Legacy full prompts have their leading fixed instruction
+removed before composition, so it is not duplicated on reuse.
+
+The editor prepares at most one megapixel of reference pixels, independently
+of output size. Exact painted pixels remain `(0,255,0)`. For raw API images,
+reference normalization preserves the pure-green mask with nearest-neighbour
+resampling while resizing picture content normally. Browser reference uploads
+can opt into the same preparation with multipart `preserve_green=true`.
+
+Opt-in Gallery storage retains the flattened green-marked reference and recipe.
+Replay restores the editing adapter and prompt; saved paint is part of that
+reference, not an editable stroke history or recoverable unpainted source. A
+current-session source and its undo history stay temporary in the browser.
+
+The pinned file is `flux-outpaint-lora.safetensors`, revision
+`b11770ac6a3cf9325dcf81742c12b1c4e257880f`, SHA-256
+`9623927f2471613e0c9d7810da3c39f0b277a448193b223ea3cee67d5750974a`.
+Its normalized rank-16 FP32 tensors occupy **76.25 MiB** across 88 projections;
+that is adapter tensor storage, not whole-device peak VRAM. The source repository
+declares Apache-2.0 in README, which is cached with its weights. First-use network
+and offline-cache rules are the same as for the style adapters.
+
+For a local 1024 comparison of green borders, interior marks, custom instructions,
+repeatability and adapter removal, provide a local reference file:
+
+```shell
+task lora:outpaint-check REFERENCE=/data/outputs/my-reference.png
+```
+
+Results and HTML comparisons appear under `outputs/lora-outpaint/`. This is a
+visual diagnostic, not an additional Refine resolution benchmark suite.
 
 ## Koni Anime
 
@@ -76,8 +148,9 @@ removal remains a separate step.
 
 Both adapters have fixed strength 1 in the browser and generation APIs. Consecutive
 requests reuse the selected weights; switching styles replaces the adapter,
-and a base-model or Refine request removes it
-from the resident worker. Refine currently uses the base model. Preparing a
+and a base-model request removes it
+from the resident worker. Refine uses the base model unless its Green Fill
+editing adapter is selected. Preparing a
 reference from an adapted result remains available through **Send to Refine**.
 
 The first use downloads the pinned adapter and license declaration. An offline installation

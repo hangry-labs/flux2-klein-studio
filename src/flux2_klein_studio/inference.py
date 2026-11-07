@@ -296,7 +296,8 @@ def run(arguments):
         from .references import normalize_reference
 
         data, reference_metadata = normalize_reference(
-            arguments.reference_image.read_bytes()
+            arguments.reference_image.read_bytes(),
+            preserve_green=getattr(arguments, "lora", None) == "outpaint",
         )
         reference = Image.open(BytesIO(data)).convert("RGB")
     selected_jobs = jobs(arguments)

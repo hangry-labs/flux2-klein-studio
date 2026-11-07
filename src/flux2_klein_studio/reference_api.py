@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from functools import partial
 
 from fastapi import HTTPException, Request
 from fastapi.responses import FileResponse
@@ -68,7 +69,7 @@ async def read_input(request):
                     values[key] = None if values[key] == "null" else int(values[key])
                 except ValueError as exc:
                     raise HTTPException(400, key + " must be a whole number") from exc
-        for key in ("save_gallery", "stream"):
+        for key in ("save_gallery", "stream", "preserve_green"):
             if key in values:
                 if values[key] not in {"true", "false"}:
                     raise HTTPException(400, key + " must be true or false")
@@ -79,7 +80,12 @@ async def read_input(request):
 
 
 async def prepare_reference(
-    jobs, *, reference_id=None, source_job_id=None, image_data=None
+    jobs,
+    *,
+    reference_id=None,
+    source_job_id=None,
+    image_data=None,
+    preserve_green=False,
 ):
     if (
         sum(value is not None for value in (reference_id, source_job_id, image_data))
@@ -99,7 +105,9 @@ async def prepare_reference(
             data = source_bytes(jobs, source_job_id)
         elif isinstance(data, str):
             data = decode_base64(data)
-        return jobs.references.create(data, source_job_id)
+        return jobs.references.create(
+            data, source_job_id, **({"preserve_green": True} if preserve_green else {})
+        )
 
     result = await asyncio.get_running_loop().run_in_executor(jobs.output_pool, prepare)
     return result["id"], True
@@ -109,11 +117,16 @@ def attach_reference_api(app, jobs):
     @app.post("/api/references", status_code=201)
     async def upload(request: Request):
         values, image = await read_input(request)
+        preserve_green = values.pop("preserve_green", False)
+        if not isinstance(preserve_green, bool):
+            raise HTTPException(400, "preserve_green must be true or false")
         if image is not None:
             if values:
                 raise HTTPException(400, "Upload one image without additional fields")
             return await asyncio.get_running_loop().run_in_executor(
-                jobs.output_pool, jobs.references.create, image
+                jobs.output_pool,
+                partial(jobs.references.create, preserve_green=preserve_green),
+                image,
             )
         if set(values) != {"source_job_id"} or not isinstance(
             values["source_job_id"], str
@@ -121,7 +134,10 @@ def attach_reference_api(app, jobs):
             raise HTTPException(400, "Supply a source_job_id or upload one image")
         data = await asyncio.to_thread(source_bytes, jobs, values["source_job_id"])
         return await asyncio.get_running_loop().run_in_executor(
-            jobs.output_pool, jobs.references.create, data, values["source_job_id"]
+            jobs.output_pool,
+            partial(jobs.references.create, preserve_green=preserve_green),
+            data,
+            values["source_job_id"],
         )
 
     @app.get("/api/references/{identifier}/image")

@@ -92,6 +92,11 @@ tasks:
     cmds:
       - docker compose run --rm --entrypoint python studio tools/probe_lora.py --adapter koni-anime {{.CLI_ARGS}}
 
+  lora:outpaint-check:
+    desc: Compare base/Green Fill on borders and interior marks at 1024; set REFERENCE to an image
+    cmds:
+      - docker compose run --rm --entrypoint python studio tools/probe_outpaint.py --reference "{{.REFERENCE}}" {{.CLI_ARGS}}
+
   benchmark:
     desc: Measure warmed speed at one resolution (no VRAM sampling or seed assertion)
     aliases: [bench]

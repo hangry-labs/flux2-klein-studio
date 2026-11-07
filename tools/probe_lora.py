@@ -72,7 +72,13 @@ def gallery(output, report, prompts):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--adapter", choices=tuple(ADAPTERS), default="pixel-art")
+    parser.add_argument(
+        "--adapter",
+        choices=tuple(
+            key for key, profile in ADAPTERS.items() if profile.get("mode") != "edit"
+        ),
+        default="pixel-art",
+    )
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()

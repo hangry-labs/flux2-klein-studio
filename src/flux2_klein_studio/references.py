@@ -13,13 +13,14 @@ import uuid
 import warnings
 
 from fastapi import HTTPException
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
 
 MAX_IMAGE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_BYTES = 24 * 1024 * 1024
 MAX_IMAGE_PIXELS = 32 * 1024 * 1024
 REFERENCE_PIXELS = 1024 * 1024
 PREPROCESSING = "exif-rgb-white-alpha-lanczos-1mp-align16-v1"
+GREEN_PREPROCESSING = "exif-rgb-white-alpha-lanczos-nearest-green-1mp-align16-v1"
 IDENTIFIER = re.compile(r"[a-f0-9]{32}\Z")
 
 
@@ -44,7 +45,7 @@ def decode_base64(value):
     return data
 
 
-def normalize_reference(data):
+def normalize_reference(data, *, preserve_green=False):
     if not data or len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(
             413 if data else 400, "Upload a nonempty image of at most 16 MiB"
@@ -79,8 +80,20 @@ def normalize_reference(data):
                     image = oriented.convert("RGB")
         scale = min(1, math.sqrt(REFERENCE_PIXELS / (image.width * image.height)))
         size = tuple(max(16, int(edge * scale) // 16 * 16) for edge in image.size)
+        green = None
+        if preserve_green:
+            differences = ImageChops.difference(
+                image, Image.new("RGB", image.size, (0, 255, 0))
+            ).split()
+            green = ImageChops.lighter(
+                ImageChops.lighter(differences[0], differences[1]), differences[2]
+            ).point(lambda value: 255 if value == 0 else 0)
         if image.size != size:
             image = image.resize(size, Image.Resampling.LANCZOS)
+            if green is not None:
+                green = green.resize(size, Image.Resampling.NEAREST)
+        if green is not None:
+            image.paste((0, 255, 0), mask=green)
         image.info.clear()
         output = BytesIO()
         image.save(output, format="PNG")
@@ -93,7 +106,12 @@ def normalize_reference(data):
             "original_height": original_size[1],
             "width": image.width,
             "height": image.height,
-            "preprocessing": PREPROCESSING,
+            "preprocessing": GREEN_PREPROCESSING if preserve_green else PREPROCESSING,
+            **(
+                {"green_mask": {"color": "#00FF00", "pixels": green.histogram()[255]}}
+                if green is not None
+                else {}
+            ),
         }
     except (
         UnidentifiedImageError,
@@ -121,8 +139,8 @@ class ReferenceStore:
         self.records.pop(identifier, None)
         (self.root / (identifier + ".png")).unlink(missing_ok=True)
 
-    def create(self, data, source_job_id=None):
-        png, metadata = normalize_reference(data)
+    def create(self, data, source_job_id=None, *, preserve_green=False):
+        png, metadata = normalize_reference(data, preserve_green=preserve_green)
         if source_job_id:
             metadata["source_job_id"] = source_job_id
         with self.lock:

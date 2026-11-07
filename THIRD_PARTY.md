@@ -65,6 +65,11 @@ LICENSE file; its pinned README license declaration is retained with the cached
 weights. Koni is also downloaded only on use, without baking its weights into
 either image variant.
 
+The optional [fal Green Fill / Outpaint adapter](https://huggingface.co/fal/flux-2-klein-4B-outpaint-lora)
+declares Apache-2.0 in README. The pinned model card is cached alongside its
+hash-verified weights; revision and hash are in [the adapter guide](docs/lora.md).
+It is downloaded only on use and is not baked into either image variant.
+
 ## Supplemental notices for installed wheels
 
 These exact installed wheels omit a license file from RECORD. The upstream

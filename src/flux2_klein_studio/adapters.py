@@ -3,6 +3,9 @@
 from typing import Literal
 
 Adapter = Literal["pixel-art", "koni-anime"]
+EditAdapter = Literal["outpaint"]
+AnyAdapter = Adapter | EditAdapter
+OUTPAINT_PROMPT = "Fill the green spaces according to the image"
 
 PIXEL_ART = {
     "repository": "Limbicnation/pixel-art-lora",
@@ -40,6 +43,25 @@ ADAPTERS = {
         "help": "Adds the anime_style trigger automatically. Use your description for the character, scene and background.",
         "weights": KONI_ANIME,
     },
+    "outpaint": {
+        "id": "outpaint",
+        "label": "Green Fill · Outpaint (experimental)",
+        "mode": "edit",
+        "template_version": 2,
+        "prefix": OUTPAINT_PROMPT,
+        "suffix": "",
+        "default_prompt": OUTPAINT_PROMPT,
+        "strength": 1.1,
+        "help": "Paint or extend with pure #00FF00 green. The fill instruction is always included; optionally describe what to add. Small marks may remain, and unpainted areas may also change.",
+        "weights": {
+            "repository": "fal/flux-2-klein-4B-outpaint-lora",
+            "revision": "b11770ac6a3cf9325dcf81742c12b1c4e257880f",
+            "filename": "flux-outpaint-lora.safetensors",
+            "sha256": "9623927f2471613e0c9d7810da3c39f0b277a448193b223ea3cee67d5750974a",
+            "format": "ai-toolkit-flux2",
+            "license_file": "README.md",
+        },
+    },
 }
 
 
@@ -68,9 +90,11 @@ def ensure_available(adapter, offline):
         )
 
 
-def catalog(offline=False):
+def catalog(offline=False, mode=None):
     profiles = []
     for profile in ADAPTERS.values():
+        if mode is not None and profile.get("mode", "generate") != mode:
+            continue
         available = not offline or cached(profile["id"])
         profiles.append(
             {
@@ -85,7 +109,18 @@ def catalog(offline=False):
     return profiles
 
 
+def outpaint_details(description):
+    """Accept old full-prompt recipes without duplicating their fixed instruction."""
+    description = description.strip()
+    if description.startswith(OUTPAINT_PROMPT):
+        description = description[len(OUTPAINT_PROMPT) :].lstrip(". \t\r\n")
+    return description
+
+
 def compose_prompt(description, adapter=None):
+    if adapter == "outpaint":
+        details = outpaint_details(description)
+        return OUTPAINT_PROMPT + ("\n" + details if details else "")
     if adapter is None:
         return description
     profile = ADAPTERS[adapter]

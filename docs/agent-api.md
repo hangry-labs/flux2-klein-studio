@@ -179,7 +179,8 @@ For Koni Anime, set `adapter: "koni-anime"` instead. The server prepends
 Both styles use strength 1. Switch by choosing the adapter for each request;
 the worker replaces the previous adapter automatically.
 Omitting `adapter` uses the base model without prompt wrapping. Adapter selection
-is currently text-to-image only; edit requests reject it. See the
+uses separate generation and editing choices: generation accepts Pixel Art/Koni,
+while edits accept only `adapter: "outpaint"` or the base model. See the
 [adapter guide](lora.md) for caching, fixed strength and export details.
 
 ## Reference-image editing
@@ -188,6 +189,21 @@ is currently text-to-image only; edit requests reject it. See the
 same named sizes, seed rules, `n=1..16`, queue, output formats and opt-in gallery
 storage as generation. The response envelope is identical; each recipe adds
 `reference` hashes, prepared dimensions and preprocessing details.
+
+For experimental green-area filling, set `adapter: "outpaint"` and submit one
+RGB reference whose fill regions are pure `#00FF00`. The server always includes
+`Fill the green spaces according to the image`. Omit `prompt` or use an empty
+string for contextual fill, or provide only optional content such as
+`"a brick wall"`, which is appended on a new line. Ordinary base-model editing
+still requires a nonempty instruction. HTTP raw image preparation preserves exact green
+markers when resizing. For `/api/references` uploads, multipart
+`preserve_green=true` opts into this preparation explicitly. Strength is 1.1.
+
+For outpainting, callers must prepare green padding around the picture before
+uploading it; output `size` alone does not create a padded reference. The browser
+provides painting and canvas-extension tools. MCP `refine_image` accepts the same
+editing adapter and an already green-marked image. Unpainted pixels may change;
+this is image conditioning, not a separate pixel-preserving mask/composite pass.
 
 Existing OpenAI Python clients can send a multipart image:
 
@@ -236,9 +252,9 @@ saved result and are deleted with that gallery job. Retrieve the saved input at
 `GET /api/jobs/{job_id}/reference` for reproducibility. The original uploaded file
 and its private metadata are not retained as gallery assets.
 
-This is instruction-based reference conditioning. Masks and strength parameters
-are unsupported and rejected; there is no dedicated masked inpainting/outpainting
-workflow. Start at 1024×1024: reference
+Separate mask-file and strength parameters are unsupported and rejected. Green
+Fill uses an RGB reference marker rather than a native pipeline mask input.
+Start at 1024×1024: reference
 conditioning adds GPU work and memory, and the System size table describes the
 text-only baseline. See [editing benchmarks](../benchmarks/refine/README.md).
 `task api:refine` checks paired HTTP/MCP edits, multi-image outputs and iterative

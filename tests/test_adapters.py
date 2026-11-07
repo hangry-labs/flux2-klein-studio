@@ -115,6 +115,8 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(settings["adapter_profile"]["suffix"], "")
         self.assertEqual(len(self.calls), 3)
         for adapter in ADAPTERS:
+            if ADAPTERS[adapter].get("mode") == "edit":
+                continue
             response = self.client.post(
                 "/v1/images/edits",
                 json={

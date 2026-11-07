@@ -11,11 +11,18 @@ from fastapi.exception_handlers import (
     request_validation_exception_handler,
 )
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .cli import MODEL_ID
-from .adapters import Adapter
+from .adapters import Adapter, EditAdapter
 from .generation_service import MODEL_ALIAS, MAX_BATCH, generate_images
 from .presets import catalog, resolve_size
 from .schemas import Generation
@@ -52,7 +59,13 @@ class ImageRequest(BaseModel):
     @field_validator("prompt")
     @classmethod
     def nonblank(cls, value):
-        return Generation.nonblank(value)
+        return value.strip()
+
+    @model_validator(mode="after")
+    def required_description(self):
+        if self.adapter != "outpaint":
+            Generation.nonblank(self.prompt)
+        return self
 
     @field_validator("model")
     @classmethod
@@ -75,7 +88,12 @@ class ImageURL(BaseModel):
 
 
 class EditRequest(ImageRequest):
-    adapter: None = None
+    prompt: str = Field(
+        default="",
+        max_length=4000,
+        description="Required edit instruction for base editing; optional fill description with outpaint. The fixed fill instruction is added automatically.",
+    )
+    adapter: EditAdapter | None = None
     image: str | None = Field(default=None, max_length=MAX_REQUEST_BYTES)
     images: list[ImageURL] | None = Field(default=None, min_length=1, max_length=1)
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
@@ -228,10 +246,16 @@ def attach_image_api(app, jobs):
                     "multipart/form-data": {
                         "schema": {
                             "type": "object",
-                            "required": ["image", "prompt"],
+                            "required": ["image"],
                             "properties": {
                                 "image": {"type": "string", "format": "binary"},
                                 **ImageRequest.model_json_schema()["properties"],
+                                "prompt": EditRequest.model_json_schema()["properties"][
+                                    "prompt"
+                                ],
+                                "adapter": EditRequest.model_json_schema()[
+                                    "properties"
+                                ]["adapter"],
                             },
                         }
                     },
@@ -262,6 +286,7 @@ def attach_image_api(app, jobs):
             reference_id=options.reference_id,
             source_job_id=options.source_job_id,
             image_data=image_data,
+            **({"preserve_green": True} if options.adapter == "outpaint" else {}),
         )
         try:
             images = await generate_images(
@@ -276,6 +301,7 @@ def attach_image_api(app, jobs):
                 count=options.n,
                 disconnected=lambda: client_disconnected(request),
                 reference_id=reference_id,
+                **({"adapter": options.adapter} if options.adapter else {}),
             )
             return await image_response(images, options.output_format)
         finally:

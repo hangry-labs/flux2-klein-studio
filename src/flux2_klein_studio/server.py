@@ -359,7 +359,8 @@ def create_app(root=Path("/data/outputs/studio")):
             "model_residency": jobs.model.snapshot(),
             "presets": PRESETS,
             "resolution_presets": catalog(),
-            "adapters": adapter_catalog(offline_default()),
+            "adapters": adapter_catalog(offline_default(), mode="generate"),
+            "edit_adapters": adapter_catalog(offline_default(), mode="edit"),
             "agent_api": {
                 "openai_base_url": "/v1",
                 "mcp": "/mcp/",

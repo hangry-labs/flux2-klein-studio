@@ -113,6 +113,13 @@ MCP agents can call `skill` first to read the bundled
 [image-generation guide](src/flux2_klein_studio/skills/image-generation/SKILL.md),
 including how to select either adapter and supply only the image description.
 
+Refine also offers **Green Fill · Outpaint (experimental)**: paint areas in
+`#00FF00`, or expand the canvas to add green borders, then generate a fill.
+Brush/restore, undo and picture positioning are available. The fixed fill instruction
+is always included; an optional field lets you describe extra content such as a
+brick wall. Unpainted areas
+may change too. See the [outpaint guide](docs/lora.md#green-fill--outpaint-experimental).
+
 Applications can use the **OpenAI-compatible Images API** at `/v1` with model
 `flux2-klein-4b`, or connect an agent to **MCP Streamable HTTP** at `/mcp/`.
 Agents choose named sizes such as `square_big`, `portrait_medium` or `panorama_big`.

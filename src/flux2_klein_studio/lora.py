@@ -160,12 +160,14 @@ def remove_lora(transformer):
                 setattr(parent, name, module.base)
 
 
-def load_adapter(transformer, adapter, *, offline=False, strength=1.0):
+def load_adapter(transformer, adapter, *, offline=False, strength=None):
     """Load a curated, hash-verified adapter; never execute Hub code."""
     from diffusers import Flux2KleinPipeline
     from huggingface_hub import hf_hub_download
 
     weights = ADAPTERS[adapter]["weights"]
+    if strength is None:
+        strength = ADAPTERS[adapter].get("strength", 1.0)
     hf_hub_download(
         weights["repository"],
         weights.get("license_file", "LICENSE"),

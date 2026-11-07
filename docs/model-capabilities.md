@@ -39,8 +39,10 @@ also marks training unsupported; training is outside this application's scope.
 
 The distilled pipeline disables classifier-free guidance, so a conventional
 guidance or negative-prompt control would not provide the expected behavior.
-Its call has no strength or mask_image input: editing is reference conditioning,
-and precise masked inpainting/outpainting would need a separate workflow.
+Its call has no strength or mask_image input: editing is reference conditioning.
+An experimental [Green Fill adapter](lora.md#green-fill--outpaint-experimental)
+fills pure-green marks or borders through that image input; it does not add
+pixel-preserving native mask/compositing semantics.
 ControlNet, depth/pose controls, native transparent output, upscaling and video
 are not established by this checkpoint and pipeline. A format conversion does
 not add those model capabilities.

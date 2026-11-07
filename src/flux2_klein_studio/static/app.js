@@ -128,7 +128,7 @@ async function refreshGallery() {
     } else {const state = document.createElement('p'); state.textContent = item.status; preview.append(state); preview.disabled = true;}
     const info = document.createElement('div'), title = document.createElement('strong'), prompt = document.createElement('p');
     title.textContent = `${item.settings.width} × ${item.settings.height} · ${item.status === 'completed' ? item.seconds.toFixed(2) + ' s' : item.status}`;
-    prompt.textContent = item.settings.prompt; info.append(title, prompt); preview.append(info);
+    prompt.textContent = item.settings.prompt || item.settings.effective_prompt || ''; info.append(title, prompt); preview.append(info);
     preview.onclick = () => {if (item.settings.reference) {reviewRefinement(item); return;} Object.entries(item.settings).forEach(([key, value]) => {if ($(key) && key !== 'save_gallery') $(key).value = value;}); $('adapter').value = item.settings.adapter || ''; adapterChanged(); $('random-seed').checked = false; seedMode(); updatePrompt(); sizeHelp(); showResult(item); switchView('generate');};
     card.append(preview);
     const controls = document.createElement('div'); controls.className = 'gallery-controls';
