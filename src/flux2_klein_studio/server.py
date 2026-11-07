@@ -249,7 +249,7 @@ class GPU:
 
 def create_app(root=Path("/data/outputs/studio")):
     from .image_api import attach_image_api
-    from .mcp_server import create_mcp_server
+    from .mcp_server import create_mcp_server, SKILL_FILE, SKILL_PATH
 
     jobs = Jobs(root)
     gpu = GPU()
@@ -340,6 +340,10 @@ def create_app(root=Path("/data/outputs/studio")):
     @app.get("/")
     def index():
         return FileResponse(STATIC / "index.html")
+
+    @app.get(SKILL_PATH, include_in_schema=False)
+    def agent_skill():
+        return FileResponse(SKILL_FILE, media_type="text/markdown")
 
     @app.get("/api/status")
     def status():

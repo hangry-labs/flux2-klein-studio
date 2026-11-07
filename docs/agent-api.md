@@ -163,6 +163,16 @@ description in `prompt`; the server adds the fixed trigger text. For example:
 ```
 
 Recipes preserve `prompt`, `effective_prompt` and `adapter_profile` separately.
+For MCP, use the same `adapter` and `prompt` fields, with `resolution` instead of
+HTTP `size`:
+
+```json
+{"prompt":"a brave knight holding a sword","adapter":"pixel-art","resolution":"square_big","seed":12345}
+```
+
+The server adds the sprite trigger words and green-screen background wording.
+Do not include the adapter template in `prompt`. The result is RGB with a green
+background; automatic background removal and alpha output are not implemented.
 Omitting `adapter` uses the base model without prompt wrapping. Adapter selection
 is currently text-to-image only; edit requests reject it. See the
 [adapter guide](lora.md) for caching, fixed strength and export details.
@@ -232,11 +242,25 @@ reuse at 1024, and removes only its own test jobs.
 ## MCP tools
 
 Configure an MCP client for Streamable HTTP at `/mcp/` (keep the trailing slash).
+The connection instructions and generation/edit tool descriptions encourage
+agents to call `skill` once per conversation, before choosing an image workflow
+or preparing its prompt. Its result contains the bundled guide, guide version,
+current enabled resolutions and adapter availability. After a successful read,
+continue with the request; do not retrieve it for every image. This is advisory:
+existing clients still work, and no guide token is required.
+
+The same guide is readable as MCP resource
+`flux2-klein-studio://skills/image-generation` or at
+[`/skills/image-generation/SKILL.md`](http://localhost:7860/skills/image-generation/SKILL.md)
+on a local server. It covers Generate versus Refine, Pixel Art selection and
+automatic green-screen wording, RGB limitations, seeds, queueing and recipes.
+The skill is bundled with the service; clients do not need a separate install.
 The transport uses the official [Python MCP SDK](https://github.com/modelcontextprotocol/python-sdk)
 with stateless HTTP and JSON responses.
 
 | Tool | Purpose |
 | --- | --- |
+| `skill` | Read the image guide first, with current sizes and adapter availability; no model load |
 | `get_status` | Check whether this instance can accept work; inspect residency |
 | `list_resolutions` | Discover exact named sizes and aspect ratios |
 | `generate_image` | Generate 1–16 images and return image content plus recipes |

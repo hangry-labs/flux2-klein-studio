@@ -74,6 +74,16 @@ async def main():
             ClientSession(read, write, read_timeout_seconds=330) as session,
         ):
             await session.initialize()
+            guide = await session.call_tool("skill", {})
+            assert not guide.is_error, guide
+            assert guide.structured_content["skill_loaded"]
+            resources = await session.list_resources()
+            skill_uri = "flux2-klein-studio://skills/image-generation"
+            assert any(
+                str(resource.uri) == skill_uri for resource in resources.resources
+            )
+            resource = await session.read_resource(skill_uri)
+            assert resource.contents[0].text == guide.structured_content["skill"]
             tools = await session.list_tools()
             print(
                 json.dumps({"mcp_tools": [tool.name for tool in tools.tools]}),

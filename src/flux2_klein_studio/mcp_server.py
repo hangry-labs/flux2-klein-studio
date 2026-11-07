@@ -2,6 +2,7 @@
 
 import base64
 import json
+from pathlib import Path
 from typing import Annotated, Literal, Any
 
 from fastapi import HTTPException
@@ -21,6 +22,13 @@ from .transport import client_disconnected
 from . import __version__
 from .reference_api import prepare_reference
 from .references import MAX_REQUEST_BYTES
+from .adapters import catalog as adapter_catalog
+from .build_info import offline_default
+
+SKILL_URI = "flux2-klein-studio://skills/image-generation"
+SKILL_PATH = "/skills/image-generation/SKILL.md"
+SKILL_FILE = Path(__file__).with_name("skills") / "image-generation" / "SKILL.md"
+SKILL_VERSION = "1"
 
 
 class ResolutionServer(MCPServer):
@@ -54,8 +62,15 @@ def create_mcp_server(jobs):
         version=__version__,
         log_level="WARNING",
         subscriptions=False,
-        instructions="Use the currently advertised tools for local image generation. Choose an enabled named resolution; "
+        instructions="Call skill first if you have not read its guide in this conversation, before choosing an image tool or preparing its prompt. "
+        "Once skill returns skill_loaded=true, continue; do not call it repeatedly unless switching servers or the guide version changes. "
+        "No guide token is required. Use the currently advertised tools for local image generation. Choose an enabled named resolution; "
         "list_resolutions describes the current choices and default. "
+        "For pixel-art character sprites, select adapter='pixel-art' in generate_image. "
+        "Supply only the subject description in prompt: the server adds the sprite trigger words and green screen background instructions. "
+        "Do not add the adapter template yourself. Omit adapter for ordinary base-model generation. "
+        "Pixel Art outputs are RGB with a green background, not transparent; background removal is not provided. "
+        "refine_image uses the base model and does not accept an adapter. "
         "Omit seed for a random image; reuse the returned seed and settings to reproduce it. "
         "Results include inline image content and a recipe. Gallery storage is opt-in. "
         "Concurrent requests wait in a shared queue; one image uses the GPU at a time. "
@@ -70,6 +85,31 @@ def create_mcp_server(jobs):
         idempotent_hint=True,
         open_world_hint=False,
     )
+
+    @server.resource(SKILL_URI, mime_type="text/markdown")
+    def image_generation_skill() -> str:
+        """Image-generation guide. Call skill first for the guide and current choices."""
+        return SKILL_FILE.read_text(encoding="utf-8")
+
+    @server.tool(annotations=read, structured_output=True)
+    async def skill() -> dict[str, Any]:
+        """Read this skill first, once per conversation, before choosing an image tool.
+
+        Covers Generate versus Refine, named sizes, Pixel Art's automatic prompt
+        and green screen background, seeds, queueing and recipes. A successful
+        result means the skill is loaded: continue rather than retrieving again.
+        No GPU/model load and no guide token required.
+        """
+        with jobs.lock:
+            return {
+                "skill_version": SKILL_VERSION,
+                "skill_loaded": True,
+                "skill": image_generation_skill(),
+                "default_resolution": jobs.resolutions.default(),
+                "resolutions": jobs.resolutions.catalog(),
+                "adapters": adapter_catalog(offline_default()),
+                "next_step": "The guide is loaded. Choose generate_image for a new image or refine_image to edit one reference. Use the current enabled sizes and available adapter choices. Do not retrieve skill again for each call.",
+            }
 
     @server.tool(annotations=read, structured_output=True)
     async def list_resolutions() -> dict[str, Any]:
@@ -124,7 +164,7 @@ def create_mcp_server(jobs):
         adapter: Annotated[
             Literal["pixel-art"] | None,
             Field(
-                description="Optional style adapter. Supply only the image description; its fixed prefix and suffix are added automatically."
+                description="Select pixel-art for pixel-art character sprites on a green screen background. Supply only the subject description; trigger words and background instructions are added automatically. Output is RGB, not transparent. Omit for the base model."
             ),
         ] = None,
         save_gallery: bool = False,
@@ -141,6 +181,10 @@ def create_mcp_server(jobs):
 
         Choose an enabled resolution from list_resolutions, or omit it to use
         the current server default. Disabled presets are rejected before generation.
+        Read skill first if it has not been read in this conversation.
+        For pixel-art sprites, set adapter='pixel-art' and provide only the subject
+        description. The server adds the fixed sprite and green screen wording.
+        This produces RGB images; it does not remove the background or add alpha.
         Keep save_gallery=false unless the user wants persistent gallery storage.
         """
         try:
@@ -216,6 +260,7 @@ def create_mcp_server(jobs):
 
         This is reference-guided generation: masks and strength controls are not
         supported. Keep gallery saving off unless the user requests persistence.
+        Read skill first if it has not been read in this conversation.
         """
         identifier, owned = None, False
         try:

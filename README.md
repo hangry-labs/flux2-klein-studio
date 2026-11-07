@@ -105,6 +105,9 @@ investigate next, including multiple references and adapter compatibility.
 Generate also offers a curated [Pixel Art adapter](docs/lora.md): choose it from
 the style dropdown and describe your image. Its fixed trigger text is added
 automatically. HTTP/MCP generation supports the same adapter and prompt template.
+MCP agents can call `skill` first to read the bundled
+[image-generation guide](src/flux2_klein_studio/skills/image-generation/SKILL.md),
+including how to select Pixel Art and supply only the image description.
 
 Applications can use the **OpenAI-compatible Images API** at `/v1` with model
 `flux2-klein-4b`, or connect an agent to **MCP Streamable HTTP** at `/mcp/`.

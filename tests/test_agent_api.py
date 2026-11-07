@@ -94,7 +94,13 @@ class AgentAPITests(unittest.TestCase):
             }
             self.assertEqual(
                 set(tools),
-                {"get_status", "list_resolutions", "generate_image", "refine_image"},
+                {
+                    "skill",
+                    "get_status",
+                    "list_resolutions",
+                    "generate_image",
+                    "refine_image",
+                },
             )
             schema = tools["generate_image"]["inputSchema"]
             self.assertEqual(
@@ -256,7 +262,7 @@ class AgentAPITests(unittest.TestCase):
     def test_all_disabled_hides_generation_and_reenabling_restores_it(self):
         self.client.put("/api/resolutions", json={"enabled_resolutions": []})
         names = {t["name"] for t in self.rpc("tools/list").json()["result"]["tools"]}
-        self.assertEqual(names, {"get_status", "list_resolutions"})
+        self.assertEqual(names, {"skill", "get_status", "list_resolutions"})
         self.assertEqual(
             self.client.get("/v1/images/resolutions").json(),
             {"default": None, "data": []},

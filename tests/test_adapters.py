@@ -176,3 +176,79 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(
             recipe["effective_prompt"], compose_prompt("A blue slime", "pixel-art")
         )
+
+    def test_mcp_skill_resource_and_http_guide_work_without_model_loading(self):
+        def rpc(method, params=None):
+            response = self.client.post(
+                "/mcp/",
+                headers={"Accept": "application/json, text/event-stream"},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": method,
+                    "params": params or {},
+                },
+            )
+            self.assertEqual(response.status_code, 200, response.text)
+            return response.json()["result"]
+
+        from flux2_klein_studio.mcp_server import SKILL_URI, SKILL_PATH
+
+        with patch(
+            "subprocess.Popen", side_effect=AssertionError("Unexpected model load")
+        ):
+            initialized = rpc(
+                "initialize",
+                {
+                    "protocolVersion": "2025-11-25",
+                    "capabilities": {},
+                    "clientInfo": {"name": "skill-test", "version": "1"},
+                },
+            )
+            self.assertIn("skill", initialized["instructions"])
+            self.client.put(
+                "/api/resolutions", json={"enabled_resolutions": ["square_small"]}
+            )
+            result = rpc("tools/call", {"name": "skill", "arguments": {}})
+            self.assertFalse(result.get("isError", False))
+            guide = result["structuredContent"]
+            self.assertTrue(guide["skill_loaded"])
+            self.assertEqual(guide["skill_version"], "1")
+            self.assertEqual(guide["default_resolution"], "square_small")
+            self.assertEqual([r["id"] for r in guide["resolutions"]], ["square_small"])
+            self.assertEqual(guide["adapters"][0]["id"], "pixel-art")
+            self.assertIn(
+                SKILL_URI, [r["uri"] for r in rpc("resources/list")["resources"]]
+            )
+            resource = rpc("resources/read", {"uri": SKILL_URI})["contents"][0]
+            self.assertEqual(resource["mimeType"], "text/markdown")
+            self.assertEqual(resource["text"], guide["skill"])
+            response = self.client.get(SKILL_PATH)
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(
+                response.headers["content-type"].startswith("text/markdown")
+            )
+            self.assertEqual(response.text, guide["skill"])
+        self.assertEqual(self.calls, [])
+        self.assertEqual(self.jobs.items, {})
+
+    def test_mcp_skill_explains_offline_adapter_availability_without_admission(self):
+        with (
+            patch.dict(os.environ, {"STUDIO_OFFLINE": "1"}),
+            patch("huggingface_hub.try_to_load_from_cache", return_value=None),
+        ):
+            result = self.client.post(
+                "/mcp/",
+                headers={"Accept": "application/json, text/event-stream"},
+                json={
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {"name": "skill", "arguments": {}},
+                },
+            ).json()["result"]
+        self.assertFalse(result.get("isError", False))
+        profile = result["structuredContent"]["adapters"][0]
+        self.assertFalse(profile["available"])
+        self.assertIn("STUDIO_OFFLINE=0", profile["unavailable_reason"])
+        self.assertEqual(self.calls, [])
