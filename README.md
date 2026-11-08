@@ -24,7 +24,7 @@ prompts and seeds produced pixel-identical images on the tested GPU and pinned
 stack, including after restarting the container. Other GPUs and software versions
 have not been qualified. See [validation](docs/validation.md#ordered-reduction).
 
-Source release **v1.0.0**.
+Development version **v1.1.0-snapshot**.
 
 Container build and publication follow the [release workflow](docs/RELEASING.md).
 Full images bundle the model; tiny images download it on first use. See the
@@ -338,6 +338,17 @@ Generated images can contain errors and do not establish that a depicted event o
 
 
 ## Version History
+
+<details open>
+<summary><strong>v1.1.0-snapshot development notes</strong></summary>
+
+### v1.1.0-snapshot
+
+Development version after `v1.0.0`. Rolling `latest` and `latest_tiny` tags follow `main`; immutable release tags remain unchanged.
+
+- No changes recorded yet.
+
+</details>
 
 <details open>
 <summary><strong>v1.0.0 release notes</strong></summary>
