@@ -24,7 +24,7 @@ prompts and seeds produced pixel-identical images on the tested GPU and pinned
 stack, including after restarting the container. Other GPUs and software versions
 have not been qualified. See [validation](docs/validation.md#ordered-reduction).
 
-Development version **v1.0.0-snapshot**.
+Source release **v1.0.0**.
 
 Container build and publication follow the [release workflow](docs/RELEASING.md).
 Full images bundle the model; tiny images download it on first use. See the
@@ -340,12 +340,11 @@ Generated images can contain errors and do not establish that a depicted event o
 ## Version History
 
 <details open>
-<summary><strong>v1.0.0-snapshot development notes</strong></summary>
+<summary><strong>v1.0.0 release notes</strong></summary>
 
-### v1.0.0-snapshot
+### v1.0.0
 
-Development snapshot, with rolling full and tiny images published on Docker Hub
-and GHCR. Versioned stable tags use the separate release workflow.
+Source release `v1.0.0`. The source tag triggers container publication. Verify full/tiny registry indexes and add their digest-pinned deployment references before announcing availability.
 
 - Local text-to-image CLI and browser studio with opt-in gallery storage, recipe
   reuse, deletion, PNG/WebP/JPEG downloads and configurable model residency.
