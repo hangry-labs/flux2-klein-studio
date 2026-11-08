@@ -1,5 +1,9 @@
 # Container builds and releases
 
+<p align="center"><strong>English</strong> · <a href="nb/README.md">Norsk bokmål</a> · <a href="pl/README.md">Polski</a> · <a href="ja/README.md">日本語</a> · <a href="zh/README.md">简体中文</a> · <a href="es/README.md">Español</a></p>
+
+Translated introductions are linked above. This detailed technical guide is maintained in English.
+
 `VERSION` and the runtime `__version__` share one display version, initially
 `0.1.0-snapshot`. The HTTP status includes the application version, source commit,
 build date and image flavor. Local images use `unknown`/`dev` build metadata.

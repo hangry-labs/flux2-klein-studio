@@ -379,6 +379,21 @@ def create_app(root=Path("/app/persistent/outputs/studio")):
     def index():
         return FileResponse(STATIC / "index.html")
 
+    def localized_index(request: Request):
+        locale = request.url.path.strip("/")
+        return Response(
+            (STATIC / "index.html")
+            .read_text(encoding="utf-8")
+            .replace('<html lang="en">', f'<html lang="{locale}">', 1),
+            media_type="text/html",
+        )
+
+    for locale in ("en", "nb", "pl", "ja", "zh", "es"):
+        for suffix in ("", "/"):
+            app.add_api_route(
+                f"/{locale}{suffix}", localized_index, include_in_schema=False
+            )
+
     @app.get(SKILL_PATH, include_in_schema=False)
     def agent_skill():
         return FileResponse(SKILL_FILE, media_type="text/markdown")

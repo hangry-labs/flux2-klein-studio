@@ -1,5 +1,9 @@
 # Curated LoRA adapters
 
+<p align="center"><strong>English</strong> · <a href="nb/README.md">Norsk bokmål</a> · <a href="pl/README.md">Polski</a> · <a href="ja/README.md">日本語</a> · <a href="zh/README.md">简体中文</a> · <a href="es/README.md">Español</a></p>
+
+Translated introductions are linked above. This detailed technical guide is maintained in English.
+
 Generate supports three curated style adapters; Refine supports experimental
 Green Fill and Red Zoom editing adapters. These use the existing NVFP4 rank-32
 transformer and NF4 encoder through the browser, HTTP API and MCP.

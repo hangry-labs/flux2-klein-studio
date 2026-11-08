@@ -1,5 +1,9 @@
 # Validation
 
+<p align="center"><strong>English</strong> · <a href="nb/README.md">Norsk bokmål</a> · <a href="pl/README.md">Polski</a> · <a href="ja/README.md">日本語</a> · <a href="zh/README.md">简体中文</a> · <a href="es/README.md">Español</a></p>
+
+Translated introductions are linked above. This detailed technical guide is maintained in English.
+
 Status: the default ordered mode passed same-seed repeatability checks on an
 RTX 5070 Ti with the pinned software stack. The original native mode still varies.
 The subsequent [resolution baseline](benchmarks.md) measures speed and memory
@@ -368,3 +372,37 @@ matched the established local result. Existing gallery records, residency settin
 and resolution policy matched the pre-review snapshot; only the review's own
 temporary generation was deleted. See the separate [multi-reference evidence](../benchmarks/multiref/README.md)
 for reference-count memory and quality trials.
+
+## Six-language interface and product guides, 2026-11-08
+
+Added the Faster Qwen locale set: English, Norwegian Bokmål, Polish, Japanese,
+Simplified Chinese and Spanish. The UI bundles 347 messages per language,
+including editor guidance, adapter help, accessibility labels and System controls.
+Translated READMEs, Docker Hub pages and practical documentation introductions
+link to clearly labeled English technical guides. Interface language leaves user
+prompts, model triggers, recipes and API identifiers unchanged.
+
+The CPU container suite ran **138 tests**, with two CUDA-only numerical tests
+explicitly skipped. Eight dependency-free JavaScript checks cover language URL
+and stored-preference precedence, missing/blank-message fallback, blocked browser
+storage, catalog failures, racing locale changes, stable select values and paint
+metadata updates without drawing. Ruff, formatting, release/publication checks,
+JavaScript syntax, UTF-8/catalog checks and local documentation links passed.
+
+Browser layout checks covered six languages, four views, two header states and
+nine widths from 320 to 1920 pixels: **432 combinations**, without document
+overflow or navigation/logo/runtime overlap. Reduced motion was used to make the
+matrix deterministic. A normal-motion header was also inspected. Language changes
+preserved the typed prompt, all four ordered references, unsaved resolution
+choices, exact painted canvas pixels and the zoom rectangle/canvas. One early
+canvas-redraw regression was reproduced and corrected before qualification.
+
+A real browser NASA-adapter generation at 1024×1024, seed 12345 and strength 0.5
+continued while switching languages during submission and GPU work. A deliberately
+delayed admission still accepted exactly one job and kept Generate disabled.
+The result matched RGB hash
+`01941c055afcabb994f4ca3a67c8e38c252def261f303d937d6ebc12fefbbded`;
+the seed, adapter, original prompt, fixed trigger and selected WebP download stayed
+unchanged. Real HTTP and MCP base-model requests both retained their existing
+1024×1024 golden hash. These are correctness smoke checks, not new performance
+benchmarks or claims about multilingual prompt quality.

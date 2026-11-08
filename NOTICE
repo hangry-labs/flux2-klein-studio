@@ -5,8 +5,8 @@ Application code is licensed under the Apache License, Version 2.0; see LICENSE.
 Model, dependency and adapted code retain their own terms and notices; see
 THIRD_PARTY.md and licenses/.
 
-Container publication, source/notice collection and cache-seeding helpers are
-adapted from Faster Qwen3 TTS Studio. Its MIT notice is retained in
+Container publication, source/notice collection, cache-seeding helpers and shared
+UI localization phrases/patterns are adapted from Faster Qwen3 TTS Studio. Its MIT notice is retained in
 licenses/faster-qwen-MIT.txt.
 
 Ordered accumulation helpers retain the Apache-2.0 attribution documented in

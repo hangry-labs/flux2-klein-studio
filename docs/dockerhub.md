@@ -4,9 +4,15 @@
 
 # FLUX.2 Klein Studio
 
+<p align="center"><strong>English</strong> · <a href="https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/dockerhub.nb.md">Norsk bokmål</a> · <a href="https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/dockerhub.pl.md">Polski</a> · <a href="https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/dockerhub.ja.md">日本語</a> · <a href="https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/dockerhub.zh.md">简体中文</a> · <a href="https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/dockerhub.es.md">Español</a></p>
+
 Create pictures, refine them with instructions, fill painted areas and explore
 close-ups—all locally, in your browser. Connect apps and AI agents through the
 Images API and MCP.
+
+Choose English, Norwegian Bokmål, Polish, Japanese, Simplified Chinese or Spanish
+in the header. The language links above open translated product guides. Switching
+UI language keeps your current work and remembers your browser preference.
 
 ## Quick start
 

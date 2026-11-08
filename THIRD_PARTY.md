@@ -50,6 +50,11 @@ Publication planning, release promotion, runtime license/source collection and
 cache merge logic are adapted from Faster Qwen3 TTS Studio; the original MIT
 notice is retained in `licenses/faster-qwen-MIT.txt`.
 
+UI localization follows Faster Qwen's locale and persistence conventions and
+reuses some shared translated phrases from its MIT-licensed catalogs. The same
+retained MIT notice applies; product-specific translations and editor integration
+are maintained in this repository.
+
 ## Optional style adapters
 
 The optional pixel-art LoRA pilot downloads

@@ -1,3 +1,4 @@
+import {msg} from './i18n.js';
 // A bounded reference canvas. Green is an RGB input marker, never an alpha mask.
 const $ = id => document.getElementById(id);
 export class GreenPainter {
@@ -35,7 +36,7 @@ export class GreenPainter {
     this.strokes = []; this.cursor = null; $('paint-anchor').value = 'center';
     this.resize(width, height);
   }
-  clear() {this.source = null; this.strokes = []; this.current = null; this.canvas.getContext('2d').clearRect(0,0,this.canvas.width,this.canvas.height);}
+  clear() {$('paint-meta').textContent = ''; this.source = null; this.strokes = []; this.current = null; this.canvas.getContext('2d').clearRect(0,0,this.canvas.width,this.canvas.height);}
   setDisabled(disabled) {
     this.disabled = Boolean(disabled);
     this.canvas.setAttribute('aria-disabled', String(this.disabled));
@@ -57,7 +58,11 @@ export class GreenPainter {
     const context = this.base.getContext('2d'); context.fillStyle = '#00FF00'; context.fillRect(0,0,preparedWidth,preparedHeight);
     context.drawImage(this.source,Math.round(this.x * this.sx),Math.round(this.y * this.sy),Math.round(drawnWidth * this.sx),Math.round(drawnHeight * this.sy));
     this.rebuild();
-    $('paint-meta').textContent = `Output ${width} × ${height} · Prepared reference ${preparedWidth} × ${preparedHeight}. Extra canvas is green; smaller canvases fit the source proportionally.`;
+    this.describe();
+  }
+  describe() {
+    if (!this.source) return;
+    $('paint-meta').textContent = msg`Output ${this.width} × ${this.height} · Prepared reference ${this.canvas.width} × ${this.canvas.height}. Extra canvas is green; smaller canvases fit the source proportionally.`;
   }
   point(event) {
     const rect = this.canvas.getBoundingClientRect();
@@ -102,6 +107,6 @@ export class GreenPainter {
     // Canvas strokes have antialiased edges. Submit binary, exact RGB markers.
     for (let i = 0; i < image.data.length; i += 4) if (mask.data[i + 3] >= 128) {image.data[i] = 0; image.data[i + 1] = 255; image.data[i + 2] = 0; image.data[i + 3] = 255;}
     context.putImageData(image,0,0);
-    return new Promise((resolve,reject) => output.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not prepare the painted reference.')),'image/png'));
+    return new Promise((resolve,reject) => output.toBlob(blob => blob ? resolve(blob) : reject(new Error(msg('Could not prepare the painted reference.'))),'image/png'));
   }
 }

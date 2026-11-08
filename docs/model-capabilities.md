@@ -1,5 +1,9 @@
 # Model capability review
 
+<p align="center"><strong>English</strong> · <a href="nb/README.md">Norsk bokmål</a> · <a href="pl/README.md">Polski</a> · <a href="ja/README.md">日本語</a> · <a href="zh/README.md">简体中文</a> · <a href="es/README.md">Español</a></p>
+
+Translated introductions are linked above. This detailed technical guide is maintained in English.
+
 Reviewed 2026-11-08 for the pinned Nunchaku Lite NVFP4 rank-32 checkpoint,
 NF4 Qwen3 encoder and Diffusers 0.42.1. Text-to-image is qualified locally;
 single-reference editing is now qualified at 1024×1024. Other additional model

@@ -1,3 +1,4 @@
+import {msg, retranslate} from './i18n.js';
 const $ = id => document.getElementById(id);
 
 export function initializeShell(storage) {
@@ -9,7 +10,7 @@ export function initializeShell(storage) {
     hero.classList.toggle('compact', compact);
     const control = $('collapse');
     control.setAttribute('aria-expanded', String(!compact));
-    control.setAttribute('aria-label', compact ? 'Expand header' : 'Collapse header');
+    control.setAttribute('aria-label', compact ? msg('Expand header') : msg('Collapse header'));
     control.title = control.getAttribute('aria-label');
     storage.set('collapsed', String(compact));
     if (animate && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -19,6 +20,7 @@ export function initializeShell(storage) {
   }
   $('collapse').onclick = () => collapse(!$('hero').classList.contains('compact'), true);
   collapse(storage.get('collapsed', 'false') === 'true');
+  window.addEventListener('ui-locale-changed', () => {collapse($('hero').classList.contains('compact')); $('runtime').textContent = retranslate($('runtime').textContent);});
 }
 
 export function runtimeState(state, text) {

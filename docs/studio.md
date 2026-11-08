@@ -1,5 +1,15 @@
 # Browser studio
 
+<p align="center"><strong>English</strong> · <a href="nb/README.md">Norsk bokmål</a> · <a href="pl/README.md">Polski</a> · <a href="ja/README.md">日本語</a> · <a href="zh/README.md">简体中文</a> · <a href="es/README.md">Español</a></p>
+
+Translated introductions are linked above. This detailed technical guide is maintained in English.
+
+The header's language selector offers English, Norwegian Bokmål, Polish, Japanese,
+Simplified Chinese and Spanish. It remembers the browser preference and changes
+labels without clearing your workspace. Direct routes such as `/ja` and `/ja/`
+override that preference. Interface language does not translate your prompt or
+fixed adapter instructions. See [language support](localization.md).
+
 ## Style adapters
 
 Choose **Pixel Art · character sprites**, **Koni · Anime illustration** or

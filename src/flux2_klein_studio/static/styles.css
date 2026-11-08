@@ -313,3 +313,17 @@ input[readonly] {color: var(--muted);}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {animation: none !important; transition: none !important;}
 }
+
+.locale-picker {display: inline-flex; margin: 0; min-width: 0;}
+.links .locale-picker select {width: 140px; min-height: 34px; margin: 0; padding: 5px 8px; font-size: 12px;}
+@media (min-width: 921px) {
+  .hero:not(.compact) .links {
+    width: min(350px, calc((100% - clamp(330px, calc(100vw - 760px), 570px)) / 2 - clamp(20px, 4vw, 56px) - 16px));
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hero:not(.compact) .locale-picker select {width: 100%;}
+  .hero:not(.compact) .links>a, .hero:not(.compact) .links>button {min-width: 0; white-space: normal; padding: 4px 8px;}
+}
+@media (max-width: 600px) {
+  .links .locale-picker select {width: 125px; min-height: 32px; font-size: 11px;}
+}

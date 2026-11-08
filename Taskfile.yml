@@ -233,6 +233,10 @@ tasks:
       - task: docker:test-build
       - docker run --rm --gpus all -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
 
+  test:ui:
+    desc: Check language selection, fallback and state-safe option updates with Node.js 22+
+    cmds: [node --test tests/ui/i18n.test.mjs]
+
   tools:build:
     desc: Build optional lint/plot tools separately from the inference image
     cmds: [docker build --target tooling -t flux2-klein-studio:tools .]
@@ -289,6 +293,7 @@ tasks:
       - uv run --no-project --python 3.13 --with ruff==0.16.10 ruff format --check src tests tools
       - uv run --no-project --python 3.13 python tools/check_release.py
       - uv run --no-project --python 3.13 python -m unittest discover -s tests -p test_publication.py -v
+      - task: test:ui
 
   release:dry-run:
     desc: Validate promotion and the next snapshot in memory, without changing refs or files

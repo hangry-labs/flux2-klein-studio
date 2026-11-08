@@ -1,5 +1,7 @@
 # FLUX.2 Klein Studio
 
+<p align="center"><strong>English</strong> · <a href="README.nb.md">Norsk bokmål</a> · <a href="README.pl.md">Polski</a> · <a href="README.ja.md">日本語</a> · <a href="README.zh.md">简体中文</a> · <a href="README.es.md">Español</a></p>
+
 <p align="center"><img src="assets/flux2_klein_logo_horizontal.webp" width="840" alt="FLUX.2 Klein Studio — local image generation"></p>
 
 Experimental local text-to-image generation using FLUX.2 Klein 4B with a Nunchaku
@@ -10,6 +12,12 @@ The local browser studio provides generation, a saved-image gallery, recipe reus
 and GPU telemetry. **Refine** edits an uploaded picture or a generated result
 using an instruction, with a before/after view and iterative reuse.
 Project artwork is available in [assets/](assets/README.md).
+
+The interface supports **English, Norwegian Bokmål, Polish, Japanese, Simplified
+Chinese and Spanish**. Choose a language in the header or open a locale URL such
+as `http://localhost:7860/pl`. Language changes preserve your current work.
+See the [documentation index](docs/README.md) for translated introductions and
+English technical guides. Prompts and fixed adapter triggers are not translated.
 
 **Repeatability:** ordered low-rank accumulation is enabled by default. Repeated
 prompts and seeds produced pixel-identical images on the tested GPU and pinned

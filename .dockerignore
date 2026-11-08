@@ -18,6 +18,10 @@
 !tests/**
 !tools/
 !tools/**
+!docs/
+!docs/*.md
+!docs/*/
+!docs/*/README.md
 **/__pycache__/
 **/*.py[cod]
 **/AGENTS.md
@@ -32,5 +36,10 @@
 !VERSION
 !NOTICE
 !README.md
+!README.nb.md
+!README.pl.md
+!README.ja.md
+!README.zh.md
+!README.es.md
 !LICENSE
 !LICENSE.md

@@ -1,3 +1,4 @@
+import {msg} from './i18n.js';
 const svgNS = 'http://www.w3.org/2000/svg';
 const metrics = [
   ['utilization', 'GPU utilization', '%', 100, '#ff984d'],
@@ -7,7 +8,7 @@ const metrics = [
   ['fan', 'Fan', '%', 100, '#77cba0'],
 ];
 const finite = value => typeof value === 'number' && Number.isFinite(value);
-const format = (value, unit) => unit === 'MiB' ? `${(value / 1024).toFixed(1)} GiB` : `${value.toFixed(0)}${unit === '%' ? '' : ' '}${unit}`;
+const format = (value, unit) => unit === 'MiB' ? msg`${(value / 1024).toFixed(1)} GiB` : `${value.toFixed(0)}${unit === '%' ? '' : ' '}${unit}`;
 function node(tag, className, text) {
   const element = document.createElement(tag);
   if (className) element.className = className;
@@ -35,13 +36,13 @@ export function initializeGPU({request, storage}) {
   function render() {
     const latest = history.at(-1);
     if (!latest?.gpus.length) {
-      root.replaceChildren(node('p', 'muted', 'GPU telemetry unavailable or starting. The monitor will retry while this view is open.'));
+      root.replaceChildren(node('p', 'muted', msg('GPU telemetry unavailable or starting. The monitor will retry while this view is open.')));
       return;
     }
     const cards = latest.gpus.map(gpu => {
       const card = node('article', 'gpu-card');
       const heading = node('div', 'gpu-card-head');
-      heading.append(node('strong', '', `GPU ${gpu.index}`), node('span', '', gpu.name));
+      heading.append(node('strong', '', msg`GPU ${gpu.index}`), node('span', '', gpu.name));
       const grid = node('div', 'gpu-grid');
       for (const [key, label, unit, bound, color] of metrics) {
         if (!finite(gpu[key])) continue;
@@ -56,11 +57,11 @@ export function initializeGPU({request, storage}) {
         const chart = node('div', 'gpu-metric'); chart.style.setProperty('--chart-color', color);
         const caption = node('div', 'gpu-chart-scale');
         const value = node('strong', '', format(gpu[key], unit));
-        if (key === 'used' && finite(gpu.total)) value.title = `Total VRAM: ${format(gpu.total, unit)}`;
-        caption.append(node('span', '', label), value);
+        if (key === 'used' && finite(gpu.total)) value.title = msg`Total VRAM: ${format(gpu.total, unit)}`;
+        caption.append(node('span', '', msg(label)), value);
         const plot = node('div', 'gpu-chart-plot');
         const svg = svgNode('svg', {viewBox: '0 0 300 86', preserveAspectRatio: 'none', role: 'img', tabindex: '0',
-          'aria-label': `${label}: ${format(gpu[key], unit)}, average ${format(average, unit)}, peak ${format(peak, unit)}`});
+          'aria-label': msg`${msg(label)}: ${format(gpu[key], unit)}, average ${format(average, unit)}, peak ${format(peak, unit)}`});
         for (let x = 0; x <= 300; x += 30) svg.append(svgNode('line', {x1: x, x2: x, y1: 0, y2: 86, class: 'gpu-grid-line'}));
         for (let y = 0; y <= 86; y += 21.5) svg.append(svgNode('line', {x1: 0, x2: 300, y1: y, y2: y, class: 'gpu-grid-line'}));
         const coordinates = points.map(point => [Math.max(1, Math.min(299, 300 * (point.time - latest.timestamp + windowSeconds) / windowSeconds)),
@@ -85,11 +86,11 @@ export function initializeGPU({request, storage}) {
         svg.onfocus = () => showSample(1);
         plot.append(svg, cursor, tooltip);
         const axis = node('div', 'gpu-chart-axis');
-        axis.append(node('span', '', windowSeconds === 60 ? '1 minute' : '10 minutes'), node('span', '', `Average ${format(average, unit)} · Peak ${format(peak, unit)}`));
+        axis.append(node('span', '', windowSeconds === 60 ? msg('1 minute') : msg('10 minutes')), node('span', '', msg`Average ${format(average, unit)} · Peak ${format(peak, unit)}`));
         chart.append(caption, plot, axis); grid.append(chart);
       }
       card.append(heading, grid);
-      if (finite(gpu.total)) card.append(node('div', 'gpu-live-details', `Total VRAM ${format(gpu.total, 'MiB')}${finite(gpu.power_limit) ? ` · Power limit ${format(gpu.power_limit, 'W')}` : ''}`));
+      if (finite(gpu.total)) card.append(node('div', 'gpu-live-details', msg`Total VRAM ${format(gpu.total, 'MiB')}${finite(gpu.power_limit) ? msg` · Power limit ${format(gpu.power_limit, 'W')}` : ''}`));
       return card;
     });
     // Keep a hovered or keyboard-focused plot stable until interaction finishes.
@@ -116,6 +117,7 @@ export function initializeGPU({request, storage}) {
     button.onclick = () => {windowSeconds = Number(button.dataset.gpuWindow); storage.set('gpu-window', String(windowSeconds)); updateWindow(); render();};
   });
   updateWindow();
+  window.addEventListener('ui-locale-changed', () => {if(visible) render();});
   document.addEventListener('visibilitychange', schedule);
   window.addEventListener('pagehide', () => {stopped = true; clearInterval(timer);});
   window.addEventListener('pageshow', () => {stopped = false; schedule();});

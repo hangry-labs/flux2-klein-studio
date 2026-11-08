@@ -1,3 +1,4 @@
+import {msg} from './i18n.js';
 // Coordinates are source fractions; the rectangle's pixel aspect follows output size.
 const $ = id => document.getElementById(id);
 const keys = ['x','y','width','height'];
@@ -79,7 +80,7 @@ export class ZoomSelector {
     this.region = typeof locked === 'object' ? {...locked} : this.centered();
     this.changed(); this.setDisabled(this.disabled);
   }
-  clear() {this.source = null; this.start = null; this.region = null; this.canvas.getContext('2d').clearRect(0,0,this.canvas.width,this.canvas.height);}
+  clear() {$('zoom-meta').textContent = ''; this.source = null; this.start = null; this.region = null; this.canvas.getContext('2d').clearRect(0,0,this.canvas.width,this.canvas.height);}
   setDisabled(disabled) {
     this.disabled = Boolean(disabled);
     const blocked = this.disabled || this.locked;
@@ -105,6 +106,6 @@ export class ZoomSelector {
       ctx.fillRect(x,y,thickness,bottom-y+1); ctx.fillRect(right-thickness+1,y,thickness,bottom-y+1);
     }
     for (const key of keys) $(`zoom-${key}`).value = this.knownRegion && this.region ? Number((this.region[key]*100).toFixed(2)) : '';
-    $('zoom-meta').textContent = this.locked ? 'Saved recipe: its red rectangle is already part of the reference. Generate to replay it, or use the result to select a fresh area.' : this.region ? `Source ${w} × ${h} · Selection matches output ${this.outputWidth} × ${this.outputHeight} · Drag inside to move; outside to replace.` : 'Selection cleared. Drag on the picture to select an area, or use Centre selection.';
+    $('zoom-meta').textContent = this.locked ? msg('Saved recipe: its red rectangle is already part of the reference. Generate to replay it, or use the result to select a fresh area.') : this.region ? msg`Source ${w} × ${h} · Selection matches output ${this.outputWidth} × ${this.outputHeight} · Drag inside to move; outside to replace.` : msg('Selection cleared. Drag on the picture to select an area, or use Centre selection.');
   }
 }

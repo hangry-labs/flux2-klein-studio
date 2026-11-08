@@ -1,5 +1,9 @@
 # Image generation for applications and agents
 
+<p align="center"><strong>English</strong> · <a href="nb/README.md">Norsk bokmål</a> · <a href="pl/README.md">Polski</a> · <a href="ja/README.md">日本語</a> · <a href="zh/README.md">简体中文</a> · <a href="es/README.md">Español</a></p>
+
+Translated introductions are linked above. This detailed technical guide is maintained in English.
+
 The same Docker service provides the browser, an OpenAI-compatible Images API
 subset and an MCP endpoint. All use one resident model worker, ordered reduction,
 the expandable allocator and opt-in gallery storage. No second model is loaded.

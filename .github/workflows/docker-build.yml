@@ -48,6 +48,7 @@ jobs:
           uv run --no-project --python 3.13 --with ruff==0.16.10 ruff format --check src tests tools
           uv run --no-project --python 3.13 python tools/check_release.py
           uv run --no-project --python 3.13 python -m unittest discover -s tests -p 'test_publication.py' -v
+          node --test tests/ui/i18n.test.mjs
 
       - name: Run full CPU container tests on pull requests
         if: github.event_name == 'pull_request'

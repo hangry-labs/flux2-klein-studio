@@ -32,7 +32,7 @@ LABEL org.opencontainers.image.title="FLUX.2 Klein Studio" \
       org.opencontainers.image.revision=$VCS_REF \
       org.opencontainers.image.created=$BUILD_DATE \
       org.opencontainers.image.version=$IMAGE_VERSION
-COPY VERSION NOTICE README.md LICENSE* ./
+COPY VERSION NOTICE README*.md LICENSE* ./
 COPY src/ ./src/
 COPY assets/ ./assets/
 COPY tools/probe_agent_api.py tools/probe_queue.py tools/probe_refine.py tools/probe_lora.py tools/probe_outpaint.py tools/probe_zoom.py tools/probe_multiref.py ./tools/
@@ -58,6 +58,7 @@ COPY --from=source-assets /app/runtime-sources /app/runtime-sources/
 FROM runtime AS checks
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install httpx==0.28.1
 COPY tests/ ./tests/
+COPY docs/ ./docs/
 COPY tools/ ./tools/
 RUN python -m unittest discover -s tests -v
 
