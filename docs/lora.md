@@ -1,6 +1,6 @@
 # Curated LoRA adapters
 
-Generate supports two curated style adapters; Refine supports experimental
+Generate supports three curated style adapters; Refine supports experimental
 Green Fill and Red Zoom editing adapters. These use the existing NVFP4 rank-32
 transformer and NF4 encoder through the browser, HTTP API and MCP.
 One adapter is active per image. Other LoRAs are
@@ -10,9 +10,59 @@ not qualified by these checks.
 | --- | --- | --- | --- |
 | `pixel-art` | Pixel Art · character sprites | Sprite prefix and game-asset/green-screen suffix | Fixed green-screen request |
 | `koni-anime` | Koni · Anime illustration | `anime_style, [your description]` | Describe the scene and background normally |
+| `nasa-concept` | NASA · Retro space concept art | `NASA_CONCEPT [your description]` | Describe the scene and background normally |
 
 Sources: [Pixel Art](https://huggingface.co/Limbicnation/pixel-art-lora) and
-[Koni Anime](https://huggingface.co/Sawata97/flux2_4b_koni_animestyle).
+[Koni Anime](https://huggingface.co/Sawata97/flux2_4b_koni_animestyle) and
+[NASA concept art](https://huggingface.co/davanstrien/nasa-concept-art-flux2-klein-lora).
+
+## NASA retro space concept art
+
+Select **NASA · Retro space concept art** in Generate. Describe a station,
+spacecraft, colony or other scene; the server prepends `NASA_CONCEPT ` with no
+fixed suffix. The adapter targets the retro-futuristic space illustration style
+of the 1960s–70s. Its small training set teaches a general look, rather than
+specific spacecraft. Results are new illustrations, not historical NASA images
+or validated engineering designs.
+
+Browser, HTTP generation and MCP `generate_image` share fixed strength **0.5**.
+Use `adapter: "nasa-concept"` and supply only your description:
+
+```json
+{"prompt":"retro-futuristic space concept art of a rotating wheel space station above the Moon, painted technical illustration","adapter":"nasa-concept","resolution":"square_big"}
+```
+
+HTTP uses `size` instead of MCP's `resolution`. NASA is generation-only; its
+results can still be sent to Refine or Red Zoom. The trigger and pinned profile
+are preserved in recipes. Offline installations need the adapter's first
+download with `STUDIO_OFFLINE=0`; weights are cached and are not baked into images.
+
+```shell
+task lora:nasa-concept
+task lora:nasa-check -- --offline
+```
+
+The low-level CLI accepts complete prompts, including the trigger. The comparison
+task generates three matched base/adapter pairs at 1024×1024 and checks identical
+seed repeatability, zero-strength identity and removal/restoration of the base
+model. Local images, recipes, memory diagnostics and an HTML review page go to
+`outputs/lora-nasa-concept/<timestamp>/`. These are functional visual checks,
+separate from the benchmark suites.
+
+The pinned Diffusers file is `pytorch_lora_weights.safetensors`, revision
+`157bcf7e568e6fa601becf1d7c96b5ad20c3be85`, SHA-256
+`15c17d7b8cf900461e71a7c516c11b0dd13f536fca02d9eeb05ec92a4f5b6680`.
+Metadata declares ordinary LoRA, rank 4, alpha 4 and BF16 tensors: a unit scale.
+It installs 60 modules and adds **7.97 MiB** of adapter GPU weights, also observed
+as the initial allocation increase. This is adapter storage, not whole-device
+peak VRAM. Base transformer/encoder quantization and GPU residency stay intact.
+Full strength 1 produced grid artifacts in our 1024-pixel trial. Strength 0.5
+gave cleaner results, while FP32 adapter arithmetic and eight steps did not
+remove the pattern at strength 1. The cause remains unconfirmed; this curated
+profile blends more of the base model rather than claiming full-strength parity
+with the author's examples. Inspect generated images for artifacts.
+The model card declares Apache-2.0; its pinned README is cached alongside the
+hash-verified weights. Training checkpoints and optimizer state are not used.
 
 ## Red Zoom / Detail focus (experimental)
 
@@ -204,7 +254,8 @@ produced a painted checkerboard in our comparison. It requests a mostly uniform
 green background, not an exact RGB colour or a transparency channel. Background
 removal remains a separate step.
 
-Both adapters have fixed strength 1 in the browser and generation APIs. Consecutive
+Generation adapters use fixed strengths in the browser and generation APIs:
+Pixel Art/Koni use 1; NASA uses 0.5. Consecutive
 requests reuse the selected weights; switching styles replaces the adapter,
 and a base-model request removes it
 from the resident worker. Refine uses the base model unless its Green Fill or Red Zoom

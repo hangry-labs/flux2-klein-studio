@@ -41,6 +41,13 @@ KONI_PROMPTS = [
 ]
 
 
+NASA_PROMPTS = [
+    "NASA_CONCEPT retro-futuristic space concept art of a rotating wheel space station above the Moon, large circular habitat with spokes and a central hub, docked spacecraft, painted technical illustration",
+    "NASA_CONCEPT artist depiction of a space colony, mid-century modern buildings under a glass dome, lush plants and waterfalls, a monorail in the distance, retro-futuristic science fiction illustration",
+    "NASA_CONCEPT detailed cross-section of a lunar exploration spacecraft, 1960s style technical drawing, cutaway view revealing crew cabins, life support systems and scientific instruments",
+]
+
+
 def gallery(output, report, prompts):
     rows = []
     adapter = report["adapter_id"]
@@ -49,7 +56,7 @@ def gallery(output, report, prompts):
         rows.append(
             f"<h2>Seed {12344 + index}</h2><p>{html.escape(prompt)}</p>"
             f'<div class="pair"><figure><figcaption>Base model</figcaption><a href="{index:02}-base.png"><img src="{index:02}-base.png" alt="Base result"></a></figure>'
-            f'<figure><figcaption>{label}, strength 1</figcaption><a href="{index:02}-{adapter}.png"><img src="{index:02}-{adapter}.png" alt="LoRA result"></a></figure></div>'
+            f'<figure><figcaption>{label}, strength {report["adapter"]["strength"]:g}</figcaption><a href="{index:02}-{adapter}.png"><img src="{index:02}-{adapter}.png" alt="LoRA result"></a></figure></div>'
         )
     text = (
         '<!doctype html><html lang="en"><meta charset="utf-8">'
@@ -82,7 +89,11 @@ def main():
     parser.add_argument("--offline", action="store_true")
     parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
-    prompts = KONI_PROMPTS if args.adapter == "koni-anime" else PROMPTS
+    prompts = {
+        "pixel-art": PROMPTS,
+        "koni-anime": KONI_PROMPTS,
+        "nasa-concept": NASA_PROMPTS,
+    }[args.adapter]
     output = (
         args.output_dir or Path(f"/data/outputs/lora-{args.adapter}")
     ) / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())

@@ -105,13 +105,15 @@ Random seed starts enabled and chooses a new seed per generation; switch it off
 to repeat a fixed seed. Downloads offer original PNG, lossless WebP and JPEG.
 See the [capability review](docs/model-capabilities.md) for model features we could
 investigate next, including multiple references and adapter compatibility.
-Generate also offers curated [Pixel Art and Koni Anime adapters](docs/lora.md): choose one from
+Generate also offers curated [Pixel Art, Koni Anime and NASA concept art adapters](docs/lora.md): choose one from
 the style dropdown and describe your image. The selected style's trigger text is added
 automatically. Pixel Art requests a green screen; Koni keeps the scene and
-background in your description. HTTP/MCP generation supports the same choices.
+background in your description. NASA adds `NASA_CONCEPT ` for retro-futuristic
+space illustrations, with the scene and background in your description.
+HTTP/MCP generation supports the same choices.
 MCP agents can call `skill` first to read the bundled
 [image-generation guide](src/flux2_klein_studio/skills/image-generation/SKILL.md),
-including how to select either adapter and supply only the image description.
+including how to select an adapter and supply only the image description.
 
 Refine also offers **Green Fill · Outpaint (experimental)**: paint areas in
 `#00FF00`, or expand the canvas to add green borders, then generate a fill.

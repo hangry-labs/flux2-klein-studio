@@ -2,7 +2,8 @@
 
 ## Style adapters
 
-Choose **Pixel Art · character sprites** or **Koni · Anime illustration** from **Style adapter** in Generate,
+Choose **Pixel Art · character sprites**, **Koni · Anime illustration** or
+**NASA · Retro space concept art** from **Style adapter** in Generate,
 then write your subject or scene in **Image description**. The server places it
 inside the adapter's fixed prefix/suffix, shown in the read-only template panel.
 You do not need to type its trigger words. **None · Base model** generates from
@@ -11,7 +12,10 @@ gallery reuse restores the editable description and adapter separately.
 
 Pixel Art requests a green-screen background. Koni adds only `anime_style, `
 before your description, so you can describe its scene and background normally.
-Both adapters use strength 1 and output RGB images. Switching styles is automatic;
+NASA adds `NASA_CONCEPT ` with no fixed suffix for retro space concepts such as
+stations, spacecraft and colonies. Its outputs are new illustrations, not archival
+NASA images. Pixel Art/Koni use strength 1; NASA uses 0.5 to reduce grid artifacts
+observed at full strength on this quantized model. Outputs are RGB. Switching styles is automatic;
 Refine uses the base model unless a Green Fill or Red Zoom editing adapter is selected.
 
 The first use caches the adapter's weights. Offline installations need to enable

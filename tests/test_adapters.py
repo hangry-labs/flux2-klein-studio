@@ -128,6 +128,59 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
         self.assertEqual(len(self.calls), 3)
 
+    def test_nasa_prompt_and_pinned_profile_match_browser_http_and_mcp(self):
+        request = {
+            "prompt": "A rotating habitat above the Moon",
+            "adapter": "nasa-concept",
+        }
+        response = self.client.post("/api/jobs", json={**request, "save_gallery": True})
+        self.assertEqual(response.status_code, 202, response.text)
+        browser = self.completed(response.json()["id"])["settings"]
+        response = self.client.post(
+            "/v1/images/generations", json={**request, "size": "square_small"}
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        http = response.json()["studio"]
+        response = self.client.post(
+            "/mcp/",
+            headers={"Accept": "application/json, text/event-stream"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {
+                    "name": "generate_image",
+                    "arguments": {**request, "resolution": "square_small"},
+                },
+            },
+        )
+        result = response.json()["result"]
+        self.assertFalse(result.get("isError", False), result)
+        for settings in (browser, http, result["structuredContent"]):
+            self.assertEqual(settings["prompt"], request["prompt"])
+            self.assertEqual(
+                settings["effective_prompt"], "NASA_CONCEPT " + request["prompt"]
+            )
+            profile = settings["adapter_profile"]
+            self.assertEqual(profile["suffix"], "")
+            self.assertEqual(profile["strength"], 0.5)
+            self.assertEqual(
+                profile["weights"]["repository"],
+                "davanstrien/nasa-concept-art-flux2-klein-lora",
+            )
+            self.assertEqual(
+                profile["weights"]["sha256"],
+                "15c17d7b8cf900461e71a7c516c11b0dd13f536fca02d9eeb05ec92a4f5b6680",
+            )
+        replay = self.client.post("/api/jobs", json=request)
+        self.assertEqual(
+            replay.json()["settings"]["effective_prompt"], browser["effective_prompt"]
+        )
+        reference = self.client.post(
+            "/v1/images/edits", json={**request, "source_job_id": "a" * 32}
+        )
+        self.assertEqual(reference.status_code, 400)
+
     def test_koni_cache_retains_its_model_card_license_declaration(self):
         with patch(
             "huggingface_hub.try_to_load_from_cache",

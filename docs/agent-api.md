@@ -154,8 +154,8 @@ endpoint or a prompt-list field; send concurrent requests for different prompts.
 
 ## Style adapters
 
-Generation also accepts the local extension `adapter: "pixel-art"` or
-`adapter: "koni-anime"` through
+Generation also accepts the local extension `adapter: "pixel-art"`,
+`adapter: "koni-anime"` or `adapter: "nasa-concept"` through
 `POST /v1/images/generations` and MCP `generate_image`. Put only the user's
 description in `prompt`; the server adds the fixed trigger text. For example:
 
@@ -176,10 +176,14 @@ Do not include the adapter template in `prompt`. The result is RGB with a green
 background; automatic background removal and alpha output are not implemented.
 For Koni Anime, set `adapter: "koni-anime"` instead. The server prepends
 `anime_style, ` with no fixed suffix; describe the scene and background normally.
-Both styles use strength 1. Switch by choosing the adapter for each request;
+For retro-futuristic space illustrations, set `adapter: "nasa-concept"`. The
+server prepends `NASA_CONCEPT ` with no suffix. Supply only your scene description;
+this style produces new artwork, not archival NASA images.
+Pixel Art/Koni use strength 1; NASA uses fixed strength 0.5 to reduce grid artifacts
+observed at full strength on the quantized model. Switch by choosing the adapter for each request;
 the worker replaces the previous adapter automatically.
 Omitting `adapter` uses the base model without prompt wrapping. Adapter selection
-uses separate generation and editing choices: generation accepts Pixel Art/Koni,
+uses separate generation and editing choices: generation accepts Pixel Art/Koni/NASA,
 while edits accept `adapter: "outpaint"`, `adapter: "zoom"` or the base model. See the
 [adapter guide](lora.md) for caching, fixed strength and export details.
 

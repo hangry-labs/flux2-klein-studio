@@ -75,6 +75,12 @@ declares Apache-2.0 in README. Its pinned model card is cached alongside the
 hash-verified weights; revision and hash are in [the adapter guide](docs/lora.md).
 It is downloaded only on use and is not baked into either image variant.
 
+The optional [NASA concept art adapter](https://huggingface.co/davanstrien/nasa-concept-art-flux2-klein-lora)
+declares Apache-2.0 in its model card. Its pinned README declaration is retained
+beside the hash-verified weights; revision and hash are in [the adapter guide](docs/lora.md).
+Only the final Safetensors export is used. It is downloaded on use, without
+baking weights, training checkpoints or optimizer state into either image variant.
+
 ## Supplemental notices for installed wheels
 
 These exact installed wheels omit a license file from RECORD. The upstream

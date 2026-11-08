@@ -92,6 +92,16 @@ tasks:
     cmds:
       - docker compose run --rm --entrypoint python studio tools/probe_lora.py --adapter koni-anime {{.CLI_ARGS}}
 
+  lora:nasa-concept:
+    desc: Generate a retro space concept at 1024 by default with the pinned NASA adapter
+    cmds:
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio generate --lora nasa-concept --lora-strength {{.STRENGTH | default "0.5"}} --width {{.WIDTH}} --height {{.HEIGHT}} --seed {{.SEED}} --steps {{.STEPS}} --prompt "NASA_CONCEPT retro-futuristic space concept art of a rotating wheel space station above the Moon, painted technical illustration" {{.CLI_ARGS}}
+
+  lora:nasa-check:
+    desc: Compare three NASA/base pairs and repeat/zero/removal controls at 1024
+    cmds:
+      - docker compose run --rm --entrypoint python studio tools/probe_lora.py --adapter nasa-concept {{.CLI_ARGS}}
+
   lora:outpaint-check:
     desc: Compare base/Green Fill on borders and interior marks at 1024; set REFERENCE to an image
     cmds:

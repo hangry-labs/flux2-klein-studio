@@ -1,8 +1,8 @@
 ---
 name: flux2-klein-image-generation
-description: Generate or refine images with FLUX.2 Klein Studio, including Pixel Art, Koni Anime, green-area outpainting and iterative red-rectangle zoom.
+description: Generate or refine images with FLUX.2 Klein Studio, including Pixel Art, Koni Anime, NASA concept art, green-area outpainting and iterative zoom.
 metadata:
-  version: "5"
+  version: "6"
 ---
 
 # FLUX.2 Klein Studio image skill
@@ -29,6 +29,11 @@ there is no guide token to pass to generation.
 - For anime illustrations, use `generate_image` with `adapter: "koni-anime"`
   when that style matches the request. It supports character and scene
   descriptions without Pixel Art's fixed green-screen background.
+- For retro-futuristic space illustrations, use `generate_image` with
+  `adapter: "nasa-concept"`. Describe the station, spacecraft, colony or other
+  subject; the server adds `NASA_CONCEPT ` automatically, with no fixed suffix.
+  These are new illustrations inspired by historical space concept art, not
+  archival NASA images or reliable engineering designs.
 - Omit `adapter` for ordinary base-model generation. Only adapters advertised
   by this server are supported; arbitrary LoRA names, uploads, strengths and
   adapter stacking are not exposed by these tools.
@@ -82,7 +87,30 @@ background and lighting you want. For example:
 }
 ```
 
-Both adapters use fixed strength 1 in MCP/HTTP. Only one adapter is active for an
+For NASA space concept art, provide only the scene description. The server builds:
+
+```text
+NASA_CONCEPT [your description]
+```
+
+For example:
+
+```json
+{
+  "prompt": "retro-futuristic space concept art of a rotating wheel habitat above the Moon, painted technical illustration",
+  "adapter": "nasa-concept",
+  "resolution": "square_big"
+}
+```
+
+Describe the setting and background normally; NASA has no fixed suffix. The
+style suggests vintage space illustrations, not archival images or accurate
+engineering plans. Do not add `NASA_CONCEPT` yourself.
+
+Pixel Art and Koni use fixed strength 1 in MCP/HTTP; NASA uses 0.5 to reduce grid
+artifacts observed at full strength on the quantized model. Do not send a strength
+argument. Inspect the result; this is not a guarantee of artifact-free output.
+Only one adapter is active for an
 image. Switching adapter, returning to the base model or refining an image is
 handled by the service; do not ask the user to unload weights manually.
 
@@ -107,8 +135,8 @@ Call `refine_image` with the change in `prompt` and exactly one of:
 - `image_base64`: one image as base64 or a base64 data URL, including when
   transferring between replicas.
 
-Refine uses the base model unless `adapter: "outpaint"` or `"zoom"` is selected. Pixel Art
-and Koni adapters are generation-only, although their results can be references.
+Refine uses the base model unless `adapter: "outpaint"` or `"zoom"` is selected.
+Pixel Art, Koni and NASA adapters are generation-only, although their results can be references.
 Separate mask files, inpainting strength and multiple references are not exposed. For another
 edit, use the latest returned image as the next reference. IDs are instance-local;
 do not assume a different load-balanced instance can resolve them.

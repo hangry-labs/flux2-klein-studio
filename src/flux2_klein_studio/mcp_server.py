@@ -28,7 +28,7 @@ from .build_info import offline_default
 SKILL_URI = "flux2-klein-studio://skills/image-generation"
 SKILL_PATH = "/skills/image-generation/SKILL.md"
 SKILL_FILE = Path(__file__).with_name("skills") / "image-generation" / "SKILL.md"
-SKILL_VERSION = "5"
+SKILL_VERSION = "6"
 
 
 class ResolutionServer(MCPServer):
@@ -68,6 +68,7 @@ def create_mcp_server(jobs):
         "list_resolutions describes the current choices and default. "
         "For pixel-art character sprites, select adapter='pixel-art' in generate_image. "
         "For anime illustrations, select adapter='koni-anime'; the server adds anime_style without a fixed background suffix. "
+        "For retro-futuristic space concept art, select adapter='nasa-concept'; the server adds NASA_CONCEPT with no fixed suffix. "
         "Supply only the image description in prompt: the server adds the selected adapter's trigger words and any fixed background suffix. "
         "Do not add the adapter template yourself. Omit adapter for ordinary base-model generation. "
         "Pixel Art outputs are RGB with a green background, not transparent; background removal is not provided. "
@@ -167,7 +168,7 @@ def create_mcp_server(jobs):
         adapter: Annotated[
             Adapter | None,
             Field(
-                description="Select pixel-art for sprites on a green screen, or koni-anime for anime illustrations with your own scene and background. Supply only the image description; adapter trigger words and any fixed suffix are added automatically. Omit for the base model."
+                description="Select pixel-art for green-screen sprites, koni-anime for anime illustrations, or nasa-concept for retro-futuristic space concept art. Supply only the description; trigger words and any fixed suffix are added automatically. Omit for the base model."
             ),
         ] = None,
         save_gallery: bool = False,
@@ -189,6 +190,8 @@ def create_mcp_server(jobs):
         description. The server adds the fixed sprite and green screen wording.
         For anime illustrations, set adapter='koni-anime'; anime_style is added
         automatically, with the scene and background supplied in your description.
+        For retro space illustrations, set adapter='nasa-concept'; NASA_CONCEPT is
+        added automatically. These are new illustrations, not historical NASA images.
         This produces RGB images; it does not remove the background or add alpha.
         Keep save_gallery=false unless the user wants persistent gallery storage.
         """

@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-Adapter = Literal["pixel-art", "koni-anime"]
+Adapter = Literal["pixel-art", "koni-anime", "nasa-concept"]
 EditAdapter = Literal["outpaint", "zoom"]
 AnyAdapter = Adapter | EditAdapter
 OUTPAINT_PROMPT = "Fill the green spaces according to the image"
@@ -43,6 +43,23 @@ ADAPTERS = {
         "suffix": "",
         "help": "Adds the anime_style trigger automatically. Use your description for the character, scene and background.",
         "weights": KONI_ANIME,
+    },
+    "nasa-concept": {
+        "id": "nasa-concept",
+        "label": "NASA · Retro space concept art",
+        "template_version": 1,
+        "strength": 0.5,
+        "prefix": "NASA_CONCEPT ",
+        "suffix": "",
+        "help": "Adds NASA_CONCEPT for retro-futuristic space illustrations at strength 0.5, chosen to reduce grid artifacts on this quantized model. Describe your spacecraft, station, colony or other scene. Generated art is not historical NASA material.",
+        "weights": {
+            "repository": "davanstrien/nasa-concept-art-flux2-klein-lora",
+            "revision": "157bcf7e568e6fa601becf1d7c96b5ad20c3be85",
+            "filename": "pytorch_lora_weights.safetensors",
+            "sha256": "15c17d7b8cf900461e71a7c516c11b0dd13f536fca02d9eeb05ec92a4f5b6680",
+            "format": "diffusers-peft",
+            "license_file": "README.md",
+        },
     },
     "outpaint": {
         "id": "outpaint",
