@@ -19,15 +19,19 @@ UI language keeps your current work and remembers your browser preference.
 With Docker and NVIDIA GPU support installed, run:
 
 ```shell
-docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0@sha256:276d5a25e347107f0670aad9a6b3a61098d072e504502391fbea8f5575a246ae
 ```
 
 Open **http://localhost:7860**. Write a description and click **Generate image**.
 The first generation loads the model; later requests reuse it while it stays loaded.
 
 The standard image includes the main model for offline generation. For a smaller
-download, replace `:latest` with `:latest_tiny`; it downloads the model on first
-use. Both use the same persistent volume. Choose either variant.
+download, use the tiny image below; it downloads the model on first use.
+Both use the same persistent volume. Choose either variant.
+
+```shell
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0_tiny@sha256:0278135ce5fece29da9f6379add9dc2d9c137742dbcea050f9a772f888980c59
+```
 
 **Hardware:** an NVIDIA Blackwell GPU or newer is required by this model's NVFP4
 runtime. The development setup uses an RTX 5070 Ti with 16 GB VRAM. Larger images
@@ -89,14 +93,14 @@ configure authentication and allowed hosts using the
 
 | Image | What it includes |
 | --- | --- |
-| `hangrylabs/flux2-klein-studio:latest` | Standard image with the main model included |
-| `hangrylabs/flux2-klein-studio:latest_tiny` | Same application; downloads the model on first use |
+| `hangrylabs/flux2-klein-studio:v1.0.0` | Standard image with the main model included |
+| `hangrylabs/flux2-klein-studio:v1.0.0_tiny` | Same application; downloads the model on first use |
 
 Also available from `ghcr.io/hangry-labs/flux2-klein-studio` with the same tags.
-Rolling tags follow published development builds. Features shown here follow the
-current source; local changes appear in registry images after publication.
+The commands above pin stable v1.0.0. For development builds, use moving `latest`
+or `latest_tiny` tags without a digest. Stable tags remain unchanged.
 
-**Publication status:** source release `v1.0.0` prepares the versioned full/tiny tags. Availability requires a successful publishing workflow and verified registry digests.
+**Publication status:** `v1.0.0` and `v1.0.0_tiny` are published and verified on both registries. The [release page](https://github.com/hangry-labs/flux2-klein-studio/releases/tag/v1.0.0) includes immutable image references and 1024×1024 qualification evidence.
 
 [Source and full guide](https://github.com/hangry-labs/flux2-klein-studio) ·
 [Studio guide](https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/studio.md) ·

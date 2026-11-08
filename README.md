@@ -24,7 +24,7 @@ prompts and seeds produced pixel-identical images on the tested GPU and pinned
 stack, including after restarting the container. Other GPUs and software versions
 have not been qualified. See [validation](docs/validation.md#ordered-reduction).
 
-Development version **v1.1.0-snapshot**.
+Stable release **[v1.0.0](https://github.com/hangry-labs/flux2-klein-studio/releases/tag/v1.0.0)**. Development version **v1.1.0-snapshot**.
 
 Container build and publication follow the [release workflow](docs/RELEASING.md).
 Full images bundle the model; tiny images download it on first use. See the
@@ -63,17 +63,23 @@ See [validation](docs/validation.md) for measured settings and memory use.
 Start the published full image, then open **http://localhost:7860**:
 
 ```shell
-docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent hangrylabs/flux2-klein-studio:latest
+docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent hangrylabs/flux2-klein-studio:v1.0.0@sha256:276d5a25e347107f0670aad9a6b3a61098d072e504502391fbea8f5575a246ae
 ```
 
-Use `hangrylabs/flux2-klein-studio:latest_tiny` to download the pinned model on
-first use instead. Both variants are also available from
+To download the pinned model on first use, choose tiny instead:
+
+```shell
+docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent hangrylabs/flux2-klein-studio:v1.0.0_tiny@sha256:0278135ce5fece29da9f6379add9dc2d9c137742dbcea050f9a772f888980c59
+```
+
+Both variants are also available from
 `ghcr.io/hangry-labs/flux2-klein-studio` with the same tags. Keep the named volume
 mounted at `/app/persistent` for either image variant. It holds model caches,
 settings and saved results. Compose uses the same default volume name;
 `STUDIO_DATA_VOLUME` can select an existing volume in a local `.env` file.
-These rolling tags follow development;
-see the [container guide](docs/dockerhub.md) for image variants and storage details.
+These digest-pinned tags select the stable release. Moving `latest` and
+`latest_tiny` tags follow development. See the [container guide](docs/dockerhub.md)
+for image variants and storage details.
 
 To build from source, clone the repository and run the following commands in
 PowerShell or Bash from its root.
@@ -295,7 +301,8 @@ After one successful inference has populated both caches, use `--offline` with
 `generate`, `benchmark`, `memory` or `seed-test` for cached loading. Verify complete offline operation
 with Docker's network disabled, as described in the validation notes.
 
-Model weights are downloaded into the volume, not bundled into the image. The
+The default source build and tiny images download model weights into the volume; the standard
+image includes the pinned model and seeds an empty cache at startup. The
 runtime explicitly permits code from the pinned Nunchaku kernel repository through
 `DIFFUSERS_TRUST_REMOTE_KERNELS=true`. It checks the expected kernel revision and
 fails if the upstream version reference changes; dependency updates need validation.
@@ -346,16 +353,30 @@ Generated images can contain errors and do not establish that a depicted event o
 
 Development version after `v1.0.0`. Rolling `latest` and `latest_tiny` tags follow `main`; immutable release tags remain unchanged.
 
-- No changes recorded yet.
+- Promote verified v1.0.0 image references and release qualification in deployment docs.
 
 </details>
 
-<details open>
-<summary><strong>v1.0.0 release notes</strong></summary>
-
 ### v1.0.0
 
-Source release `v1.0.0`. The source tag triggers container publication. Verify full/tiny registry indexes and add their digest-pinned deployment references before announcing availability.
+Released 2026-11-08. Standard and tiny images are published and anonymously accessible
+on Docker Hub and GHCR with matching OCI indexes. See the [release page](https://github.com/hangry-labs/flux2-klein-studio/releases/tag/v1.0.0)
+for image references and qualification evidence.
+
+Standard image:
+
+```shell
+docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent hangrylabs/flux2-klein-studio:v1.0.0@sha256:276d5a25e347107f0670aad9a6b3a61098d072e504502391fbea8f5575a246ae
+```
+
+Tiny image (downloads on first use):
+
+```shell
+docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent hangrylabs/flux2-klein-studio:v1.0.0_tiny@sha256:0278135ce5fece29da9f6379add9dc2d9c137742dbcea050f9a772f888980c59
+```
+
+<details>
+<summary><strong>v1.0.0 release notes</strong></summary>
 
 - Local text-to-image CLI and browser studio with opt-in gallery storage, recipe
   reuse, deletion, PNG/WebP/JPEG downloads and configurable model residency.

@@ -13,7 +13,7 @@
 需要支持 NVIDIA GPU 的 Docker，以及 NVFP4 运行环境支持的 Blackwell GPU。目前已在 16 GiB 显存的 RTX 5070 Ti 上测试，尚未对其他 GPU 进行本地验证。更大图片和更多参考图需要更多显存。
 
 ```shell
-docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0@sha256:276d5a25e347107f0670aad9a6b3a61098d072e504502391fbea8f5575a246ae
 ```
 
 打开 **http://localhost:7860/zh**，在顶部选择界面语言。浏览器会记住语言偏好，但指定语言的 URL 优先。切换语言不会刷新页面，会保留文字、图片和当前工作。
@@ -21,7 +21,7 @@ docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --in
 ### 更小下载：tiny
 
 ```shell
-docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest_tiny
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0_tiny@sha256:0278135ce5fece29da9f6379add9dc2d9c137742dbcea050f9a772f888980c59
 ```
 
 标准镜像包含固定版本的主模型，拉取镜像后可离线生成。tiny 在首次使用时下载模型及兼容内核。请选择其中一种，并保留同一个数据卷。风格适配器在首次使用时单独下载；使用标准镜像时，需先通过 `-e STUDIO_OFFLINE=0` 启用网络加载。

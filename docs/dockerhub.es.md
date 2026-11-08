@@ -13,7 +13,7 @@ Consulta la documentación principal en inglés para la versión de desarrollo y
 Requiere Docker con soporte de GPU NVIDIA y una GPU Blackwell compatible con el entorno NVFP4. Probado en una RTX 5070 Ti con 16 GiB de VRAM; otras GPU no están verificadas localmente. Las imágenes grandes y las referencias adicionales necesitan más memoria.
 
 ```shell
-docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0@sha256:276d5a25e347107f0670aad9a6b3a61098d072e504502391fbea8f5575a246ae
 ```
 
 Abre **http://localhost:7860/es**. Elige el idioma de la interfaz en la parte superior. El navegador recuerda la preferencia, pero una URL de idioma explícita tiene prioridad. Cambiar de idioma no recarga la página y conserva texto, imágenes y trabajo actual.
@@ -21,7 +21,7 @@ Abre **http://localhost:7860/es**. Elige el idioma de la interfaz en la parte su
 ### Descarga menor: tiny
 
 ```shell
-docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest_tiny
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0_tiny@sha256:0278135ce5fece29da9f6379add9dc2d9c137742dbcea050f9a772f888980c59
 ```
 
 La imagen estándar incluye el modelo principal fijado y permite generar sin conexión tras descargarla. Tiny descarga el modelo y los kernels compatibles en el primer uso. Elige una variante y conserva el mismo volumen. Los adaptadores se descargan por separado al usarlos por primera vez; en la imagen estándar activa antes las descargas con `-e STUDIO_OFFLINE=0`.

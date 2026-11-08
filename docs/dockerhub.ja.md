@@ -13,7 +13,7 @@ FLUX.2 Klein 4B で画像をローカル生成し、指示で編集、緑の領�
 NVIDIA GPU に対応した Docker と、NVFP4 ランタイムがサポートする Blackwell GPU が必要です。RTX 5070 Ti、VRAM 16 GiB で検証しています。他の GPU はローカル検証していません。大きな画像や追加の参照画像には、より多くのメモリが必要です。
 
 ```shell
-docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0@sha256:276d5a25e347107f0670aad9a6b3a61098d072e504502391fbea8f5575a246ae
 ```
 
 **http://localhost:7860/ja** を開いてください。上部で表示言語を選べます。言語設定はブラウザーに保存されますが、言語を指定した URL が優先されます。言語の切り替えでは再読み込みせず、テキスト、画像、現在の作業を保持します。
@@ -21,7 +21,7 @@ docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --in
 ### ダウンロード容量の小さい tiny
 
 ```shell
-docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest_tiny
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:v1.0.0_tiny@sha256:0278135ce5fece29da9f6379add9dc2d9c137742dbcea050f9a772f888980c59
 ```
 
 標準イメージには固定バージョンのメインモデルを含み、イメージ取得後はオフライン生成できます。tiny は初回使用時にモデルと対応カーネルをダウンロードします。どちらか一方を選び、同じデータボリュームを保持してください。スタイルアダプターは初回に別途ダウンロードします。標準イメージでは、最初に `-e STUDIO_OFFLINE=0` でネットワーク読み込みを有効にしてください。

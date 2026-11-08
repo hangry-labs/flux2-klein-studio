@@ -11,6 +11,30 @@ across sizes, including a separate expandable-segment allocator profile.
 
 ## Ordered reduction
 
+### Stable v1.0.0 container qualification
+
+On 2026-11-08, the published Linux amd64 standard and tiny images at source commit
+`d8dc5dc3a24135a9a4e769bbabc100dba36e29d3` passed independent first-use and restart
+checks on an RTX 5070 Ti (16 GiB, driver 621.14). Each generated the greenhouse
+reference at 1024×1024, four steps and seed 12345 with ordered reductions and no
+model offloading. The transformer, NF4 text encoder and VAE remained on `cuda:0`.
+All four outputs matched pixel SHA256
+`bff5722b5a24c4832b821ba2e8f10f8f98ef48d0bb2e6760f3c7fc99ff28d440`.
+
+The standard image started with a genuinely empty persistent cache and Docker
+networking disabled. Tiny downloaded its assets into a separate empty cache;
+both variants then reproduced the image after a fresh container restart with
+networking disabled. No source code was mounted into these containers. Anonymous
+registry checks matched the standard/tiny OCI indexes between Docker Hub, GHCR
+and the publication workflow's recorded results.
+
+The [v1.0.0 release](https://github.com/hangry-labs/flux2-klein-studio/releases/tag/v1.0.0)
+includes `images.json` and `qualification.json` with immutable references, build
+identity, dependency versions and individual results. These lifecycle checks are
+separate from performance benchmarks and establish no cross-GPU guarantee.
+
+### Implementation and original comparison
+
 The default `--reduction ordered` replaces only the SVDQ low-rank side calculation.
 One Triton program owns each row/rank tile and combines 128-channel tensor-core
 partial products in a fixed sequence, without inter-program atomic additions.
