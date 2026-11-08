@@ -6,10 +6,17 @@ from functools import partial
 
 from fastapi import HTTPException, Request
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 from starlette.datastructures import UploadFile
 from starlette.formparsers import MultiPartException, MultiPartParser
 
-from .references import MAX_IMAGE_BYTES, MAX_REQUEST_BYTES, decode_base64, source_bytes
+from .references import (
+    MAX_IMAGE_BYTES,
+    MAX_REQUEST_BYTES,
+    ZoomRegion,
+    decode_base64,
+    source_bytes,
+)
 
 
 async def read_input(request):
@@ -74,6 +81,13 @@ async def read_input(request):
                 if values[key] not in {"true", "false"}:
                     raise HTTPException(400, key + " must be true or false")
                 values[key] = values[key] == "true"
+        if "zoom_region" in values:
+            try:
+                values["zoom_region"] = json.loads(values["zoom_region"])
+            except ValueError as exc:
+                raise HTTPException(
+                    400, "zoom_region must be a JSON rectangle"
+                ) from exc
         return values, image
     finally:
         await form.close()
@@ -86,6 +100,7 @@ async def prepare_reference(
     source_job_id=None,
     image_data=None,
     preserve_green=False,
+    zoom_region=None,
 ):
     if (
         sum(value is not None for value in (reference_id, source_job_id, image_data))
@@ -95,18 +110,25 @@ async def prepare_reference(
             400,
             "Choose exactly one reference: an image, a reference_id or a source_job_id",
         )
-    if reference_id is not None:
+    if reference_id is not None and zoom_region is None:
         jobs.references.path(reference_id)
         return reference_id, False
 
     def prepare():
         data = image_data
+        origin = source_job_id
         if source_job_id is not None:
             data = source_bytes(jobs, source_job_id)
+        elif reference_id is not None:
+            data, metadata = jobs.references.read(reference_id)
+            origin = metadata.get("source_job_id")
         elif isinstance(data, str):
             data = decode_base64(data)
         return jobs.references.create(
-            data, source_job_id, **({"preserve_green": True} if preserve_green else {})
+            data,
+            origin,
+            **({"preserve_green": True} if preserve_green else {}),
+            **({"zoom_region": zoom_region} if zoom_region is not None else {}),
         )
 
     result = await asyncio.get_running_loop().run_in_executor(jobs.output_pool, prepare)
@@ -118,6 +140,17 @@ def attach_reference_api(app, jobs):
     async def upload(request: Request):
         values, image = await read_input(request)
         preserve_green = values.pop("preserve_green", False)
+        zoom_region = values.pop("zoom_region", None)
+        if zoom_region is not None:
+            try:
+                if isinstance(zoom_region, str):
+                    zoom_region = json.loads(zoom_region)
+                zoom_region = ZoomRegion.model_validate(zoom_region)
+            except (ValueError, ValidationError) as exc:
+                raise HTTPException(
+                    400,
+                    "Use a zoom_region rectangle with x/y/width/height fractions within the source image",
+                ) from exc
         if not isinstance(preserve_green, bool):
             raise HTTPException(400, "preserve_green must be true or false")
         if image is not None:
@@ -125,19 +158,36 @@ def attach_reference_api(app, jobs):
                 raise HTTPException(400, "Upload one image without additional fields")
             return await asyncio.get_running_loop().run_in_executor(
                 jobs.output_pool,
-                partial(jobs.references.create, preserve_green=preserve_green),
+                partial(
+                    jobs.references.create,
+                    preserve_green=preserve_green,
+                    zoom_region=zoom_region,
+                ),
                 image,
             )
-        if set(values) != {"source_job_id"} or not isinstance(
-            values["source_job_id"], str
+        if set(values) not in ({"source_job_id"}, {"reference_id"}) or not isinstance(
+            next(iter(values.values()), None), str
         ):
-            raise HTTPException(400, "Supply a source_job_id or upload one image")
-        data = await asyncio.to_thread(source_bytes, jobs, values["source_job_id"])
+            raise HTTPException(
+                400, "Supply a source_job_id, a reference_id or upload one image"
+            )
+        source_job_id = values.get("source_job_id")
+        if source_job_id is not None:
+            data = await asyncio.to_thread(source_bytes, jobs, source_job_id)
+        else:
+            data, metadata = await asyncio.to_thread(
+                jobs.references.read, values["reference_id"]
+            )
+            source_job_id = metadata.get("source_job_id")
         return await asyncio.get_running_loop().run_in_executor(
             jobs.output_pool,
-            partial(jobs.references.create, preserve_green=preserve_green),
+            partial(
+                jobs.references.create,
+                preserve_green=preserve_green,
+                zoom_region=zoom_region,
+            ),
             data,
-            values["source_job_id"],
+            source_job_id,
         )
 
     @app.get("/api/references/{identifier}/image")

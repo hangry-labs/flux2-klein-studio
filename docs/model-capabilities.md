@@ -42,7 +42,10 @@ guidance or negative-prompt control would not provide the expected behavior.
 Its call has no strength or mask_image input: editing is reference conditioning.
 An experimental [Green Fill adapter](lora.md#green-fill--outpaint-experimental)
 fills pure-green marks or borders through that image input; it does not add
-pixel-preserving native mask/compositing semantics.
+pixel-preserving native mask/compositing semantics. An experimental
+[Red Zoom adapter](lora.md#red-zoom--detail-focus-experimental) generates a
+close-up of a red-outlined region and supports iterative result reuse. It can
+invent details or ignore a selection; it is not faithful super-resolution.
 ControlNet, depth/pose controls, native transparent output, upscaling and video
 are not established by this checkpoint and pipeline. A format conversion does
 not add those model capabilities.

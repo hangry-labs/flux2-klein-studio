@@ -3,9 +3,10 @@
 from typing import Literal
 
 Adapter = Literal["pixel-art", "koni-anime"]
-EditAdapter = Literal["outpaint"]
+EditAdapter = Literal["outpaint", "zoom"]
 AnyAdapter = Adapter | EditAdapter
 OUTPAINT_PROMPT = "Fill the green spaces according to the image"
+ZOOM_PROMPT = "Zoom into the red highlighted area"
 
 PIXEL_ART = {
     "repository": "Limbicnation/pixel-art-lora",
@@ -62,6 +63,25 @@ ADAPTERS = {
             "license_file": "README.md",
         },
     },
+    "zoom": {
+        "id": "zoom",
+        "label": "Red Zoom · Detail focus (experimental)",
+        "mode": "edit",
+        "template_version": 1,
+        "prefix": ZOOM_PROMPT,
+        "suffix": "",
+        "default_prompt": ZOOM_PROMPT,
+        "strength": 1.1,
+        "help": "Draw a red rectangle around the area to zoom into. The zoom instruction is always included; extra focus details are optional. This generates a new close-up and may change details.",
+        "weights": {
+            "repository": "fal/flux-2-klein-4B-zoom-lora",
+            "revision": "319512a7563ffc17845414bd8ca93a0a462aa21b",
+            "filename": "flux-red-zoom-lora.safetensors",
+            "sha256": "a435808332f495450f203786a45c337163e2d6e8253043035b1202cc7a4f915b",
+            "format": "ai-toolkit-flux2",
+            "license_file": "README.md",
+        },
+    },
 }
 
 
@@ -109,18 +129,19 @@ def catalog(offline=False, mode=None):
     return profiles
 
 
-def outpaint_details(description):
+def edit_details(description, adapter):
     """Accept old full-prompt recipes without duplicating their fixed instruction."""
     description = description.strip()
-    if description.startswith(OUTPAINT_PROMPT):
-        description = description[len(OUTPAINT_PROMPT) :].lstrip(". \t\r\n")
+    fixed = ADAPTERS[adapter]["default_prompt"]
+    if description.startswith(fixed):
+        description = description[len(fixed) :].lstrip(". \t\r\n")
     return description
 
 
 def compose_prompt(description, adapter=None):
-    if adapter == "outpaint":
-        details = outpaint_details(description)
-        return OUTPAINT_PROMPT + ("\n" + details if details else "")
+    if adapter and ADAPTERS[adapter].get("mode") == "edit":
+        details = edit_details(description, adapter)
+        return ADAPTERS[adapter]["default_prompt"] + ("\n" + details if details else "")
     if adapter is None:
         return description
     profile = ADAPTERS[adapter]

@@ -35,7 +35,7 @@ LABEL org.opencontainers.image.title="FLUX.2 Klein Studio" \
 COPY VERSION NOTICE README.md LICENSE* ./
 COPY src/ ./src/
 COPY assets/ ./assets/
-COPY tools/probe_agent_api.py tools/probe_queue.py tools/probe_refine.py tools/probe_lora.py tools/probe_outpaint.py ./tools/
+COPY tools/probe_agent_api.py tools/probe_queue.py tools/probe_refine.py tools/probe_lora.py tools/probe_outpaint.py tools/probe_zoom.py ./tools/
 COPY THIRD_PARTY.md ./THIRD_PARTY.md
 COPY licenses/ ./licenses/
 COPY tools/collect_runtime_licenses.py ./tools/collect_runtime_licenses.py

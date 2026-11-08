@@ -120,6 +120,14 @@ is always included; an optional field lets you describe extra content such as a
 brick wall. Unpainted areas
 may change too. See the [outpaint guide](docs/lora.md#green-fill--outpaint-experimental).
 
+**Red Zoom · Detail focus (experimental)** adds a red rectangle selector to
+Refine. Choose an area, generate a close-up, then click **Zoom again from this
+result** to use the new picture for another zoom. Extra focus text is optional.
+This redraws details and may ignore a target; it is generative zoom rather than
+faithful detail recovery. HTTP/MCP support the same workflow with `adapter:
+"zoom"` and source-image rectangle coordinates. See the
+[zoom guide](docs/lora.md#red-zoom--detail-focus-experimental).
+
 Applications can use the **OpenAI-compatible Images API** at `/v1` with model
 `flux2-klein-4b`, or connect an agent to **MCP Streamable HTTP** at `/mcp/`.
 Agents choose named sizes such as `square_big`, `portrait_medium` or `panorama_big`.

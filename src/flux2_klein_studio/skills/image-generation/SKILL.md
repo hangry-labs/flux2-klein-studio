@@ -1,8 +1,8 @@
 ---
 name: flux2-klein-image-generation
-description: Generate or refine images with FLUX.2 Klein Studio, including Pixel Art, Koni Anime and experimental green-area outpainting.
+description: Generate or refine images with FLUX.2 Klein Studio, including Pixel Art, Koni Anime, green-area outpainting and iterative red-rectangle zoom.
 metadata:
-  version: "4"
+  version: "5"
 ---
 
 # FLUX.2 Klein Studio image skill
@@ -21,6 +21,8 @@ there is no guide token to pass to generation.
   changes; do not turn an editing request into unrelated text-to-image work.
 - For extending an image or filling painted green areas, use `refine_image`
   with `adapter: "outpaint"` and a prepared RGB reference. See Green Fill below.
+- For a generated close-up, use `refine_image` with `adapter: "zoom"` and
+  `zoom_region`. Use the latest result as the source for another zoom. See Red Zoom below.
 - For pixel-art character sprites, use `generate_image` with
   `adapter: "pixel-art"` when that style matches the request. The skill result
   includes current adapter availability; do not select an unavailable adapter.
@@ -105,7 +107,7 @@ Call `refine_image` with the change in `prompt` and exactly one of:
 - `image_base64`: one image as base64 or a base64 data URL, including when
   transferring between replicas.
 
-Refine uses the base model unless `adapter: "outpaint"` is selected. Pixel Art
+Refine uses the base model unless `adapter: "outpaint"` or `"zoom"` is selected. Pixel Art
 and Koni adapters are generation-only, although their results can be references.
 Separate mask files, inpainting strength and multiple references are not exposed. For another
 edit, use the latest returned image as the next reference. IDs are instance-local;
@@ -145,6 +147,45 @@ generation: unpainted pixels may also change, and a drawn region is not a promis
 of pixel-exact preservation outside it. Normal green parts of a supplied picture
 can also be interpreted as fill regions. Inspect the returned image before
 claiming a successful edit.
+
+## Red Zoom / Detail focus (experimental)
+
+Use `refine_image` with `adapter: "zoom"` and an unmarked reference. Supply
+`zoom_region` with `x`, `y`, `width`, `height` as fractions from 0 to 1 of the
+oriented source image, independent of output size. Coordinates begin at the top
+left; the rectangle must fit inside the image. The server draws a hollow red
+outline after reference normalization. Do not fill the region solid red.
+
+For example, select the central half of an existing result:
+
+```json
+{
+  "adapter": "zoom",
+  "source_job_id": "<completed job_id from this instance>",
+  "zoom_region": {"x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5},
+  "resolution": "square_big"
+}
+```
+
+The server always adds `Zoom into the red highlighted area`, at fixed strength
+1.1. Omit `prompt` for the default instruction, or provide only optional focus
+details. Alternatively, submit an already red-outlined reference and omit
+`zoom_region` to avoid drawing a second rectangle.
+
+To zoom further, use the **newly returned `job_id`** as `source_job_id` and
+choose a fresh rectangle on that result. Do not keep reusing the original source
+unless the user wants alternate first-pass selections. Across replicas, send the
+latest image bytes instead of an instance-local ID.
+
+This generates a close-up and can invent or alter details. It is not faithful
+super-resolution or evidence of details present in the source. Target adherence
+varies; a local head-to-face iteration worked, while another region was ignored.
+Small targets and naturally red content can confuse the model. Inspect results
+before claiming that the requested area was enlarged.
+
+HTTP `/v1/images/edits` accepts the same `adapter` and `zoom_region`, with `size`
+instead of `resolution`. Multipart encodes `zoom_region` as a JSON object string.
+The browser provides a rectangle selector and **Zoom again from this result**.
 
 ## Receive results and handle the queue
 

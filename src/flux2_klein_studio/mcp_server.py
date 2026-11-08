@@ -21,14 +21,14 @@ from .presets import Resolution
 from .transport import client_disconnected
 from . import __version__
 from .reference_api import prepare_reference
-from .references import MAX_REQUEST_BYTES
+from .references import MAX_REQUEST_BYTES, ZoomRegion
 from .adapters import Adapter, EditAdapter, catalog as adapter_catalog
 from .build_info import offline_default
 
 SKILL_URI = "flux2-klein-studio://skills/image-generation"
 SKILL_PATH = "/skills/image-generation/SKILL.md"
 SKILL_FILE = Path(__file__).with_name("skills") / "image-generation" / "SKILL.md"
-SKILL_VERSION = "4"
+SKILL_VERSION = "5"
 
 
 class ResolutionServer(MCPServer):
@@ -72,6 +72,7 @@ def create_mcp_server(jobs):
         "Do not add the adapter template yourself. Omit adapter for ordinary base-model generation. "
         "Pixel Art outputs are RGB with a green background, not transparent; background removal is not provided. "
         "refine_image uses the base model by default. For green-area filling, select adapter='outpaint' with a reference painted pure #00FF00. Omit prompt for natural fill, or provide only optional fill details; the fixed instruction is added automatically. "
+        "For a generated close-up, select adapter='zoom' and a zoom_region rectangle, or supply an image with a red outlined rectangle. Reuse each returned job_id as source_job_id with a fresh zoom_region to zoom further. "
         "Omit seed for a random image; reuse the returned seed and settings to reproduce it. "
         "Results include inline image content and a recipe. Gallery storage is opt-in. "
         "Concurrent requests wait in a shared queue; one image uses the GPU at a time. "
@@ -235,14 +236,20 @@ def create_mcp_server(jobs):
             str,
             Field(
                 max_length=4000,
-                description="Base editing: describe what to change (required). With outpaint: optional details for filling green space, such as a brick wall; omit or leave empty for natural fill. The fixed instruction is added automatically.",
+                description="Base editing: required change instruction. With outpaint or zoom: optional extra fill/focus details; omit for the adapter's default instruction. The fixed instruction is added automatically.",
             ),
         ] = "",
         resolution: Resolution | None = None,
         adapter: Annotated[
             EditAdapter | None,
             Field(
-                description="Optional outpaint adapter: supply a reference with pure #00FF00 green areas. The server always adds its fill instruction; prompt is optional extra guidance only."
+                description="Optional editing adapter: outpaint fills pure #00FF00 regions; zoom generates a close-up of a red rectangle. Use zoom_region to draw that rectangle on an unmarked source automatically. Fixed instructions are added by the server."
+            ),
+        ] = None,
+        zoom_region: Annotated[
+            ZoomRegion | None,
+            Field(
+                description="For zoom only: x/y/width/height fractions (0 to 1) within the source image. The server adds a red outlined rectangle. Reuse a result's job_id as source_job_id with a fresh rectangle to zoom again."
             ),
         ] = None,
         image_base64: Annotated[
@@ -267,13 +274,16 @@ def create_mcp_server(jobs):
     ) -> CallToolResult:
         """Refine one picture using an instruction. Supply exactly one image source.
 
-        Select adapter='outpaint' for experimental filling of #00FF00 green areas
-        in the reference; otherwise use ordinary base-model editing. For outpaint,
-        omit prompt for natural fill or provide optional fill details. The server
-        always adds the fixed fill instruction. This uses an RGB marked reference, not a separate mask
-        or pixel-preserving compositing operation. Strength controls are not exposed.
+        Omit adapter for ordinary base-model editing with a required prompt.
+        Select adapter='outpaint' to fill #00FF00 areas, or adapter='zoom' for a
+        generated close-up of a red outlined rectangle. Both editing adapters
+        add their fixed instruction automatically; prompt is optional extra guidance.
+        These are RGB reference markers, not pixel-preserving masks or faithful
+        detail recovery. Strength controls are not exposed.
         Keep gallery saving off unless the user requests persistence.
         Read skill first if it has not been read in this conversation.
+        For zoom, set adapter='zoom' and zoom_region or provide an already red-boxed
+        reference. Reuse a returned job as the source with a new region to zoom again.
         """
         identifier, owned = None, False
         try:
@@ -281,12 +291,17 @@ def create_mcp_server(jobs):
                 raise HTTPException(
                     400, "Describe what to change in the reference picture"
                 )
+            if zoom_region is not None and adapter != "zoom":
+                raise HTTPException(
+                    400, "zoom_region requires the zoom editing adapter"
+                )
             identifier, owned = await prepare_reference(
                 jobs,
                 reference_id=reference_id,
                 source_job_id=source_job_id,
                 image_data=image_base64,
                 **({"preserve_green": True} if adapter == "outpaint" else {}),
+                **({"zoom_region": zoom_region} if zoom_region is not None else {}),
             )
             images = await run_generation(
                 jobs,

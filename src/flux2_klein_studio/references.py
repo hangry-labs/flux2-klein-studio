@@ -13,7 +13,8 @@ import uuid
 import warnings
 
 from fastapi import HTTPException
-from PIL import Image, ImageChops, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageChops, ImageDraw, ImageOps, UnidentifiedImageError
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 MAX_IMAGE_BYTES = 16 * 1024 * 1024
 MAX_REQUEST_BYTES = 24 * 1024 * 1024
@@ -22,6 +23,22 @@ REFERENCE_PIXELS = 1024 * 1024
 PREPROCESSING = "exif-rgb-white-alpha-lanczos-1mp-align16-v1"
 GREEN_PREPROCESSING = "exif-rgb-white-alpha-lanczos-nearest-green-1mp-align16-v1"
 IDENTIFIER = re.compile(r"[a-f0-9]{32}\Z")
+
+
+class ZoomRegion(BaseModel):
+    """Rectangle as fractions of the oriented source image, not output pixels."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    x: float = Field(ge=0, lt=1)
+    y: float = Field(ge=0, lt=1)
+    width: float = Field(gt=0, le=1)
+    height: float = Field(gt=0, le=1)
+
+    @model_validator(mode="after")
+    def within_image(self):
+        if self.x + self.width > 1 + 1e-9 or self.y + self.height > 1 + 1e-9:
+            raise ValueError("Zoom rectangle must stay inside the source image")
+        return self
 
 
 def decode_base64(value):
@@ -45,7 +62,9 @@ def decode_base64(value):
     return data
 
 
-def normalize_reference(data, *, preserve_green=False):
+def normalize_reference(data, *, preserve_green=False, zoom_region=None):
+    if preserve_green and zoom_region is not None:
+        raise HTTPException(400, "Choose green painting or a red zoom rectangle")
     if not data or len(data) > MAX_IMAGE_BYTES:
         raise HTTPException(
             413 if data else 400, "Upload a nonempty image of at most 16 MiB"
@@ -94,6 +113,39 @@ def normalize_reference(data, *, preserve_green=False):
                 green = green.resize(size, Image.Resampling.NEAREST)
         if green is not None:
             image.paste((0, 255, 0), mask=green)
+        zoom_metadata = {}
+        if zoom_region is not None:
+            unmarked_hash = hashlib.sha256(image.tobytes()).hexdigest()
+            x, y = (
+                round(zoom_region.x * image.width),
+                round(zoom_region.y * image.height),
+            )
+            x, y = min(x, image.width - 1), min(y, image.height - 1)
+            right = max(
+                x,
+                min(
+                    image.width - 1,
+                    round((zoom_region.x + zoom_region.width) * image.width) - 1,
+                ),
+            )
+            bottom = max(
+                y,
+                min(
+                    image.height - 1,
+                    round((zoom_region.y + zoom_region.height) * image.height) - 1,
+                ),
+            )
+            thickness = min(
+                max(3, round(min(image.size) * 0.008)),
+                max(1, min(right - x + 1, bottom - y + 1) // 2),
+            )
+            ImageDraw.Draw(image).rectangle(
+                (x, y, right, bottom), outline=(255, 0, 0), width=thickness
+            )
+            zoom_metadata = {
+                "zoom_region": zoom_region.model_dump(),
+                "unmarked_pixel_sha256": unmarked_hash,
+            }
         image.info.clear()
         output = BytesIO()
         image.save(output, format="PNG")
@@ -106,7 +158,11 @@ def normalize_reference(data, *, preserve_green=False):
             "original_height": original_size[1],
             "width": image.width,
             "height": image.height,
-            "preprocessing": GREEN_PREPROCESSING if preserve_green else PREPROCESSING,
+            "preprocessing": GREEN_PREPROCESSING
+            if preserve_green
+            else PREPROCESSING
+            + ("-red-rectangle-v1" if zoom_region is not None else ""),
+            **zoom_metadata,
             **(
                 {"green_mask": {"color": "#00FF00", "pixels": green.histogram()[255]}}
                 if green is not None
@@ -139,8 +195,12 @@ class ReferenceStore:
         self.records.pop(identifier, None)
         (self.root / (identifier + ".png")).unlink(missing_ok=True)
 
-    def create(self, data, source_job_id=None, *, preserve_green=False):
-        png, metadata = normalize_reference(data, preserve_green=preserve_green)
+    def create(
+        self, data, source_job_id=None, *, preserve_green=False, zoom_region=None
+    ):
+        png, metadata = normalize_reference(
+            data, preserve_green=preserve_green, zoom_region=zoom_region
+        )
         if source_job_id:
             metadata["source_job_id"] = source_job_id
         with self.lock:
@@ -190,6 +250,16 @@ class ReferenceStore:
                 raise HTTPException(409, "Reference changed; choose the image again")
             destination.write_bytes(data)
             return dict(self.records[identifier]["metadata"])
+
+    def read(self, identifier):
+        """Read an immutable upload snapshot together with its provenance."""
+        with self.lock:
+            path = self.path(identifier)
+            data = path.read_bytes()
+            metadata = dict(self.records[identifier]["metadata"])
+            if hashlib.sha256(data).hexdigest() != metadata["sha256"]:
+                raise HTTPException(409, "Reference changed; choose the image again")
+            return data, metadata
 
     def delete(self, identifier):
         with self.lock:

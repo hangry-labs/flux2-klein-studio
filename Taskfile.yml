@@ -97,6 +97,11 @@ tasks:
     cmds:
       - docker compose run --rm --entrypoint python studio tools/probe_outpaint.py --reference "{{.REFERENCE}}" {{.CLI_ARGS}}
 
+  lora:zoom-check:
+    desc: Compare base/Red Zoom on two rectangles, repeat/removal and iterative zoom at 1024
+    cmds:
+      - docker compose run --rm --entrypoint python studio tools/probe_zoom.py --reference "{{.REFERENCE}}" {{.CLI_ARGS}}
+
   benchmark:
     desc: Measure warmed speed at one resolution (no VRAM sampling or seed assertion)
     aliases: [bench]

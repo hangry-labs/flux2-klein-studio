@@ -12,7 +12,7 @@ gallery reuse restores the editable description and adapter separately.
 Pixel Art requests a green-screen background. Koni adds only `anime_style, `
 before your description, so you can describe its scene and background normally.
 Both adapters use strength 1 and output RGB images. Switching styles is automatic;
-Refine uses the base model unless its separate Green Fill editing adapter is selected.
+Refine uses the base model unless a Green Fill or Red Zoom editing adapter is selected.
 
 The first use caches the adapter's weights. Offline installations need to enable
 network loading once if the adapter is not already cached. See the
@@ -56,6 +56,16 @@ green space?** accepts extra guidance such as `a brick wall`; leaving it empty
 uses natural contextual fill. Areas outside the green marks may change. See the
 [Green Fill guide](lora.md#green-fill--outpaint-experimental) for preparation,
 saved-reference behaviour and limitations.
+
+For a generated close-up, choose **Red Zoom · Detail focus (experimental)**.
+Drag a hollow red rectangle on the source, or use the percentage controls to
+choose its position and size. The zoom instruction is always included; extra
+focus text is optional. After generation, **Zoom again from this result** makes
+the result the new reference with a fresh selection. Repeat to move closer.
+Output dimensions control the result canvas, independently of the source region.
+Saved recipes replay their existing marked reference; use the result or upload
+an unmarked source to draw a different rectangle. This adapter can invent details
+or ignore a target. See the [Red Zoom guide](lora.md#red-zoom--detail-focus-experimental).
 
 ### Examples
 

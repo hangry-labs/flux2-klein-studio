@@ -22,13 +22,13 @@ from pydantic import (
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .cli import MODEL_ID
-from .adapters import Adapter, EditAdapter
+from .adapters import ADAPTERS, Adapter, EditAdapter
 from .generation_service import MODEL_ALIAS, MAX_BATCH, generate_images
 from .presets import catalog, resolve_size
 from .schemas import Generation
 from .transport import client_disconnected
 from .reference_api import prepare_reference, read_input
-from .references import MAX_REQUEST_BYTES
+from .references import MAX_REQUEST_BYTES, ZoomRegion
 
 
 class ImageRequest(BaseModel):
@@ -63,7 +63,7 @@ class ImageRequest(BaseModel):
 
     @model_validator(mode="after")
     def required_description(self):
-        if self.adapter != "outpaint":
+        if ADAPTERS.get(self.adapter, {}).get("mode") != "edit":
             Generation.nonblank(self.prompt)
         return self
 
@@ -88,16 +88,26 @@ class ImageURL(BaseModel):
 
 
 class EditRequest(ImageRequest):
+    zoom_region: ZoomRegion | None = Field(
+        default=None,
+        description="For zoom only: rectangle x/y/width/height as source-image fractions from 0 to 1; the server draws the red outline.",
+    )
     prompt: str = Field(
         default="",
         max_length=4000,
-        description="Required edit instruction for base editing; optional fill description with outpaint. The fixed fill instruction is added automatically.",
+        description="Required instruction for base editing; optional extra details with outpaint or zoom. The selected adapter's fixed instruction is added automatically.",
     )
     adapter: EditAdapter | None = None
     image: str | None = Field(default=None, max_length=MAX_REQUEST_BYTES)
     images: list[ImageURL] | None = Field(default=None, min_length=1, max_length=1)
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
     source_job_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+
+    @model_validator(mode="after")
+    def zoom_mode(self):
+        if self.zoom_region is not None and self.adapter != "zoom":
+            raise ValueError("zoom_region requires the zoom editing adapter")
+        return self
 
 
 async def image_response(images, output_format):
@@ -256,6 +266,9 @@ def attach_image_api(app, jobs):
                                 "adapter": EditRequest.model_json_schema()[
                                     "properties"
                                 ]["adapter"],
+                                "zoom_region": EditRequest.model_json_schema(
+                                    ref_template="#/components/schemas/{model}"
+                                )["properties"]["zoom_region"],
                             },
                         }
                     },
@@ -287,6 +300,11 @@ def attach_image_api(app, jobs):
             source_job_id=options.source_job_id,
             image_data=image_data,
             **({"preserve_green": True} if options.adapter == "outpaint" else {}),
+            **(
+                {"zoom_region": options.zoom_region}
+                if options.zoom_region is not None
+                else {}
+            ),
         )
         try:
             images = await generate_images(

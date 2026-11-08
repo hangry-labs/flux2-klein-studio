@@ -1,9 +1,9 @@
 # Curated LoRA adapters
 
-Generate supports two curated style adapters; Refine also supports the experimental
-Green Fill editing adapter. These use the existing NVFP4 rank-32
-transformer and NF4 encoder. It is available in the browser, HTTP generation API,
-MCP `generate_image` and CLI. One adapter is active per image. Other LoRAs are
+Generate supports two curated style adapters; Refine supports experimental
+Green Fill and Red Zoom editing adapters. These use the existing NVFP4 rank-32
+transformer and NF4 encoder through the browser, HTTP API and MCP.
+One adapter is active per image. Other LoRAs are
 not qualified by these checks.
 
 | Adapter ID | UI choice | Automatic prompt | Background |
@@ -13,6 +13,60 @@ not qualified by these checks.
 
 Sources: [Pixel Art](https://huggingface.co/Limbicnation/pixel-art-lora) and
 [Koni Anime](https://huggingface.co/Sawata97/flux2_4b_koni_animestyle).
+
+## Red Zoom / Detail focus (experimental)
+
+Source: [fal/flux-2-klein-4B-zoom-lora](https://huggingface.co/fal/flux-2-klein-4B-zoom-lora).
+In **Refine**, choose **Red Zoom · Detail focus (experimental)**, then upload a
+picture or send a generated result. Drag a red rectangle around the target, or
+set its position and size with the percentage inputs. The hollow outline leaves
+the target visible. **Centre selection** restores the central half of the image.
+Output size is independent of the selected source area.
+
+The server always includes `Zoom into the red highlighted area` at strength 1.1.
+The text box accepts optional extra focus details. After generation, click
+**Zoom again from this result**: the result becomes the new source, with a fresh
+rectangle. Select another area and generate again to continue closer.
+
+This is generative zoom: it redraws a close-up and may invent or change details.
+It is not a faithful recovery of unseen source detail. A local 1024-pixel trial
+zoomed a robot's head and then its face; another target was ignored. Small
+rectangles and naturally red objects can confuse the adapter. Inspect each result.
+Same-seed repeat and adapter removal/base-identity controls passed on the pinned
+runtime, with quantization and GPU placement guards intact.
+
+HTTP `/v1/images/edits` and MCP `refine_image` accept `adapter: "zoom"`, one image
+source and optional `zoom_region`:
+
+```json
+{"x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5}
+```
+
+These are source-image fractions from the top left, not output pixels. The
+rectangle must fit inside the source. The server draws the red outline after
+normalizing the reference to at most one megapixel. Multipart sends the rectangle
+as a JSON string. If the supplied image already has a red outline, omit
+`zoom_region`. Omit `prompt` for the fixed instruction alone. Use the returned
+`job_id` as the next `source_job_id` with a fresh region for another zoom.
+
+Opt-in Gallery saving retains the flattened red-marked reference and recipe.
+Reopening it replays that exact reference without adding another box. Its saved
+rectangle is fixed; use the result or upload an unmarked source to select a new
+area. The current-session unmarked source is temporary.
+
+The pinned file is `flux-red-zoom-lora.safetensors`, revision
+`319512a7563ffc17845414bd8ca93a0a462aa21b`, SHA-256
+`a435808332f495450f203786a45c337163e2d6e8253043035b1202cc7a4f915b`.
+It uses the original AI Toolkit export, rank 16 and unit scale. Conversion installs
+88 FP32 adapter modules, totaling **76.25 MiB** of adapter GPU tensors; this is not
+whole-application peak VRAM. The model card declares Apache-2.0; its pinned
+`README.md` is retained in the cache. Weights are downloaded on first use and
+are not baked into images or Git.
+
+Run `task lora:zoom-check REFERENCE=/data/outputs/your-reference.png` for two
+regions, an iterative zoom, repeat and removal controls. Review the local HTML
+and recipes in `outputs/lora-zoom/<timestamp>/`. This is a functional visual
+pilot with allocator diagnostics, separate from the benchmark suites.
 
 ## Green Fill / Outpaint (experimental)
 
@@ -149,7 +203,7 @@ removal remains a separate step.
 Both adapters have fixed strength 1 in the browser and generation APIs. Consecutive
 requests reuse the selected weights; switching styles replaces the adapter,
 and a base-model request removes it
-from the resident worker. Refine uses the base model unless its Green Fill
+from the resident worker. Refine uses the base model unless its Green Fill or Red Zoom
 editing adapter is selected. Preparing a
 reference from an adapted result remains available through **Send to Refine**.
 

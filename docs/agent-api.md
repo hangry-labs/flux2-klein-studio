@@ -180,7 +180,7 @@ Both styles use strength 1. Switch by choosing the adapter for each request;
 the worker replaces the previous adapter automatically.
 Omitting `adapter` uses the base model without prompt wrapping. Adapter selection
 uses separate generation and editing choices: generation accepts Pixel Art/Koni,
-while edits accept only `adapter: "outpaint"` or the base model. See the
+while edits accept `adapter: "outpaint"`, `adapter: "zoom"` or the base model. See the
 [adapter guide](lora.md) for caching, fixed strength and export details.
 
 ## Reference-image editing
@@ -204,6 +204,28 @@ uploading it; output `size` alone does not create a padded reference. The browse
 provides painting and canvas-extension tools. MCP `refine_image` accepts the same
 editing adapter and an already green-marked image. Unpainted pixels may change;
 this is image conditioning, not a separate pixel-preserving mask/composite pass.
+
+For a generated close-up, use `adapter: "zoom"` and `zoom_region` on an unmarked
+source. Its `x`, `y`, `width`, `height` are fractions of the oriented source
+image, from the top left; the region must fit inside the picture. For example:
+
+```json
+{
+  "adapter": "zoom",
+  "source_job_id": "<completed job_id>",
+  "zoom_region": {"x": 0.25, "y": 0.25, "width": 0.5, "height": 0.5},
+  "size": "square_big"
+}
+```
+
+The server draws a hollow red outline and adds `Zoom into the red highlighted
+area`. Omit `prompt` or provide optional extra focus details. Strength is 1.1.
+An already red-boxed reference can omit `zoom_region`. Multipart encodes the
+rectangle as JSON text. MCP `refine_image` accepts the same fields, with
+`resolution` instead of `size`. Reuse each **new** returned `job_id` as
+`source_job_id` with a fresh region to zoom further. IDs are instance-local.
+This generates new detail and may ignore the target; see the
+[Red Zoom guide](lora.md#red-zoom--detail-focus-experimental).
 
 Existing OpenAI Python clients can send a multipart image:
 

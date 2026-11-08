@@ -70,6 +70,11 @@ declares Apache-2.0 in README. The pinned model card is cached alongside its
 hash-verified weights; revision and hash are in [the adapter guide](docs/lora.md).
 It is downloaded only on use and is not baked into either image variant.
 
+The optional [fal Red Zoom adapter](https://huggingface.co/fal/flux-2-klein-4B-zoom-lora)
+declares Apache-2.0 in README. Its pinned model card is cached alongside the
+hash-verified weights; revision and hash are in [the adapter guide](docs/lora.md).
+It is downloaded only on use and is not baked into either image variant.
+
 ## Supplemental notices for installed wheels
 
 These exact installed wheels omit a license file from RECORD. The upstream

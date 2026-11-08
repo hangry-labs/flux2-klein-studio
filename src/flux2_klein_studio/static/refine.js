@@ -1,26 +1,34 @@
 import {runtimeState} from './shell.js';
 import {GreenPainter} from './outpaint.js';
+import {ZoomSelector} from './zoom.js';
 const $ = (id) => document.getElementById(id);
 const terminal = new Set(['completed', 'failed', 'cancelled']);
 let api, reference = null, active = null, result = null, uploading = false, polling = false, recipeURL = null;
 let formats = [];
-let painter;
+let painter, zoomer;
 const outpaint = () => $('refine-adapter').value === 'outpaint';
+const zoom = () => $('refine-adapter').value === 'zoom';
 function adapterChanged() {
   const profile = api.config?.edit_adapters.find(item => item.id === $('refine-adapter').value);
   $('refine-adapter-help').textContent = profile ? profile.help + (profile.unavailable_reason ? ' ' + profile.unavailable_reason : '') : 'Use the base model for instruction-based editing.';
   $('outpaint-instructions').hidden = !profile;
-  $('paint-tools').hidden = !profile;
-  $('paint-canvas').hidden = !profile || !reference;
+  $('paint-tools').hidden = !outpaint();
+  $('paint-canvas').hidden = !outpaint() || !reference;
+  $('zoom-tools').hidden = !zoom();
+  $('zoom-canvas').hidden = !zoom() || !reference;
   $('refine-source-image').hidden = Boolean(profile) || !reference;
   if (profile) {
     $('outpaint-default-prompt').textContent = profile.default_prompt;
     const text = $('refine-prompt').value.trim();
     if (text.startsWith(profile.default_prompt)) $('refine-prompt').value = text.slice(profile.default_prompt.length).replace(/^[.\s]+/,'');
   }
-  $('refine-prompt-label').textContent = profile ? 'Optional: what should fill the green space?' : 'What should change?';
+  $('edit-instruction-title').textContent = zoom() ? 'Fixed zoom instruction · always included' : 'Fixed fill instruction · always included';
+  $('edit-instruction-help').textContent = zoom() ? 'Draw a rectangle on the reference. Extra focus details below are optional.' : 'Add an optional description below, or leave it empty for a natural fill.';
+  $('refine-prompt-label').textContent = zoom() ? 'Optional: what should the zoom focus on?' : profile ? 'Optional: what should fill the green space?' : 'What should change?';
   $('refine-prompt').required = !profile;
-  $('refine-prompt').placeholder = profile ? 'For example: a brick wall matching the lighting. Leave empty for a natural fill.' : 'Keep the subject and composition, but change the lighting to warm sunset.';
+  $('refine-prompt').placeholder = zoom() ? 'For example: focus on the robot’s face. Leave empty to use only the rectangle.' : profile ? 'For example: a brick wall matching the lighting. Leave empty for a natural fill.' : 'Keep the subject and composition, but change the lighting to warm sunset.';
+  $('refine-use-result').textContent = zoom() ? '⌕ Zoom again from this result' : '✎ Use this result';
+  $('refine-submit').textContent = zoom() ? '⌕ Zoom into selection' : '✎ Refine picture';
   painter?.resize(Number($('refine-width').value),Number($('refine-height').value)); controls();
 }
 export function refineRunning() {return active && !terminal.has(active.status);}
@@ -33,6 +41,7 @@ function controls() {
   $('refine-use-result').disabled = Boolean(running || uploading);
   for (const id of ['refine-adapter','refine-resolution','refine-width','refine-height']) $(id).disabled = Boolean(running || uploading);
   painter?.setDisabled(running || uploading || !reference || !outpaint());
+  zoomer?.setDisabled(running || uploading || !reference || !zoom());
   $('refine-cancel').hidden = !running;
   $('refine-cancel').disabled = active?.status === 'cancelling';
   $('refine-busy').hidden = !running;
@@ -51,7 +60,7 @@ function clearResult() {
   $('refine-result-empty').hidden = false; $('refine-result-actions').hidden = true;
   if (recipeURL) URL.revokeObjectURL(recipeURL); recipeURL = null;
 }
-async function choose(next, dimensions = null) {
+async function choose(next, dimensions = null, markedZoom = false) {
   const old = reference; reference = next; clearResult();
   $('refine-source-image').src = next.image; $('refine-source-image').hidden = false;
   $('refine-source-empty').hidden = true;
@@ -61,6 +70,7 @@ async function choose(next, dimensions = null) {
   $('refine-width').value = Math.max(64, Math.floor(width * scale / 16) * 16);
   $('refine-height').value = Math.max(64, Math.floor(height * scale / 16) * 16);
   await painter.setSource(next.image,Number($('refine-width').value),Number($('refine-height').value));
+  zoomer.setSource(painter.source,markedZoom);
   $('refine-prompt').value = ''; sizeChanged(); adapterChanged();
   if (old && old.id !== next.id) await api.request(`/api/references/${old.id}`, {method: 'DELETE'}).catch(() => {});
 }
@@ -84,7 +94,7 @@ export async function reviewRefinement(item) {
     const body = new FormData(); body.append('image', await response.blob(), 'reference.png');
     $('refine-adapter').value = item.settings.adapter || '';
     if (outpaint()) body.append('preserve_green','true');
-    await choose(await api.request('/api/references', {method: 'POST', body}), [item.settings.width, item.settings.height]);
+    await choose(await api.request('/api/references', {method: 'POST', body}), [item.settings.width, item.settings.height], zoom() ? item.settings.reference?.zoom_region || true : false);
     $('refine-prompt').value = item.settings.prompt;
     adapterChanged();
     $('refine-seed').value = item.settings.seed; $('refine-steps').value = item.settings.steps;
@@ -128,6 +138,7 @@ export function configureRefine(config) {
 export function initializeRefine(options) {
   api = options;
   painter = new GreenPainter();
+  zoomer = new ZoomSelector();
   $('refine-adapter').onchange = adapterChanged;
   $('refine-gallery').onclick = () => api.switchView('gallery');
   $('refine-upload').onchange = async () => {
@@ -139,7 +150,7 @@ export function initializeRefine(options) {
   };
   $('refine-clear').onclick = async () => {
     if (reference) await api.request(`/api/references/${reference.id}`, {method: 'DELETE'}).catch(() => {});
-    reference = null; painter.clear(); clearResult(); $('refine-source-image').hidden = true; $('refine-source-image').removeAttribute('src'); $('refine-source-empty').hidden = false;
+    reference = null; painter.clear(); zoomer.clear(); clearResult(); $('refine-source-image').hidden = true; $('refine-source-image').removeAttribute('src'); $('refine-source-empty').hidden = false;
     $('refine-reference-meta').textContent = 'Upload a picture or send a generated result here.'; adapterChanged();
   };
   $('refine-resolution').onchange = () => {if ($('refine-resolution').value !== 'custom') {const [width, height] = $('refine-resolution').value.split('x'); $('refine-width').value = width; $('refine-height').value = height; sizeChanged();}};
@@ -159,6 +170,13 @@ export function initializeRefine(options) {
       if (outpaint()) {
         const body = new FormData(); body.append('image',await painter.blob(),'green-reference.png'); body.append('preserve_green','true');
         painted = await api.request('/api/references',{method:'POST',body}); payload.reference_id = painted.id; payload.adapter = 'outpaint';
+      }
+      if (zoom()) {
+        payload.adapter = 'zoom';
+        if (!zoomer.locked) {
+          painted = await api.request('/api/references',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reference_id:reference.id,zoom_region:zoomer.region})});
+          payload.reference_id = painted.id;
+        }
       }
       active = await api.request('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
     } catch (error) {note(error.message);}

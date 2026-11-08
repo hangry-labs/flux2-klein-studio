@@ -1,7 +1,7 @@
 """Validated generation settings shared by browser, HTTP and MCP."""
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from .adapters import ADAPTERS, AnyAdapter, outpaint_details
+from .adapters import ADAPTERS, AnyAdapter, edit_details
 
 
 class Generation(BaseModel):
@@ -17,8 +17,8 @@ class Generation(BaseModel):
 
     @model_validator(mode="after")
     def adapter_mode(self):
-        if self.adapter == "outpaint":
-            self.prompt = outpaint_details(self.prompt)
+        if ADAPTERS.get(self.adapter, {}).get("mode") == "edit":
+            self.prompt = edit_details(self.prompt, self.adapter)
         else:
             self.nonblank(self.prompt)
         if self.adapter:

@@ -17,10 +17,10 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, PngImagePlugin
 
-from flux2_klein_studio.references import normalize_reference
+from flux2_klein_studio.references import ZoomRegion, normalize_reference
 from flux2_klein_studio.schemas import Generation
 from flux2_klein_studio.server import Jobs, create_app
-from flux2_klein_studio.adapters import OUTPAINT_PROMPT
+from flux2_klein_studio.adapters import OUTPAINT_PROMPT, ZOOM_PROMPT
 
 
 def fixture(size=(64, 64), color=(27, 91, 143)):
@@ -31,6 +31,218 @@ def fixture(size=(64, 64), color=(27, 91, 143)):
 
 
 class RefineTests(unittest.TestCase):
+    def rpc(self, name, arguments):
+        response = self.client.post(
+            "/mcp/",
+            headers={"Accept": "application/json, text/event-stream"},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments},
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        return response.json()["result"]
+
+    def test_zoom_marker_is_hollow_and_preserves_original_pixels(self):
+        data = fixture((128, 64))
+        region = ZoomRegion(x=0.25, y=0.25, width=0.5, height=0.5)
+        marked, metadata = normalize_reference(data, zoom_region=region)
+        _, original = normalize_reference(data)
+        self.assertEqual(metadata["unmarked_pixel_sha256"], original["pixel_sha256"])
+        self.assertEqual(metadata["zoom_region"], region.model_dump())
+        with Image.open(BytesIO(marked)) as image:
+            self.assertEqual(image.getpixel((32, 16)), (255, 0, 0))
+            self.assertEqual(image.getpixel((64, 32)), (27, 91, 143))
+            self.assertEqual(image.getpixel((0, 0)), (27, 91, 143))
+        with self.assertRaises(HTTPException):
+            normalize_reference(data, zoom_region=region, preserve_green=True)
+
+    @patch("flux2_klein_studio.job_queue.offline_default", new=lambda: False)
+    def test_zoom_http_mcp_and_browser_match_and_iterate_from_result(self):
+        original = self.upload()
+        region = dict(x=0.25, y=0.25, width=0.5, height=0.5)
+        marked = self.client.post(
+            "/api/references",
+            json={"reference_id": original["id"], "zoom_region": region},
+        )
+        self.assertEqual(marked.status_code, 201, marked.text)
+        browser = self.client.post(
+            "/api/jobs",
+            json={
+                "reference_id": marked.json()["id"],
+                "adapter": "zoom",
+                "width": 64,
+                "height": 64,
+            },
+        )
+        self.assertEqual(browser.status_code, 202, browser.text)
+        http = self.client.post(
+            "/v1/images/edits",
+            json={
+                "reference_id": original["id"],
+                "adapter": "zoom",
+                "zoom_region": region,
+                "size": "square_small",
+                "seed": 12345,
+            },
+        )
+        self.assertEqual(http.status_code, 200, http.text)
+        mcp = self.rpc(
+            "refine_image",
+            {
+                "reference_id": original["id"],
+                "adapter": "zoom",
+                "zoom_region": region,
+                "resolution": "square_small",
+                "seed": 12345,
+            },
+        )
+        self.assertFalse(mcp.get("isError", False), mcp)
+        settings = [
+            browser.json()["settings"],
+            http.json()["studio"],
+            mcp["structuredContent"],
+        ]
+        for recipe in settings:
+            self.assertEqual(recipe["prompt"], "")
+            self.assertEqual(recipe["effective_prompt"], ZOOM_PROMPT)
+            self.assertEqual(recipe["adapter_profile"]["strength"], 1.1)
+            self.assertEqual(recipe["reference"]["zoom_region"], region)
+            self.assertEqual(
+                recipe["reference"]["unmarked_pixel_sha256"], original["pixel_sha256"]
+            )
+        self.assertEqual(
+            len({recipe["reference"]["pixel_sha256"] for recipe in settings}), 1
+        )
+        self.assertEqual(
+            set(self.jobs.references.records), {original["id"], marked.json()["id"]}
+        )
+        unchanged = self.jobs.references.records[original["id"]]["metadata"]
+        self.assertEqual(unchanged["pixel_sha256"], original["pixel_sha256"])
+        first = http.json()["studio"]["job_id"]
+        next_result = self.rpc(
+            "refine_image",
+            {
+                "source_job_id": first,
+                "adapter": "zoom",
+                "zoom_region": dict(x=0.1, y=0.2, width=0.6, height=0.7),
+                "prompt": "focus on the face",
+                "resolution": "square_small",
+            },
+        )
+        self.assertFalse(next_result.get("isError", False), next_result)
+        recipe = next_result["structuredContent"]
+        self.assertEqual(recipe["reference"]["source_job_id"], first)
+        self.assertEqual(
+            recipe["effective_prompt"], ZOOM_PROMPT + "\nfocus on the face"
+        )
+        self.assertEqual(
+            recipe["reference"]["unmarked_pixel_sha256"],
+            http.json()["studio"]["pixel_sha256"],
+        )
+        # The browser's result -> upload -> marked copy path keeps source provenance.
+        unmarked = self.client.post(
+            "/api/references", json={"source_job_id": first}
+        ).json()
+        copied = self.client.post(
+            "/api/references",
+            json={"reference_id": unmarked["id"], "zoom_region": region},
+        )
+        self.assertEqual(copied.status_code, 201, copied.text)
+        self.assertEqual(copied.json()["source_job_id"], first)
+        self.assertEqual(
+            copied.json()["unmarked_pixel_sha256"],
+            http.json()["studio"]["pixel_sha256"],
+        )
+
+    def test_zoom_invalid_regions_and_wrong_modes_reject_before_worker(self):
+        original = self.upload()
+        for region in (
+            dict(x=-0.1, y=0, width=0.5, height=0.5),
+            dict(x=0.8, y=0, width=0.5, height=0.5),
+            dict(x=0, y=0, width=0, height=0.5),
+            dict(x=0, y=0, width=0.5, height=float("inf")),
+            dict(x="0", y=0, width=0.5, height=0.5),
+        ):
+            # Infinity cannot be encoded as strict JSON; send its textual form directly.
+            body = json.dumps(
+                {
+                    "reference_id": original["id"],
+                    "adapter": "zoom",
+                    "zoom_region": region,
+                }
+            )
+            response = self.client.post(
+                "/v1/images/edits",
+                content=body,
+                headers={"Content-Type": "application/json"},
+            )
+            self.assertEqual(response.status_code, 400, response.text)
+        region = dict(x=0, y=0, width=1, height=1)
+        for adapter in (None, "outpaint"):
+            response = self.client.post(
+                "/v1/images/edits",
+                json={
+                    "reference_id": original["id"],
+                    "adapter": adapter,
+                    "prompt": "edit",
+                    "zoom_region": region,
+                },
+            )
+            self.assertEqual(response.status_code, 400, response.text)
+        self.assertTrue(
+            self.rpc(
+                "refine_image",
+                {
+                    "reference_id": original["id"],
+                    "prompt": "edit",
+                    "zoom_region": region,
+                },
+            ).get("isError")
+        )
+        self.assertEqual(self.calls, [])
+        self.assertEqual(set(self.jobs.references.records), {original["id"]})
+
+    @patch("flux2_klein_studio.job_queue.offline_default", new=lambda: False)
+    def test_zoom_multipart_and_already_marked_replay_do_not_duplicate_instruction(
+        self,
+    ):
+        region = dict(x=0.2, y=0.2, width=0.6, height=0.6)
+        response = self.client.post(
+            "/v1/images/edits",
+            files={"image": ("source.png", fixture(), "image/png")},
+            data={
+                "adapter": "zoom",
+                "zoom_region": json.dumps(region),
+                "size": "square_small",
+                "prompt": ZOOM_PROMPT + "\nfocus on the eyes",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        recipe = response.json()["studio"]
+        self.assertEqual(recipe["prompt"], "focus on the eyes")
+        self.assertEqual(
+            recipe["effective_prompt"], ZOOM_PROMPT + "\nfocus on the eyes"
+        )
+        self.assertEqual(recipe["reference"]["zoom_region"], region)
+        self.assertEqual(self.jobs.references.records, {})
+        self.assertEqual(
+            self.client.post(
+                "/v1/images/generations", json={"prompt": "test", "adapter": "zoom"}
+            ).status_code,
+            400,
+        )
+        self.assertEqual(
+            self.client.post("/api/jobs", json={"adapter": "zoom"}).status_code, 422
+        )
+        schema = self.client.get("/openapi.json").json()
+        self.assertIn("ZoomRegion", schema["components"]["schemas"])
+        status = self.client.get("/api/status").json()
+        self.assertIn("zoom", [p["id"] for p in status["edit_adapters"]])
+        self.assertNotIn("zoom", [p["id"] for p in status["adapters"]])
+
     def test_green_fill_is_edit_only_and_discovered_separately(self):
         status = self.client.get("/api/status").json()
         self.assertNotIn("outpaint", [p["id"] for p in status["adapters"]])
