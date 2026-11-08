@@ -17,6 +17,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class LocalizationTests(unittest.TestCase):
     def test_translated_guides_keep_commands_notices_and_honest_english_links(self):
+        def image_references(text):
+            return re.findall(
+                r"^docker run [^\n]* (hangrylabs/flux2-klein-studio:[^\s]+)$",
+                text,
+                re.M,
+            )
+
+        # Release quick starts pin stable indexes; development guides may use
+        # rolling tags. Translations must retain the English deployment choices.
+        expected = image_references((ROOT / "README.md").read_text(encoding="utf-8"))[
+            :2
+        ]
+        self.assertEqual(len(expected), 2)
+        for suffix, reference in zip(("", "_tiny"), expected):
+            self.assertRegex(
+                reference,
+                r"^hangrylabs/flux2-klein-studio:(?:latest"
+                + suffix
+                + r"|v\d+\.\d+(?:\.\d+)?"
+                + suffix
+                + r"@sha256:[a-f0-9]{64})$",
+            )
+        self.assertEqual(
+            image_references((ROOT / "docs/dockerhub.md").read_text(encoding="utf-8")),
+            expected,
+        )
         for locale in LOCALES[1:]:
             paths = (
                 ROOT / f"README.{locale}.md",
@@ -32,9 +58,10 @@ class LocalizationTests(unittest.TestCase):
                     self.assertIn(notice, text)
             readme = paths[0].read_text(encoding="utf-8")
             self.assertIn("--gpus all --init -p 127.0.0.1:7860:7860", readme)
-            self.assertIn("hangrylabs/flux2-klein-studio:latest_tiny", readme)
+            self.assertEqual(image_references(readme), expected, locale)
             self.assertIn("README.md#version-history", readme)
             docker = paths[1].read_text(encoding="utf-8")
+            self.assertEqual(image_references(docker), expected, locale)
             self.assertLess(len(docker.encode("utf-8")), 25000)
             self.assertIn(
                 "https://raw.githubusercontent.com/hangry-labs/flux2-klein-studio/main/assets/",
