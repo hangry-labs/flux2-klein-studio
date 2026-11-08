@@ -4,8 +4,8 @@
 
 Translated introductions are linked above. This detailed technical guide is maintained in English.
 
-`VERSION` and the runtime `__version__` share one display version, initially
-`0.1.0-snapshot`. The HTTP status includes the application version, source commit,
+`VERSION` and the runtime `__version__` share one display version. For the initial
+release, `1.0.0-snapshot` promotes to `v1.0.0`. The HTTP status includes the application version, source commit,
 build date and image flavor. Local images use `unknown`/`dev` build metadata.
 
 ## Development and validation
@@ -83,8 +83,10 @@ task release
 It requires clean `main` synchronized with `origin/main`, promotes the current
 snapshot, runs `task validate`, commits it, creates an annotated stable tag,
 commits the next development snapshot, and atomically pushes `main` and that tag.
-The default next version increments the minor number; pass
-`--next-version 0.1.1-snapshot` to select a newer snapshot explicitly.
+The default next version increments the minor number and preserves the number of
+version components: `1.0.0-snapshot` promotes to `v1.0.0` and then starts
+`1.1.0-snapshot`. Pass `--next-version 1.0.1-snapshot` to select a newer snapshot
+explicitly.
 `--skip-validation` is available only when the unchanged candidate has already
 passed the required checks. It does not waive GPU qualification or notice review.
 

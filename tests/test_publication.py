@@ -186,6 +186,25 @@ class PublicationTests(unittest.TestCase):
             "docs/dockerhub.md": "**Publication status:** pending.\n\nContainer instructions.\n",
         }
 
+    def test_default_next_snapshot_preserves_version_shape(self):
+        for snapshot, expected in (
+            ("1.2-snapshot", "1.3-snapshot"),
+            ("1.0.0-snapshot", "1.1.0-snapshot"),
+            ("1.2.3-snapshot", "1.3.0-snapshot"),
+        ):
+            with self.subTest(snapshot=snapshot):
+                original = {
+                    name: text.replace("1.2-snapshot", snapshot)
+                    for name, text in self.snapshot_files().items()
+                }
+                plan, stable, following = release.prepare(original)
+                self.assertEqual(plan["next_snapshot"], expected)
+                self.assertEqual(following["VERSION"], expected + "\n")
+                self.assertEqual(
+                    stable["VERSION"], snapshot.removesuffix("-snapshot") + "\n"
+                )
+                self.assertEqual(plan["tag"], "v" + snapshot.removesuffix("-snapshot"))
+
     def test_release_dry_run_does_not_mutate_files_or_refs(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

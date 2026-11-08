@@ -43,7 +43,10 @@ def prepare(original, next_version=""):
     if not match or match[1] != snapshot:
         raise ValueError("Python runtime version does not match VERSION.")
     pieces = stable.split(".")
-    next_snapshot = next_version or f"{pieces[0]}.{int(pieces[1]) + 1}-snapshot"
+    next_pieces = [pieces[0], str(int(pieces[1]) + 1)]
+    if len(pieces) == 3:
+        next_pieces.append("0")
+    next_snapshot = next_version or ".".join(next_pieces) + "-snapshot"
     if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?-snapshot", next_snapshot):
         raise ValueError("NEXT_VERSION must use X.Y-snapshot or X.Y.Z-snapshot.")
     next_display = next_snapshot.removesuffix("-snapshot")

@@ -96,7 +96,7 @@ Also available from `ghcr.io/hangry-labs/flux2-klein-studio` with the same tags.
 Rolling tags follow published development builds. Features shown here follow the
 current source; local changes appear in registry images after publication.
 
-**Publication status:** rolling `latest` and `latest_tiny` images are published. See the repository's release history for versioned releases and build details.
+**Publication status:** rolling `latest` and `latest_tiny` images are published. The first stable release target is `v1.0.0`, with `v1.0.0` and `v1.0.0_tiny` images available after successful publication and verification. See the repository's release history for build details.
 
 [Source and full guide](https://github.com/hangry-labs/flux2-klein-studio) ·
 [Studio guide](https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/studio.md) ·

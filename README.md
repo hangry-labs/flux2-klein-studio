@@ -24,7 +24,7 @@ prompts and seeds produced pixel-identical images on the tested GPU and pinned
 stack, including after restarting the container. Other GPUs and software versions
 have not been qualified. See [validation](docs/validation.md#ordered-reduction).
 
-Development version **v0.1.0-snapshot**.
+Development version **v1.0.0-snapshot**.
 
 Container build and publication follow the [release workflow](docs/RELEASING.md).
 Full images bundle the model; tiny images download it on first use. See the
@@ -340,16 +340,23 @@ Generated images can contain errors and do not establish that a depicted event o
 ## Version History
 
 <details open>
-<summary><strong>v0.1.0-snapshot development notes</strong></summary>
+<summary><strong>v1.0.0-snapshot development notes</strong></summary>
 
-### v0.1.0-snapshot
+### v1.0.0-snapshot
 
 Development snapshot, with rolling full and tiny images published on Docker Hub
 and GHCR. Versioned stable tags use the separate release workflow.
 
-- Local text-to-image CLI, browser studio, gallery controls and model residency.
-- OpenAI-compatible image generation and MCP with configurable named sizes.
-- Single-reference Refine workspace, iterative reuse and queued HTTP/MCP image edits.
+- Local text-to-image CLI and browser studio with opt-in gallery storage, recipe
+  reuse, deletion, PNG/WebP/JPEG downloads and configurable model residency.
+- OpenAI-compatible Images generation/edits and MCP with configurable named sizes,
+  shared FIFO scheduling, sequential batches of 1–16 images and overlapping CPU output.
+- Refine with one to four ordered references, saved-reference replay and iterative
+  reuse of generated results.
+- Curated Pixel Art, Koni Anime and NASA concept-art styles with automatic prompt
+  templates, plus experimental Green Fill and Red Zoom editing adapters.
+- English, Norwegian Bokmål, Polish, Japanese, Simplified Chinese and Spanish UI,
+  translated product guides and language changes that preserve ongoing work.
 - Ordered reductions, expandable allocation and separated memory/speed/seed benchmarks.
 - Full/tiny Docker targets, matching Docker Hub/GHCR publication, corresponding
   bundled dependency sources, provenance, SBOM, digest verification and release dry runs.
