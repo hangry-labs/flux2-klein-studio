@@ -95,7 +95,7 @@ def main():
         "nasa-concept": NASA_PROMPTS,
     }[args.adapter]
     output = (
-        args.output_dir or Path(f"/data/outputs/lora-{args.adapter}")
+        args.output_dir or Path(f"/app/persistent/outputs/lora-{args.adapter}")
     ) / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
     output.mkdir(parents=True, exist_ok=False)
     report = {

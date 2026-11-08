@@ -78,7 +78,8 @@ def main():
         "download",
     }:
         count = seed_cache(
-            "/opt/klein-models/huggingface", os.getenv("HF_HOME", "/data/huggingface")
+            "/opt/klein-models/huggingface",
+            os.getenv("HF_HOME", "/app/persistent/huggingface"),
         )
         if count:
             print(f"Baked model cache ready ({count} files copied).", flush=True)

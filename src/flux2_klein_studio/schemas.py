@@ -13,19 +13,33 @@ class Generation(BaseModel):
     steps: int = Field(default=4, ge=1, le=50)
     save_gallery: bool = False
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    reference_ids: list[str] | None = Field(default=None, min_length=1, max_length=4)
     adapter: AnyAdapter | None = None
 
     @model_validator(mode="after")
     def adapter_mode(self):
+        if self.reference_ids is not None:
+            import re
+
+            if self.reference_id or any(
+                not re.fullmatch(r"[a-f0-9]{32}", identifier)
+                for identifier in self.reference_ids
+            ):
+                raise ValueError("Use reference_id or one to four valid reference_ids")
+            if self.adapter and len(self.reference_ids) > 1:
+                raise ValueError(
+                    "Multiple references currently support base-model Refine only"
+                )
+        has_reference = bool(self.reference_id or self.reference_ids)
         if ADAPTERS.get(self.adapter, {}).get("mode") == "edit":
             self.prompt = edit_details(self.prompt, self.adapter)
         else:
             self.nonblank(self.prompt)
         if self.adapter:
             editing = ADAPTERS[self.adapter].get("mode") == "edit"
-            if editing and not self.reference_id:
+            if editing and not has_reference:
                 raise ValueError("This editing adapter requires a reference image")
-            if not editing and self.reference_id:
+            if not editing and has_reference:
                 raise ValueError(
                     "This style adapter supports text-to-image generation only"
                 )

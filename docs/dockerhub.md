@@ -1,81 +1,98 @@
-# FLUX.2 Klein Studio containers
+<p align="center">
+  <img src="https://raw.githubusercontent.com/hangry-labs/flux2-klein-studio/main/assets/ui/header.webp" alt="Hangry Labs FLUX.2 Klein Studio" width="900">
+</p>
 
-**Publication status:** the rolling `latest` and `latest_tiny` development images
-are published on Docker Hub and GHCR. Matching registry indexes were verified on
-2026-11-07 for application version `0.1.0-snapshot`. Stable version tags are
-created separately by the release workflow.
+# FLUX.2 Klein Studio
 
-Application code is licensed under [Apache-2.0](../LICENSE). Models, dependencies
-and adapted code retain their own terms and notices; see [NOTICE](../NOTICE) and
-[THIRD_PARTY.md](../THIRD_PARTY.md).
+Create pictures, refine them with instructions, fill painted areas and explore
+close-ups—all locally, in your browser. Connect apps and AI agents through the
+Images API and MCP.
 
-Local text-to-image generation with a browser UI, OpenAI-compatible Images API
-and MCP. The initial stack is NVFP4 rank-32 FLUX.2 Klein 4B plus NF4 Qwen3,
-entirely on GPU. Linux amd64 and an NVIDIA GPU are required. RTX 5070 Ti 16 GiB
-is the qualified development hardware; see [validation](validation.md).
+## Quick start
 
-| Variant | Build target | Published rolling tag | Stable tag convention | Model loading |
-| --- | --- | --- | --- | --- |
-| Full | `baked` | `latest` | `vX.Y` or `vX.Y.Z` | Pinned model and CUDA kernel included; offline by default |
-| Tiny | `tiny` | `latest_tiny` | Version plus `_tiny` | Same dependencies and features; downloads pinned assets on first use |
-
-Images are available from `hangrylabs/flux2-klein-studio` on Docker Hub and
-`ghcr.io/hangry-labs/flux2-klein-studio` on GHCR. Full images save the initial network download, while
-tiny images reduce transfer size. Tiny still includes the CUDA/PyTorch runtime.
-Both variants include dependency notices and verified corresponding-source
-archives under `/app/runtime-sources`; no separate source image is published.
-The full model cache adds about 5 GiB, and its initial copy into a data volume
-uses additional disk space. It does not change GPU memory requirements.
-
-Start the full image, then open **http://localhost:7860**:
+With Docker and NVIDIA GPU support installed, run:
 
 ```shell
-docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2-klein-studio-data,target=/data hangrylabs/flux2-klein-studio:latest
+docker run -d --name flux2-klein-studio --restart unless-stopped --gpus all --init -p 127.0.0.1:7860:7860 -v flux2_klein_studio_data:/app/persistent hangrylabs/flux2-klein-studio:latest
 ```
 
-For the download-on-first-use variant, keep the same volume:
+Open **http://localhost:7860**. Write a description and click **Generate image**.
+The first generation loads the model; later requests reuse it while it stays loaded.
 
-```shell
-docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2-klein-studio-data,target=/data hangrylabs/flux2-klein-studio:latest_tiny
-```
+The standard image includes the main model for offline generation. For a smaller
+download, replace `:latest` with `:latest_tiny`; it downloads the model on first
+use. Both use the same persistent volume. Choose either variant.
 
-The GHCR repository is interchangeable. Rolling tags intentionally remain unpinned
-in these commands. Stable deployment commands should use the readable release
-tag and its verified top-level OCI index digest once a stable release is published.
+**Hardware:** an NVIDIA Blackwell GPU or newer is required by this model's NVFP4
+runtime. The development setup uses an RTX 5070 Ti with 16 GB VRAM. Larger images
+and additional references need more memory. Windows uses Docker Desktop with GPU
+support; Linux needs NVIDIA Container Toolkit.
 
-## Verified development image identities
+## What you can do
 
-The [successful publication](https://github.com/hangry-labs/flux2-klein-studio/actions/runs/42258301756)
-built commit `6933729651392235d304b80cf220adcb3b5d8021`. Docker Hub and GHCR
-reported identical top-level OCI indexes for each variant on 2026-11-07:
+- **Generate** images from descriptions, with square, portrait and landscape sizes.
+- **Refine** a picture: change lighting, objects, backgrounds or composition.
+- **Use up to four reference pictures** to guide the subject and scene, then edit each result further.
+- **Choose a style:** Pixel Art sprites, Koni Anime or NASA retro space concept art.
+- **Fill or extend a picture** by painting green areas in Refine.
+- **Zoom into a selected area**, move the selection and use the result to zoom again.
+- **Save selected results to Gallery**, reopen recipes, download PNG/WebP/JPEG and delete unwanted files.
+- **Connect apps and agents** with an OpenAI-compatible Images API and MCP, including queued requests.
+- **Control GPU residency** and enabled agent image sizes in System.
 
-| Variant | OCI index digest |
+Style adapters download on first use. On the standard image, enable network
+loading once with `-e STUDIO_OFFLINE=0` to cache a new adapter; the tiny variant
+already allows downloads. Picture generation runs locally.
+
+## See it in action
+
+### Change a picture with an instruction
+
+Send a generated image to **Refine**, describe the change and compare the result
+beside its reference. Continue with **Use this result** for another pass.
+
+![Refine: change the scene to night and replace flowers with lollipops](https://raw.githubusercontent.com/hangry-labs/flux2-klein-studio/main/assets/ui/refine-night-lollipops.webp)
+
+### Remove an object and fill its background
+
+![Refine: remove the robot from a greenhouse picture](https://raw.githubusercontent.com/hangry-labs/flux2-klein-studio/main/assets/ui/refine-remove-robot.webp)
+
+Green Fill and Red Zoom provide additional editing workflows. They generate new
+pixels, so details may change. Pixel Art's green background is not transparency;
+automatic background removal is not included.
+
+## Keep your work
+
+Reuse `flux2_klein_studio_data`, mounted at `/app/persistent`, when replacing the container. It stores cached
+models, settings and images explicitly saved to Gallery. Keep **Save result to
+gallery** unchecked for temporary previews. Download anything you want to keep.
+Deleting the volume removes its saved contents.
+
+## Apps and agents
+
+Use **http://localhost:7860/v1** for the Images API and
+**http://localhost:7860/mcp/** for MCP. Agents can call `skill` first to discover
+supported workflows and styles. Named image sizes make requests easy to choose;
+concurrent requests wait while the GPU processes one image at a time.
+
+The start command exposes the studio only on this computer. For remote access,
+configure authentication and allowed hosts using the
+[deployment guide](https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/agent-api.md).
+
+## Images and updates
+
+| Image | What it includes |
 | --- | --- |
-| Full | `sha256:8e9c5cba83aa9703582bbba066955e566de43837e0d9df0ed73aada1f16ad8c2` |
-| Tiny | `sha256:b0803f6c265d81c745c933f707cd608b420ec8fe67400615d851a5b0219a5e82` |
+| `hangrylabs/flux2-klein-studio:latest` | Standard image with the main model included |
+| `hangrylabs/flux2-klein-studio:latest_tiny` | Same application; downloads the model on first use |
 
-These identify that development build. Rolling tags can advance on later pushes;
-use `docker buildx imagetools inspect IMAGE:TAG` to inspect their current identity.
+Also available from `ghcr.io/hangry-labs/flux2-klein-studio` with the same tags.
+Rolling tags follow published development builds. Features shown here follow the
+current source; local changes appear in registry images after publication.
 
-## Build from source
+**Publication status:** rolling `latest` and `latest_tiny` images are published. See the repository's release history for versioned releases and build details.
 
-For a full local build that works today:
-
-```shell
-task docker:build:full
-docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2-klein-studio-data,target=/data flux2-klein-studio:full
-```
-
-The full image seeds missing pinned cache files into `/data/huggingface` on first
-use and preserves other cached snapshots. Keep `/data` for models, compiler caches,
-settings and saved outputs. Compose additionally binds `./outputs` for easy host
-access; a plain `docker run` stores outputs in the named volume.
-`STUDIO_OFFLINE=1` explicitly requires cached assets; `STUDIO_OFFLINE=0` enables
-network access for loading. Full defaults to offline, tiny to online. Image
-generation remains local; model downloads contact Hugging Face when enabled.
-
-UI: `http://localhost:7860`; Images API: `/v1`; MCP: `/mcp/`. Configure
-`STUDIO_API_KEY` and `STUDIO_ALLOWED_HOSTS` when exposing beyond loopback. See
-[agent API](agent-api.md), [studio controls](studio.md), [benchmarks](../benchmarks/README.md)
-and [release procedure](RELEASING.md). Use responsibly and respect applicable
-model, dependency and artwork terms in [THIRD_PARTY.md](../THIRD_PARTY.md).
+[Source and full guide](https://github.com/hangry-labs/flux2-klein-studio) ·
+[Studio guide](https://github.com/hangry-labs/flux2-klein-studio/blob/main/docs/studio.md) ·
+[Measured GPU requirements](https://github.com/hangry-labs/flux2-klein-studio/blob/main/benchmarks/README.md) ·
+[Apache-2.0 and third-party notices](https://github.com/hangry-labs/flux2-klein-studio/blob/main/THIRD_PARTY.md)

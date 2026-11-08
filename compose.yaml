@@ -13,12 +13,12 @@ services:
       STUDIO_API_KEY: ${STUDIO_API_KEY:-}
       STUDIO_ALLOWED_HOSTS: "${STUDIO_ALLOWED_HOSTS:-localhost,127.0.0.1,[::1],testserver}"
     volumes:
-      - data:/data
-      - ./outputs:/data/outputs
+      - data:/app/persistent
+      - ./outputs:/app/persistent/outputs
     ports:
       - "127.0.0.1:7860:7860"
     command: [serve]
 
 volumes:
   data:
-    name: flux2-klein-studio-data
+    name: ${STUDIO_DATA_VOLUME:-flux2_klein_studio_data}

@@ -1,0 +1,550 @@
+{
+  "run_id": "memory-20261108T154028Z",
+  "suite": "memory",
+  "output_size": "1024x1024",
+  "seed": 12345,
+  "steps": 4,
+  "prompt": "All reference images show the same adult man. Preserve his face, red hair, freckles, round glasses and blue ear stud. Show this man seated outdoors at a cafe in a dark green jacket, waist-up portrait, natural daylight.",
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "driver_version": "621.14",
+    "cuda_runtime": "13.0",
+    "model": "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32",
+    "revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216",
+    "allocator_config": "expandable_segments:True"
+  },
+  "method": "Fresh worker per profile; populated offline cache; ordered NVFP4 r32/NF4, all model components on GPU; no offload/tiling changes; shared live system. Memory: one warmup, two measured calls, whole-device sampling target100ms plus allocator counters; not a speed benchmark. Inputs: generated fictional-person views, hashes retained.",
+  "harness_sha256": "310264a2518827f34a32764cf295e1afe5aba31e56da3e43190a9d0279e371f3",
+  "versions": {
+    "torch": "2.14.0+cu130",
+    "diffusers": "0.42.1",
+    "transformers": "5.22.1",
+    "bitsandbytes": "0.50.2",
+    "kernels": "0.18.1",
+    "triton": "3.8.0",
+    "accelerate": "1.15.0",
+    "huggingface-hub": "2.4.0"
+  },
+  "cases": [
+    {
+      "count": 1,
+      "edge": 512,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "156404a9a20fa71ec6b9da40f0a4efafe2148bcf3549d3c231f0226b30df1ed9",
+          "width": 512,
+          "height": 512
+        }
+      ],
+      "allocated_peak_bytes": 7980043776,
+      "reserved_peak_bytes": 8476688384,
+      "device_peak_mib": 10522,
+      "minimum_free_mib": 5474,
+      "loading_device": {
+        "baseline_mib": 1917,
+        "peak_mib": 7375,
+        "minimum_free_mib": 8621,
+        "total_mib": 16303,
+        "sample_count": 29,
+        "target_interval_seconds": 0.1
+      },
+      "loaded_allocator": {
+        "allocated_peak_bytes": 5382767616,
+        "reserved_peak_bytes": 5387583488,
+        "allocated_bytes": 5381981184,
+        "reserved_bytes": 5387583488
+      },
+      "warmup": {
+        "allocator": {
+          "allocated_peak_bytes": 7980043776,
+          "reserved_peak_bytes": 8476688384,
+          "allocated_bytes": 5415536640,
+          "reserved_bytes": 8476688384
+        },
+        "device": {
+          "baseline_mib": 7378,
+          "peak_mib": 10378,
+          "minimum_free_mib": 5618,
+          "total_mib": 16303,
+          "sample_count": 131,
+          "target_interval_seconds": 0.1
+        }
+      },
+      "samples": [
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7980043776,
+            "reserved_peak_bytes": 8476688384,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8476688384
+          },
+          "device": {
+            "baseline_mib": 10371,
+            "peak_mib": 10371,
+            "minimum_free_mib": 5625,
+            "total_mib": 16303,
+            "sample_count": 14,
+            "target_interval_seconds": 0.1
+          }
+        },
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7980043776,
+            "reserved_peak_bytes": 8476688384,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8476688384
+          },
+          "device": {
+            "baseline_mib": 10429,
+            "peak_mib": 10522,
+            "minimum_free_mib": 5474,
+            "total_mib": 16303,
+            "sample_count": 14,
+            "target_interval_seconds": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "count": 2,
+      "edge": 512,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "156404a9a20fa71ec6b9da40f0a4efafe2148bcf3549d3c231f0226b30df1ed9",
+          "width": 512,
+          "height": 512
+        },
+        {
+          "pixel_sha256": "43cbca51d39edec9ec7bc61bf8388ea9f14f64a867c50c0dfbaf100b7036b78a",
+          "width": 512,
+          "height": 512
+        }
+      ],
+      "allocated_peak_bytes": 7980895744,
+      "reserved_peak_bytes": 8478785536,
+      "device_peak_mib": 10314,
+      "minimum_free_mib": 5682,
+      "loading_device": {
+        "baseline_mib": 1990,
+        "peak_mib": 7242,
+        "minimum_free_mib": 8754,
+        "total_mib": 16303,
+        "sample_count": 19,
+        "target_interval_seconds": 0.1
+      },
+      "loaded_allocator": {
+        "allocated_peak_bytes": 5382767616,
+        "reserved_peak_bytes": 5387583488,
+        "allocated_bytes": 5381981184,
+        "reserved_bytes": 5387583488
+      },
+      "warmup": {
+        "allocator": {
+          "allocated_peak_bytes": 7980895744,
+          "reserved_peak_bytes": 8478785536,
+          "allocated_bytes": 5415536640,
+          "reserved_bytes": 8478785536
+        },
+        "device": {
+          "baseline_mib": 7242,
+          "peak_mib": 10226,
+          "minimum_free_mib": 5770,
+          "total_mib": 16303,
+          "sample_count": 137,
+          "target_interval_seconds": 0.1
+        }
+      },
+      "samples": [
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7980895744,
+            "reserved_peak_bytes": 8478785536,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8478785536
+          },
+          "device": {
+            "baseline_mib": 10220,
+            "peak_mib": 10247,
+            "minimum_free_mib": 5749,
+            "total_mib": 16303,
+            "sample_count": 17,
+            "target_interval_seconds": 0.1
+          }
+        },
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7980895744,
+            "reserved_peak_bytes": 8478785536,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8478785536
+          },
+          "device": {
+            "baseline_mib": 10272,
+            "peak_mib": 10314,
+            "minimum_free_mib": 5682,
+            "total_mib": 16303,
+            "sample_count": 17,
+            "target_interval_seconds": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "count": 4,
+      "edge": 512,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "156404a9a20fa71ec6b9da40f0a4efafe2148bcf3549d3c231f0226b30df1ed9",
+          "width": 512,
+          "height": 512
+        },
+        {
+          "pixel_sha256": "43cbca51d39edec9ec7bc61bf8388ea9f14f64a867c50c0dfbaf100b7036b78a",
+          "width": 512,
+          "height": 512
+        },
+        {
+          "pixel_sha256": "5f2d51a5f9ccef77b9496acd57e3727ee1c13662d771b166b75cb74a66aa7a93",
+          "width": 512,
+          "height": 512
+        },
+        {
+          "pixel_sha256": "0cc5d514b9e55ab6665f358415782d5f6cab0231d9cdf701fafa6ce1b0118f07",
+          "width": 512,
+          "height": 512
+        }
+      ],
+      "allocated_peak_bytes": 7982599680,
+      "reserved_peak_bytes": 8482979840,
+      "device_peak_mib": 10214,
+      "minimum_free_mib": 5782,
+      "loading_device": {
+        "baseline_mib": 1842,
+        "peak_mib": 7255,
+        "minimum_free_mib": 8741,
+        "total_mib": 16303,
+        "sample_count": 22,
+        "target_interval_seconds": 0.1
+      },
+      "loaded_allocator": {
+        "allocated_peak_bytes": 5382767616,
+        "reserved_peak_bytes": 5387583488,
+        "allocated_bytes": 5381981184,
+        "reserved_bytes": 5387583488
+      },
+      "warmup": {
+        "allocator": {
+          "allocated_peak_bytes": 7982599680,
+          "reserved_peak_bytes": 8482979840,
+          "allocated_bytes": 5415536640,
+          "reserved_bytes": 8482979840
+        },
+        "device": {
+          "baseline_mib": 7255,
+          "peak_mib": 10214,
+          "minimum_free_mib": 5782,
+          "total_mib": 16303,
+          "sample_count": 128,
+          "target_interval_seconds": 0.1
+        }
+      },
+      "samples": [
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7982599680,
+            "reserved_peak_bytes": 8482979840,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8482979840
+          },
+          "device": {
+            "baseline_mib": 10214,
+            "peak_mib": 10214,
+            "minimum_free_mib": 5782,
+            "total_mib": 16303,
+            "sample_count": 23,
+            "target_interval_seconds": 0.1
+          }
+        },
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7982599680,
+            "reserved_peak_bytes": 8482979840,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8482979840
+          },
+          "device": {
+            "baseline_mib": 10214,
+            "peak_mib": 10214,
+            "minimum_free_mib": 5782,
+            "total_mib": 16303,
+            "sample_count": 22,
+            "target_interval_seconds": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "count": 1,
+      "edge": 1024,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "1043fa2717179e1dad080382f43304abd718fd61841ce3b19bc334c445b835e4",
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "allocated_peak_bytes": 7982599680,
+      "reserved_peak_bytes": 8480882688,
+      "device_peak_mib": 10215,
+      "minimum_free_mib": 5781,
+      "loading_device": {
+        "baseline_mib": 1816,
+        "peak_mib": 7226,
+        "minimum_free_mib": 8770,
+        "total_mib": 16303,
+        "sample_count": 18,
+        "target_interval_seconds": 0.1
+      },
+      "loaded_allocator": {
+        "allocated_peak_bytes": 5382767616,
+        "reserved_peak_bytes": 5387583488,
+        "allocated_bytes": 5381981184,
+        "reserved_bytes": 5387583488
+      },
+      "warmup": {
+        "allocator": {
+          "allocated_peak_bytes": 7982599680,
+          "reserved_peak_bytes": 8480882688,
+          "allocated_bytes": 5415536640,
+          "reserved_bytes": 8480882688
+        },
+        "device": {
+          "baseline_mib": 7226,
+          "peak_mib": 10183,
+          "minimum_free_mib": 5813,
+          "total_mib": 16303,
+          "sample_count": 40,
+          "target_interval_seconds": 0.1
+        }
+      },
+      "samples": [
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7982599680,
+            "reserved_peak_bytes": 8480882688,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8480882688
+          },
+          "device": {
+            "baseline_mib": 10183,
+            "peak_mib": 10215,
+            "minimum_free_mib": 5781,
+            "total_mib": 16303,
+            "sample_count": 23,
+            "target_interval_seconds": 0.1
+          }
+        },
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7982599680,
+            "reserved_peak_bytes": 8480882688,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8480882688
+          },
+          "device": {
+            "baseline_mib": 10182,
+            "peak_mib": 10183,
+            "minimum_free_mib": 5813,
+            "total_mib": 16303,
+            "sample_count": 23,
+            "target_interval_seconds": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "count": 2,
+      "edge": 1024,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "1043fa2717179e1dad080382f43304abd718fd61841ce3b19bc334c445b835e4",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "3372a6d73590c6f9305863bc9b6cb807c46ea22b1ba24f952fb7d26a5e0b3921",
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "allocated_peak_bytes": 7986007552,
+      "reserved_peak_bytes": 8413773824,
+      "device_peak_mib": 10135,
+      "minimum_free_mib": 5861,
+      "loading_device": {
+        "baseline_mib": 1813,
+        "peak_mib": 7224,
+        "minimum_free_mib": 8772,
+        "total_mib": 16303,
+        "sample_count": 18,
+        "target_interval_seconds": 0.1
+      },
+      "loaded_allocator": {
+        "allocated_peak_bytes": 5382767616,
+        "reserved_peak_bytes": 5387583488,
+        "allocated_bytes": 5381981184,
+        "reserved_bytes": 5387583488
+      },
+      "warmup": {
+        "allocator": {
+          "allocated_peak_bytes": 7986007552,
+          "reserved_peak_bytes": 8411676672,
+          "allocated_bytes": 5415536640,
+          "reserved_bytes": 8411676672
+        },
+        "device": {
+          "baseline_mib": 7224,
+          "peak_mib": 10119,
+          "minimum_free_mib": 5877,
+          "total_mib": 16303,
+          "sample_count": 54,
+          "target_interval_seconds": 0.1
+        }
+      },
+      "samples": [
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7986007552,
+            "reserved_peak_bytes": 8413773824,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8413773824
+          },
+          "device": {
+            "baseline_mib": 10119,
+            "peak_mib": 10121,
+            "minimum_free_mib": 5875,
+            "total_mib": 16303,
+            "sample_count": 38,
+            "target_interval_seconds": 0.1
+          }
+        },
+        {
+          "allocator": {
+            "allocated_peak_bytes": 7986007552,
+            "reserved_peak_bytes": 8413773824,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 8413773824
+          },
+          "device": {
+            "baseline_mib": 10121,
+            "peak_mib": 10135,
+            "minimum_free_mib": 5861,
+            "total_mib": 16303,
+            "sample_count": 38,
+            "target_interval_seconds": 0.1
+          }
+        }
+      ]
+    },
+    {
+      "count": 4,
+      "edge": 1024,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "1043fa2717179e1dad080382f43304abd718fd61841ce3b19bc334c445b835e4",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "3372a6d73590c6f9305863bc9b6cb807c46ea22b1ba24f952fb7d26a5e0b3921",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "4726a59ca6142843c99b037ec5b8a91e30f368bbfbfbd7cdfb567166c4593ed3",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "0fdc88fc57cce9bbcfb87f84e9caf1ac4ce1209503155bef6c2b388445002856",
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "allocated_peak_bytes": 8345636352,
+      "reserved_peak_bytes": 9252634624,
+      "device_peak_mib": 10914,
+      "minimum_free_mib": 5082,
+      "loading_device": {
+        "baseline_mib": 1816,
+        "peak_mib": 7229,
+        "minimum_free_mib": 8767,
+        "total_mib": 16303,
+        "sample_count": 22,
+        "target_interval_seconds": 0.1
+      },
+      "loaded_allocator": {
+        "allocated_peak_bytes": 5382767616,
+        "reserved_peak_bytes": 5387583488,
+        "allocated_bytes": 5381981184,
+        "reserved_bytes": 5387583488
+      },
+      "warmup": {
+        "allocator": {
+          "allocated_peak_bytes": 8345636352,
+          "reserved_peak_bytes": 9252634624,
+          "allocated_bytes": 5415536640,
+          "reserved_bytes": 9252634624
+        },
+        "device": {
+          "baseline_mib": 7229,
+          "peak_mib": 10927,
+          "minimum_free_mib": 5069,
+          "total_mib": 16303,
+          "sample_count": 97,
+          "target_interval_seconds": 0.1
+        }
+      },
+      "samples": [
+        {
+          "allocator": {
+            "allocated_peak_bytes": 8345636352,
+            "reserved_peak_bytes": 9252634624,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 9252634624
+          },
+          "device": {
+            "baseline_mib": 10914,
+            "peak_mib": 10914,
+            "minimum_free_mib": 5082,
+            "total_mib": 16303,
+            "sample_count": 76,
+            "target_interval_seconds": 0.1
+          }
+        },
+        {
+          "allocator": {
+            "allocated_peak_bytes": 8345636352,
+            "reserved_peak_bytes": 9252634624,
+            "allocated_bytes": 5415536640,
+            "reserved_bytes": 9252634624
+          },
+          "device": {
+            "baseline_mib": 10900,
+            "peak_mib": 10913,
+            "minimum_free_mib": 5083,
+            "total_mib": 16303,
+            "sample_count": 80,
+            "target_interval_seconds": 0.1
+          }
+        }
+      ]
+    }
+  ]
+}

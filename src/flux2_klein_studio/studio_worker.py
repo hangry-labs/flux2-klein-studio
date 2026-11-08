@@ -106,22 +106,31 @@ def serve(connection):
                 report["placement"] = check_residency(pipe)
             workload = settings["width"] * settings["height"]
             if settings.get("reference"):
-                workload += (
-                    settings["reference"]["width"] * settings["reference"]["height"]
+                workload += sum(
+                    ref["width"] * ref["height"]
+                    for ref in settings.get("references", [settings["reference"]])
                 )
             if cache_dirty and workload < previous_workload:
                 trim_workspace(torch, report, "smaller-workload")
                 cache_dirty = False
             if settings.get("_reference_path"):
-                with Image.open(settings["_reference_path"]) as source:
-                    reference = source.convert("RGB")
                 import hashlib
 
-                if (
-                    hashlib.sha256(reference.tobytes()).hexdigest()
-                    != settings["reference"]["pixel_sha256"]
+                prepared = []
+                for path, metadata in zip(
+                    settings.get("_reference_paths", [settings["_reference_path"]]),
+                    settings.get("references", [settings["reference"]]),
+                    strict=True,
                 ):
-                    raise RuntimeError("Reference image does not match its recipe")
+                    with Image.open(path) as source:
+                        image = source.convert("RGB")
+                    if (
+                        hashlib.sha256(image.tobytes()).hexdigest()
+                        != metadata["pixel_sha256"]
+                    ):
+                        raise RuntimeError("Reference image does not match its recipe")
+                    prepared.append(image)
+                reference = prepared[0] if len(prepared) == 1 else prepared
             connection.send({"phase": "generating"})
             torch.cuda.synchronize()
             start = time.perf_counter()

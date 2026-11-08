@@ -1,0 +1,82 @@
+{
+  "run_id": "quality-20261108T153654Z",
+  "suite": "quality",
+  "output_size": "1024x1024",
+  "seed": 12345,
+  "steps": 4,
+  "prompt": "All reference images show the same adult man. Preserve his face, red hair, freckles, round glasses and blue ear stud. Show this man seated outdoors at a cafe in a dark green jacket, waist-up portrait, natural daylight.",
+  "environment": {
+    "gpu": "NVIDIA GeForce RTX 5070 Ti",
+    "driver_version": "621.14",
+    "cuda_runtime": "13.0",
+    "model": "lite-infer/flux.2-klein-4b-nunchaku-lite-nvfp4-r32",
+    "revision": "79dbbc2fdcfaf228863583d0cfabf56ff3e3c216",
+    "allocator_config": "expandable_segments:True"
+  },
+  "method": "Fresh worker per profile; populated offline cache; ordered NVFP4 r32/NF4, all model components on GPU; no offload/tiling changes; shared live system. Memory: one warmup, two measured calls, whole-device sampling target100ms plus allocator counters; not a speed benchmark. Inputs: generated fictional-person views, hashes retained.",
+  "harness_sha256": "0e634b2434de1169f701bf0d1f2f3ffd30ba5db2400272d690189c21f5259462",
+  "cases": [
+    {
+      "count": 1,
+      "edge": 1024,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "1043fa2717179e1dad080382f43304abd718fd61841ce3b19bc334c445b835e4",
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "pixel_sha256": "55687aa9a262c33183d3e7f56f40de25cff36748aeeb8767e89a1b410f4125ed",
+      "repeat_equal": null
+    },
+    {
+      "count": 2,
+      "edge": 1024,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "1043fa2717179e1dad080382f43304abd718fd61841ce3b19bc334c445b835e4",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "3372a6d73590c6f9305863bc9b6cb807c46ea22b1ba24f952fb7d26a5e0b3921",
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "pixel_sha256": "40b69a2dd4bf15e8dba8492cf7dc095adc3e640ea87800f1a1189512fff87381",
+      "repeat_equal": null
+    },
+    {
+      "count": 4,
+      "edge": 1024,
+      "status": "passed",
+      "references": [
+        {
+          "pixel_sha256": "1043fa2717179e1dad080382f43304abd718fd61841ce3b19bc334c445b835e4",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "3372a6d73590c6f9305863bc9b6cb807c46ea22b1ba24f952fb7d26a5e0b3921",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "4726a59ca6142843c99b037ec5b8a91e30f368bbfbfbd7cdfb567166c4593ed3",
+          "width": 1024,
+          "height": 1024
+        },
+        {
+          "pixel_sha256": "0fdc88fc57cce9bbcfb87f84e9caf1ac4ce1209503155bef6c2b388445002856",
+          "width": 1024,
+          "height": 1024
+        }
+      ],
+      "pixel_sha256": "c3b86736a76b87550a4347469e9dc819e58d48eaa5ddb591cf70938011ec6aa1",
+      "repeat_equal": true
+    }
+  ]
+}

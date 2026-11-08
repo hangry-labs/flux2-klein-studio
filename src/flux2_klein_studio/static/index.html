@@ -42,7 +42,8 @@
     <form id="refine-form" class="panel settings">
       <div class="panel-heading"><span class="eyebrow">01 / ANOTHER LOOK</span><span class="chip">Picture → picture</span></div>
       <h2>Keep the idea. Change the picture.</h2><p class="muted">Upload a picture, or send a generated result here. Describe your changes and the details to keep.</p>
-      <label for="refine-upload">Reference picture</label><input id="refine-upload" type="file" accept="image/*"><p id="refine-reference-meta" class="help">One still image, up to 16 MiB. References stay temporary unless you save the refinement to gallery.</p>
+      <label for="refine-upload">Reference pictures · 1–4</label><input id="refine-upload" type="file" accept="image/*" multiple><p id="refine-reference-meta" class="help">Up to four ordered references for base-model Refine. Each image: at most 16 MiB. Multiple views can guide likeness, but do not guarantee an exact identity.</p>
+      <label for="refine-add-reference">Add more references</label><input id="refine-add-reference" type="file" accept="image/*" multiple disabled><div id="refine-reference-list" class="reference-list"></div>
       <div class="actions"><button id="refine-gallery" type="button" class="subtle">Choose from gallery</button><button id="refine-clear" type="button" class="subtle" disabled>Clear reference</button></div>
       <label for="refine-adapter">Editing adapter</label><select id="refine-adapter"><option value="">None · Base model</option></select><p id="refine-adapter-help" class="help">Use the base model for instruction-based editing.</p>
       <div id="outpaint-instructions" class="adapter-template" hidden><strong id="edit-instruction-title">Fixed fill instruction · always included</strong><p id="outpaint-default-prompt"></p><p id="edit-instruction-help" class="help">Add an optional description below, or leave it empty for a natural fill.</p></div>

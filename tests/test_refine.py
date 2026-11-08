@@ -31,6 +31,121 @@ def fixture(size=(64, 64), color=(27, 91, 143)):
 
 
 class RefineTests(unittest.TestCase):
+    def test_multiple_references_match_transports_order_and_retained_files(self):
+        sources = [fixture(color=(i * 40 + 20, 80, 120)) for i in range(4)]
+        handles = [self.upload(data) for data in sources]
+        ids = [item["id"] for item in handles]
+        request = {
+            "prompt": "All images show the same person, now sitting at a cafe.",
+            "seed": 12345,
+        }
+        browser = self.client.post(
+            "/api/jobs",
+            json={
+                **request,
+                "reference_ids": ids,
+                "width": 512,
+                "height": 512,
+                "save_gallery": True,
+            },
+        )
+        self.assertEqual(browser.status_code, 202, browser.text)
+        http = self.client.post(
+            "/v1/images/edits",
+            json={**request, "reference_ids": ids, "size": "square_small"},
+        )
+        self.assertEqual(http.status_code, 200, http.text[:200])
+        mcp = self.rpc(
+            "refine_image",
+            {
+                **request,
+                "images_base64": [base64.b64encode(s).decode() for s in sources],
+                "resolution": "square_small",
+            },
+        )
+        self.assertFalse(mcp.get("isError", False), mcp)
+        expected = [item["pixel_sha256"] for item in handles]
+        for recipe in [
+            browser.json()["settings"],
+            http.json()["studio"],
+            mcp["structuredContent"],
+        ]:
+            self.assertEqual(
+                [r["pixel_sha256"] for r in recipe["references"]], expected
+            )
+        # The queue owns independent files; removing uploads cannot change them.
+        for identifier in ids:
+            self.client.delete("/api/references/" + identifier)
+        self.assertEqual(self.jobs.references.records, {})
+        for i, data in enumerate(sources):
+            response = self.client.get(
+                f"/api/jobs/{browser.json()['id']}/reference?index={i}"
+            )
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.content, normalize_reference(data)[0])
+        for call in self.calls:
+            self.assertEqual(len(call["_reference_paths"]), 4)
+            self.assertNotIn(
+                "_reference_paths",
+                json.dumps({k: v for k, v in call.items() if not k.startswith("_")}),
+            )
+        recovered = Jobs(Path(self.directory.name))
+        try:
+            saved = recovered.get(browser.json()["id"])
+            self.assertEqual(
+                [r["pixel_sha256"] for r in saved["settings"]["references"]], expected
+            )
+            for name in [
+                "reference.png",
+                "reference-2.png",
+                "reference-3.png",
+                "reference-4.png",
+            ]:
+                self.assertTrue((recovered.folder(saved) / name).is_file())
+        finally:
+            recovered.close()
+
+    def test_multiple_reference_limits_fail_atomically_before_worker(self):
+        handle = self.upload()
+        for extra in [
+            {"reference_ids": []},
+            {"reference_ids": [handle["id"]] * 5},
+            {"reference_id": handle["id"], "reference_ids": [handle["id"]]},
+            {"reference_ids": [handle["id"]] * 2, "adapter": "zoom"},
+            {"reference_ids": [handle["id"]] * 2, "adapter": "outpaint"},
+        ]:
+            self.assertEqual(
+                self.client.post(
+                    "/api/jobs", json={"prompt": "edit", **extra}
+                ).status_code,
+                422,
+            )
+        encoded = base64.b64encode(fixture()).decode()
+        response = self.client.post(
+            "/v1/images/edits",
+            json={
+                "prompt": "edit",
+                "images": [{"image_url": encoded}, {"image_url": "invalid"}],
+            },
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(set(self.jobs.references.records), {handle["id"]})
+        self.assertEqual(self.calls, [])
+
+    def test_multiple_reference_multipart_is_ordered(self):
+        files = [
+            ("image[]", (f"{i}.png", fixture(color=(20 + i * 40, 70, 90)), "image/png"))
+            for i in range(4)
+        ]
+        response = self.client.post(
+            "/v1/images/edits",
+            data={"prompt": "same person", "size": "square_small"},
+            files=files,
+        )
+        self.assertEqual(response.status_code, 200, response.text[:200])
+        self.assertEqual(len(response.json()["studio"]["references"]), 4)
+        self.assertEqual(self.jobs.references.records, {})
+
     def rpc(self, name, arguments):
         response = self.client.post(
             "/mcp/",
@@ -640,7 +755,7 @@ class RefineTests(unittest.TestCase):
             self.assertIn("error", response.json())
         for files in (
             {"image": ("bad.png", b"not an image")},
-            [("image[]", ("one.png", fixture())), ("image[]", ("two.png", fixture()))],
+            [("image[]", (f"{i}.png", fixture())) for i in range(5)],
         ):
             response = self.client.post(
                 "/v1/images/edits", data={"prompt": "edit"}, files=files

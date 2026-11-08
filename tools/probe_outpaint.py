@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--offline", action="store_true")
     parser.add_argument(
-        "--output-dir", type=Path, default=Path("/data/outputs/lora-outpaint")
+        "--output-dir", type=Path, default=Path("/app/persistent/outputs/lora-outpaint")
     )
     args = parser.parse_args()
     output = args.output_dir / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())

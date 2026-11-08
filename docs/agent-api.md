@@ -189,7 +189,19 @@ while edits accept `adapter: "outpaint"`, `adapter: "zoom"` or the base model. S
 
 ## Reference-image editing
 
-`POST /v1/images/edits` accepts one reference plus an edit instruction. It uses the
+Base editing supports one to four ordered references. Use JSON `images` with up
+to four `{"image_url":"data:image/png;base64,..."}` entries, repeated multipart
+`image[]` files, or JSON `reference_ids` from uploads. Choose one source family;
+do not combine plural inputs with `image`, `reference_id` or `source_job_id`.
+MCP `refine_image` accepts `images_base64` or `reference_ids` with the same order.
+Describe the role of each image, or state that all views show the same person.
+Likeness is generative and not guaranteed. Green Fill and Red Zoom remain
+single-reference; multiple references require no adapter. Body limit: 24 MiB
+total, with 16 MiB per image. Saved jobs retain all normalized references and
+hashes; indexed downloads use `/api/jobs/{id}/reference?index=0` through `3`.
+Older single-reference requests and recipes retain their existing behavior.
+
+`POST /v1/images/edits` accepts one to four references plus an edit instruction. It uses the
 same named sizes, seed rules, `n=1..16`, queue, output formats and opt-in gallery
 storage as generation. The response envelope is identical; each recipe adds
 `reference` hashes, prepared dimensions and preprocessing details.
@@ -258,7 +270,7 @@ For a completed result from this instance, avoid uploading it again:
 ```
 
 Alternatively, `reference_id` reuses a temporary upload from `POST /api/references`.
-Supply exactly one source. IDs are **instance-local**: a gateway distributing edits
+Supply exactly one source family. IDs are **instance-local**: a gateway distributing edits
 between replicas should forward image bytes/data URLs or route a job/reference
 ID back to its originating instance.
 
@@ -311,7 +323,7 @@ with stateless HTTP and JSON responses.
 | `get_status` | Check whether this instance can accept work; inspect residency |
 | `list_resolutions` | Discover exact named sizes and aspect ratios |
 | `generate_image` | Generate 1–16 images and return image content plus recipes |
-| `refine_image` | Edit one reference with an instruction; return 1–16 images |
+| `refine_image` | Edit with one to four ordered references; return 1–16 images |
 
 Example generate_image arguments:
 
@@ -332,8 +344,9 @@ the same increment rule as HTTP. Tool schemas expose the resolution enum
 and no width/height fields. The result includes an MCP image block, human-readable
 recipe JSON and structured metadata with the actual seed/settings.
 
-For `refine_image`, provide the edit `prompt` and exactly one of `image_base64`,
-`source_job_id` or `reference_id`. `image_base64` accepts raw base64 or a data URL;
+For `refine_image`, provide the edit `prompt` and one source family: `image_base64`,
+`source_job_id`, `reference_id`, `images_base64` or `reference_ids`. Plural fields
+contain up to four ordered inputs. `image_base64` accepts raw base64 or a data URL;
 it is the portable choice across replicas. Resolution, seed, format, `n` and
 save-gallery options follow `generate_image`. Its result carries native MCP image
 blocks plus reference provenance in the structured recipe.

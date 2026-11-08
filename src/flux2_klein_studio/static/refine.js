@@ -6,6 +6,32 @@ const terminal = new Set(['completed', 'failed', 'cancelled']);
 let api, reference = null, active = null, result = null, uploading = false, polling = false, recipeURL = null;
 let formats = [];
 let painter, zoomer;
+let additional = [];
+async function discardAdditional() {const old=additional;additional=[];for(const item of old) await api.request(`/api/references/${item.id}`,{method:'DELETE'}).catch(()=>{});}
+function renderReferences() {
+  const list=$('refine-reference-list'); list.replaceChildren();
+  for(const [index,item] of additional.entries()) {
+    const card=document.createElement('div'), image=document.createElement('img'), label=document.createElement('span');
+    image.src=item.image; image.alt=`Reference ${index+2}`; label.textContent=`Image ${index+2}`;
+    card.append(image,label);
+    for(const [text,action] of [['↑',()=>{if(index>0){[additional[index-1],additional[index]]=[additional[index],additional[index-1]];controls();}}],['Remove',async()=>{additional.splice(index,1);await api.request(`/api/references/${item.id}`,{method:'DELETE'}).catch(()=>{});controls();}]]) {
+      const button=document.createElement('button');button.type='button';button.textContent=text;button.className='subtle';button.disabled=Boolean(uploading||refineRunning()||(text==='↑'&&index===0));button.setAttribute('aria-label',`${text==='↑'?'Move earlier':'Remove'} reference ${index+2}`);button.onclick=action;card.append(button);
+    }
+    list.append(card);
+  }
+}
+async function uploadFiles(files, append=false) {
+  if(!files.length)return;
+  if(files.length+(append?additional.length+1:0)>4)return note('Choose at most four references.');
+  if((append||files.length>1)&&$('refine-adapter').value)return note('Multiple references use None · Base model.');
+  if(files.some(file=>file.size>16*1024*1024))return note('Each reference must be at most 16 MiB.');
+  uploading=true;note();controls();const prepared=[];
+  try {
+    for(const file of files){const body=new FormData();body.append('image',file);if(outpaint())body.append('preserve_green','true');prepared.push(await api.request('/api/references',{method:'POST',body}));}
+    if(append)additional.push(...prepared);else {await choose(prepared[0]);additional=prepared.slice(1);}
+    prepared.length=0;
+  } catch(error){note(error.message);} finally {for(const item of prepared)await api.request(`/api/references/${item.id}`,{method:'DELETE'}).catch(()=>{});uploading=false;controls();}
+}
 const outpaint = () => $('refine-adapter').value === 'outpaint';
 const zoom = () => $('refine-adapter').value === 'zoom';
 function adapterChanged() {
@@ -35,6 +61,10 @@ export function refineRunning() {return active && !terminal.has(active.status);}
 function note(text = '') {$('refine-message').textContent = text;}
 function controls() {
   const running = refineRunning();
+  $('refine-add-reference').disabled=Boolean(!reference||running||uploading||additional.length>=3||$('refine-adapter').value);
+  for(const option of $('refine-adapter').options)if(option.value)option.disabled=additional.length>0||api.config?.edit_adapters.find(p=>p.id===option.value)?.available===false;
+  renderReferences();
+  if(reference)$('refine-reference-meta').textContent=`Image 1 of ${additional.length+1} · ${reference.original_width} × ${reference.original_height} source · ${reference.width} × ${reference.height} prepared. References stay temporary unless saved with the result.`;
   $('refine-submit').disabled = !reference || running || uploading || (zoom() && !zoomer?.hasSelection());
   $('refine-upload').disabled = Boolean(running || uploading);
   $('refine-clear').disabled = !reference || running || uploading;
@@ -62,6 +92,7 @@ function clearResult() {
   if (recipeURL) URL.revokeObjectURL(recipeURL); recipeURL = null;
 }
 async function choose(next, dimensions = null, markedZoom = false) {
+  await discardAdditional();
   const old = reference; reference = next; clearResult();
   $('refine-source-image').src = next.image; $('refine-source-image').hidden = false;
   $('refine-source-empty').hidden = true;
@@ -97,11 +128,22 @@ export async function reviewRefinement(item) {
     if (outpaint()) body.append('preserve_green','true');
     await choose(await api.request('/api/references', {method: 'POST', body}), [item.settings.width, item.settings.height], zoom() ? item.settings.reference?.zoom_region || true : false);
     $('refine-prompt').value = item.settings.prompt;
+    for(let index=1;index<(item.settings.references?.length||1);index++) {
+      const response=await fetch(`/api/jobs/${item.id}/reference?index=${index}`,{cache:'no-store'});
+      if(!response.ok)throw new Error('A saved reference is unavailable; restore all references before generating.');
+      const body=new FormData();body.append('image',await response.blob(),`reference-${index+1}.png`);
+      additional.push(await api.request('/api/references',{method:'POST',body}));
+    }
     adapterChanged();
     $('refine-seed').value = item.settings.seed; $('refine-steps').value = item.settings.steps;
     $('refine-random-seed').checked = false; $('refine-seed').readOnly = false;
     active = null; showResult(item);
-  } catch (error) {note(error.message);} finally {uploading = false; controls();}
+  } catch (error) {
+    await discardAdditional();
+    if(reference) await api.request(`/api/references/${reference.id}`,{method:'DELETE'}).catch(()=>{});
+    reference=null;painter.clear();zoomer.clear();clearResult();$('refine-source-image').hidden=true;$('refine-source-empty').hidden=false;
+    note(error.message);
+  } finally {uploading = false; controls();}
 }
 function download() {
   if (!result) return;
@@ -143,13 +185,11 @@ export function initializeRefine(options) {
   $('refine-adapter').onchange = adapterChanged;
   $('refine-gallery').onclick = () => api.switchView('gallery');
   $('refine-upload').onchange = async () => {
-    const file = $('refine-upload').files[0]; if (!file) return;
-    if (file.size > 16 * 1024 * 1024) return note('Choose an image of at most 16 MiB.');
-    uploading = true; note(); controls();
-    try {const data = new FormData(); data.append('image', file); if (outpaint()) data.append('preserve_green','true'); await choose(await api.request('/api/references', {method: 'POST', body: data}));}
-    catch (error) {note(error.message);} finally {uploading = false; $('refine-upload').value = ''; controls();}
+    await uploadFiles([...$('refine-upload').files]);$('refine-upload').value='';
   };
+  $('refine-add-reference').onchange=async()=>{await uploadFiles([...$('refine-add-reference').files],true);$('refine-add-reference').value='';};
   $('refine-clear').onclick = async () => {
+    await discardAdditional();
     if (reference) await api.request(`/api/references/${reference.id}`, {method: 'DELETE'}).catch(() => {});
     reference = null; painter.clear(); zoomer.clear(); clearResult(); $('refine-source-image').hidden = true; $('refine-source-image').removeAttribute('src'); $('refine-source-empty').hidden = false;
     $('refine-reference-meta').textContent = 'Upload a picture or send a generated result here.'; adapterChanged();
@@ -166,6 +206,7 @@ export function initializeRefine(options) {
     if ($('refine-random-seed').checked) $('refine-seed').value = api.randomSeed();
     const payload = {prompt: $('refine-prompt').value, reference_id: reference.id, save_gallery: $('refine-save-gallery').checked,
       ...Object.fromEntries(['width', 'height', 'seed', 'steps'].map(key => [key, Number($(`refine-${key}`).value)]))};
+    if(additional.length){delete payload.reference_id;payload.reference_ids=[reference.id,...additional.map(item=>item.id)];}
     if (!Number.isSafeInteger(payload.seed)) return note('Choose a whole-number seed within the displayed range.');
     uploading = true; controls(); let painted = null;
     try {

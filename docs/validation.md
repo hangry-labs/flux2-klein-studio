@@ -132,7 +132,7 @@ For a strict network-disabled check, bind an existing output directory and use
 the same named data volume. This example writes into the volume itself:
 
 ```shell
-docker run --rm --gpus all --network none --mount type=volume,source=flux2-klein-studio-data,target=/data flux2-klein-studio:dev generate --offline
+docker run --rm --gpus all --network none --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent flux2-klein-studio:dev generate --offline
 ```
 
 Artifacts written without the Compose output bind remain inside the data volume.

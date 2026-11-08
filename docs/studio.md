@@ -24,6 +24,16 @@ network loading once if the adapter is not already cached. See the
 
 ## Refine a picture
 
+Base-model Refine accepts **one to four reference pictures**. Select several files
+at once, or use **Add more references**. The large preview is image 1; additional
+images are numbered below the upload controls. Move additional images earlier
+or remove them individually. Describe which images show the same person, or
+assign roles such as subject, outfit and setting. More views guide likeness but
+do not guarantee an exact identity. References add GPU memory use.
+Green Fill and Red Zoom keep their single-reference workflows.
+Saving to Gallery retains every reference and its order for replay. **Use this
+result** starts a new pass with the result alone; add extra references again if needed.
+
 Open **Refine** and upload one still picture, choose **Send to Refine** under a
 generated result, or choose **Refine** on a gallery card. The left image is the
 reference; the right image becomes the edited result. Describe the changes and

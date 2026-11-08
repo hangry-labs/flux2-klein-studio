@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  REFERENCE: '/data/outputs/refine-reference.png'
+  REFERENCE: '/app/persistent/outputs/refine-reference.png'
   REFINE_PROMPT: 'Keep the glass robot and orchids, but change the lighting to warm golden sunset.'
   REFINE_RESOLUTIONS: '1024x1024'
   WIDTH: '1024'
@@ -45,6 +45,28 @@ tasks:
   api:refine:
     desc: Verify text generation, paired two-image HTTP/MCP edits and iterative reuse at 1024
     cmds: [docker compose exec -T studio python tools/probe_refine.py]
+
+  refine:references:plan:
+    desc: Describe fixed-1024 multi-reference memory or visual checks without inference
+    cmds: ['docker compose exec -T studio python tools/probe_multiref.py --suite {{.REFERENCE_SUITE | default "memory"}} --plan {{.CLI_ARGS}}']
+
+  refine:references:fixtures:
+    desc: Create four synthetic fictional-person views for reference testing
+    cmds: [docker compose run --rm --entrypoint python studio tools/probe_multiref.py --suite fixtures]
+
+  refine:references:memory:
+    desc: Measure one/two/four references at fixed 1024 output, in fresh workers
+    cmds: ['docker compose run --rm --entrypoint python studio tools/probe_multiref.py --suite memory {{.CLI_ARGS}}']
+
+  refine:references:quality:
+    desc: Compare likeness with one/two/four references and a same-seed repeat
+    cmds: ['docker compose run --rm --entrypoint python studio tools/probe_multiref.py --suite quality {{.CLI_ARGS}}']
+
+  refine:references:report:
+    desc: Regenerate multi-reference reports and root memory SVG from retained evidence (no GPU)
+    requires:
+      vars: [REFERENCE_REPORT]
+    cmds: ['uv run --no-project --python 3.13 python tools/report_multiref.py "{{.REFERENCE_REPORT}}"']
 
   api:resolutions:
     desc: Generate each named API size and verify its output (workflow check, not a benchmark)
@@ -209,7 +231,7 @@ tasks:
     desc: Run numerical GPU tests using the test image
     cmds:
       - task: docker:test-build
-      - docker run --rm --gpus all -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} --mount type=volume,source=flux2-klein-studio-data,target=/data --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
+      - docker run --rm --gpus all -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
 
   tools:build:
     desc: Build optional lint/plot tools separately from the inference image
@@ -282,7 +304,7 @@ tasks:
   benchmark:refine:plan:
     desc: Plan reference-image measurements without GPU access or report writes
     cmds:
-      - docker run --rm --network none --mount "type=bind,source={{.ROOT_DIR}}/outputs,target=/data/outputs,readonly" flux2-klein-studio:dev resolution-sweep --suite {{.SUITE}} --reference-image "{{.REFERENCE}}" --prompt "{{.REFINE_PROMPT}}" --resolutions {{.REFINE_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} --plan
+      - docker run --rm --network none --mount "type=bind,source={{.ROOT_DIR}}/outputs,target=/app/persistent/outputs,readonly" flux2-klein-studio:dev resolution-sweep --suite {{.SUITE}} --reference-image "{{.REFERENCE}}" --prompt "{{.REFINE_PROMPT}}" --resolutions {{.REFINE_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} --plan
 
   benchmark:refine:memory:
     desc: Measure reference-edit VRAM separately from the text-only baseline
@@ -305,7 +327,7 @@ tasks:
   benchmark:refine:suite:
     internal: true
     cmds:
-      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --offline --suite {{.SUITE}} --reference-image "{{.REFERENCE}}" --prompt "{{.REFINE_PROMPT}}" --resolutions {{.REFINE_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} --output-dir /data/outputs/refine {{.CLI_ARGS}}
+      - docker compose run --rm -e PYTORCH_ALLOC_CONF={{.ALLOC_CONF}} studio resolution-sweep --offline --suite {{.SUITE}} --reference-image "{{.REFERENCE}}" --prompt "{{.REFINE_PROMPT}}" --resolutions {{.REFINE_RESOLUTIONS}} --seed {{.SEED}} --steps {{.STEPS}} --runs {{.RUNS}} --warmups {{.WARMUPS}} --timeout {{.TIMEOUT}} --output-dir /app/persistent/outputs/refine {{.CLI_ARGS}}
       - task: tools:build
       - docker run --rm --mount "type=bind,source={{.ROOT_DIR}},target=/work" --entrypoint python flux2-klein-studio:tools tools/report_benchmarks.py --suite {{.SUITE}} --artifacts outputs/refine/benchmarks --profile refine --plot
 

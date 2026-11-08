@@ -247,7 +247,7 @@ class GPU:
             }
 
 
-def create_app(root=Path("/data/outputs/studio")):
+def create_app(root=Path("/app/persistent/outputs/studio")):
     from .image_api import attach_image_api
     from .mcp_server import create_mcp_server, SKILL_FILE, SKILL_PATH
 

@@ -1,5 +1,9 @@
 # Benchmark summaries
 
+Multi-reference editing has its own [memory and quality reports](multiref/README.md)
+and root [VRAM chart](multiref-memory.svg). These hold output size fixed at1024×1024
+and vary conditioning images, rather than changing the resolution baselines below.
+
 Per-size results remain separate by suite and run.
 
 | Suite | Latest run | Report | Summary chart |

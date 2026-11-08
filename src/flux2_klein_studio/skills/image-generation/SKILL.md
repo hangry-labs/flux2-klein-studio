@@ -2,7 +2,7 @@
 name: flux2-klein-image-generation
 description: Generate or refine images with FLUX.2 Klein Studio, including Pixel Art, Koni Anime, NASA concept art, green-area outpainting and iterative zoom.
 metadata:
-  version: "6"
+  version: "7"
 ---
 
 # FLUX.2 Klein Studio image skill
@@ -17,7 +17,7 @@ there is no guide token to pass to generation.
 
 - For a new image from a description, use `generate_image`.
 - For a change to an existing image, use `refine_image` with an edit instruction
-  and exactly one reference source. Preserve the user's requested subject and
+  and one source family containing one to four references. Preserve the user's requested subject and
   changes; do not turn an editing request into unrelated text-to-image work.
 - For extending an image or filling painted green areas, use `refine_image`
   with `adapter: "outpaint"` and a prepared RGB reference. See Green Fill below.
@@ -128,12 +128,30 @@ lock character identity when prompt, adapter or other settings change.
 
 ## Refine an image
 
-Call `refine_image` with the change in `prompt` and exactly one of:
+Call `refine_image` with the change in `prompt` and exactly one source family:
 
 - `source_job_id`: a completed job on this same instance;
 - `reference_id`: an already prepared reference on this same instance;
 - `image_base64`: one image as base64 or a base64 data URL, including when
   transferring between replicas.
+- `reference_ids`: one to four ordered prepared reference handles on this instance.
+- `images_base64`: one to four ordered base64 images or data URLs.
+
+Multiple references currently use the base model only: omit `adapter`. Green
+Fill and Red Zoom still accept one reference. All views may show the same person;
+say this explicitly and describe the features to preserve. For example:
+"Images 1–4 show the same person from different angles. Preserve their face,
+hair and glasses; show them seated at a cafe." Alternatively, assign roles such
+as "the person in image 1, wearing the jacket from image 2". Reference order
+matches the argument list. This guides likeness; it does not train an identity
+or reconstruct an exact 3D person. Details may drift.
+
+References add GPU memory/work. Each is prepared to at most one megapixel;
+more or larger inputs may exceed the device's capacity. Output resolution is
+independent. Keep gallery saving opt-in; saved recipes retain every reference.
+For HTTP edits use `images: [{"image_url":"data:image/png;base64,..."}, ...]`
+or JSON `reference_ids`, or repeated multipart `image[]` files. Request bodies
+are limited to 24 MiB total; each decoded image is limited to 16 MiB.
 
 Refine uses the base model unless `adapter: "outpaint"` or `"zoom"` is selected.
 Pixel Art, Koni and NASA adapters are generation-only, although their results can be references.

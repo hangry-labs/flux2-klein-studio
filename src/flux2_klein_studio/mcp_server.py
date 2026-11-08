@@ -20,7 +20,7 @@ from .generation_service import (
 from .presets import Resolution
 from .transport import client_disconnected
 from . import __version__
-from .reference_api import prepare_reference
+from .reference_api import prepare_references
 from .references import MAX_REQUEST_BYTES, ZoomRegion
 from .adapters import Adapter, EditAdapter, catalog as adapter_catalog
 from .build_info import offline_default
@@ -28,7 +28,7 @@ from .build_info import offline_default
 SKILL_URI = "flux2-klein-studio://skills/image-generation"
 SKILL_PATH = "/skills/image-generation/SKILL.md"
 SKILL_FILE = Path(__file__).with_name("skills") / "image-generation" / "SKILL.md"
-SKILL_VERSION = "6"
+SKILL_VERSION = "7"
 
 
 class ResolutionServer(MCPServer):
@@ -78,7 +78,7 @@ def create_mcp_server(jobs):
         "Results include inline image content and a recipe. Gallery storage is opt-in. "
         "Concurrent requests wait in a shared queue; one image uses the GPU at a time. "
         "Use n for multiple images. Retry another instance only when the queue is full. "
-        "Use refine_image with one reference and an edit instruction. Job/reference IDs are instance-local; "
+        "Use refine_image with one to four ordered references and an edit instruction. For several views use images_base64 or reference_ids, and omit adapter; editing adapters still require one reference. Job/reference IDs are instance-local; "
         "use image_base64 when routing between replicas.",
     )
     server.resolution_policy = jobs.resolutions
@@ -112,7 +112,7 @@ def create_mcp_server(jobs):
                 "resolutions": jobs.resolutions.catalog(),
                 "adapters": adapter_catalog(offline_default(), mode="generate"),
                 "edit_adapters": adapter_catalog(offline_default(), mode="edit"),
-                "next_step": "The guide is loaded. Choose generate_image for a new image or refine_image to edit one reference. Use the current enabled sizes and available adapter choices. Do not retrieve skill again for each call.",
+                "next_step": "The guide is loaded. Choose generate_image for a new image or refine_image with one to four references. Use the current enabled sizes and available adapter choices. Do not retrieve skill again for each call.",
             }
 
     @server.tool(annotations=read, structured_output=True)
@@ -270,12 +270,28 @@ def create_mcp_server(jobs):
             ),
         ] = None,
         reference_id: Annotated[str | None, Field(pattern=r"^[a-f0-9]{32}$")] = None,
+        reference_ids: Annotated[
+            list[str] | None,
+            Field(
+                min_length=1,
+                max_length=4,
+                description="Ordered prepared reference IDs; choose this or one other image source. Base-model Refine supports up to four.",
+            ),
+        ] = None,
+        images_base64: Annotated[
+            list[str] | None,
+            Field(
+                min_length=1,
+                max_length=4,
+                description="One to four ordered base64 images of the subject or scene. Do not combine with other image source fields.",
+            ),
+        ] = None,
         seed: Annotated[int | None, Field(ge=0, le=2**53 - 1)] = None,
         output_format: Literal["png", "webp", "jpeg"] = "png",
         save_gallery: bool = False,
         n: Annotated[int, Field(ge=1, le=MAX_BATCH)] = 1,
     ) -> CallToolResult:
-        """Refine one picture using an instruction. Supply exactly one image source.
+        """Refine with one to four ordered references. Choose exactly one source family.
 
         Omit adapter for ordinary base-model editing with a required prompt.
         Select adapter='outpaint' to fill #00FF00 areas, or adapter='zoom' for a
@@ -288,7 +304,7 @@ def create_mcp_server(jobs):
         For zoom, set adapter='zoom' and zoom_region or provide an already red-boxed
         reference. Reuse a returned job as the source with a new region to zoom again.
         """
-        identifier, owned = None, False
+        identifiers, owned = [], []
         try:
             if adapter is None and not prompt.strip():
                 raise HTTPException(
@@ -298,11 +314,15 @@ def create_mcp_server(jobs):
                 raise HTTPException(
                     400, "zoom_region requires the zoom editing adapter"
                 )
-            identifier, owned = await prepare_reference(
+            if images_base64 is not None and image_base64 is not None:
+                raise HTTPException(400, "Choose one image source family")
+            identifiers, owned = await prepare_references(
                 jobs,
+                reference_ids=reference_ids,
+                adapter=adapter,
                 reference_id=reference_id,
                 source_job_id=source_job_id,
-                image_data=image_base64,
+                image_data=images_base64 if images_base64 is not None else image_base64,
                 **({"preserve_green": True} if adapter == "outpaint" else {}),
                 **({"zoom_region": zoom_region} if zoom_region is not None else {}),
             )
@@ -314,7 +334,11 @@ def create_mcp_server(jobs):
                 output_format=output_format,
                 save_gallery=save_gallery,
                 count=n,
-                reference_id=identifier,
+                **(
+                    {"reference_id": identifiers[0]}
+                    if len(identifiers) == 1
+                    else {"reference_ids": identifiers}
+                ),
                 **({"adapter": adapter} if adapter else {}),
                 disconnected=lambda: client_disconnected(
                     context.request_context.request
@@ -336,7 +360,7 @@ def create_mcp_server(jobs):
         except HTTPException as exc:
             raise ToolError(f"{exc.detail} (HTTP {exc.status_code})") from exc
         finally:
-            if owned:
+            for identifier in owned:
                 jobs.references.delete(identifier)
 
     return server

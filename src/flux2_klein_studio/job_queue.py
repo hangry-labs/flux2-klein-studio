@@ -83,10 +83,25 @@ class GenerationQueue:
                     )
                     self.folder(item).mkdir()
                     items.append(item)
-                    if settings.reference_id:
-                        item["settings"]["reference"] = self.references.copy_to(
-                            settings.reference_id, self.folder(item) / "reference.png"
+                    identifiers = settings.reference_ids or (
+                        [settings.reference_id] if settings.reference_id else []
+                    )
+                    references = [
+                        self.references.copy_to(
+                            ref,
+                            self.folder(item)
+                            / (
+                                "reference.png"
+                                if index == 0
+                                else f"reference-{index + 1}.png"
+                            ),
                         )
+                        for index, ref in enumerate(identifiers)
+                    ]
+                    if references:
+                        item["settings"]["reference"] = references[0]
+                    if len(references) > 1:
+                        item["settings"]["references"] = references
                     self.save(item)
             except (OSError, HTTPException) as exc:
                 # Atomic batch admission: nothing starts if preparation fails.
@@ -178,6 +193,18 @@ class GenerationQueue:
                     settings["_reference_path"] = str(
                         self.folder(self.items[identifier]) / "reference.png"
                     )
+                    if settings.get("references"):
+                        settings["_reference_paths"] = [
+                            str(
+                                self.folder(self.items[identifier])
+                                / (
+                                    "reference.png"
+                                    if index == 0
+                                    else f"reference-{index + 1}.png"
+                                )
+                            )
+                            for index in range(len(settings["references"]))
+                        ]
                 result = self.model.generate(settings, phase, event)
                 with self.lock:
                     self.items[identifier]["status"] = "processing"

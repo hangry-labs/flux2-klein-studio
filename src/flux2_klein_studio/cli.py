@@ -105,7 +105,9 @@ def parser():
     serve = commands.add_parser("serve", help="Start the local browser studio")
     serve.add_argument("--host", default="0.0.0.0")
     serve.add_argument("--port", type=int, default=7860)
-    serve.add_argument("--output-dir", type=Path, default=Path("/data/outputs/studio"))
+    serve.add_argument(
+        "--output-dir", type=Path, default=Path("/app/persistent/outputs/studio")
+    )
     commands.add_parser(
         "doctor", help="Check CUDA and imports without downloading model weights"
     )
@@ -125,7 +127,9 @@ def parser():
         if name != "resolution-sweep":
             command.add_argument("--width", type=dimension, default=1024)
             command.add_argument("--height", type=dimension, default=1024)
-        command.add_argument("--output-dir", type=Path, default=Path("/data/outputs"))
+        command.add_argument(
+            "--output-dir", type=Path, default=Path("/app/persistent/outputs")
+        )
         command.add_argument(
             "--offline", action="store_true", default=offline_default()
         )

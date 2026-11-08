@@ -41,7 +41,7 @@ task benchmark:refine:seed
 ```
 
 `task benchmark:refine:full` runs these three suites sequentially. Override
-`REFERENCE` with a container path under `/data/outputs`, `REFINE_PROMPT` with an
+`REFERENCE` with a container path under `/app/persistent/outputs`, `REFINE_PROMPT` with an
 instruction, and `REFINE_RESOLUTIONS` with output sizes to investigate. Initial
 qualification covers only 1024×1024. `RUNS`, `WARMUPS`, `SEED`, `STEPS`, `TIMEOUT`
 and `ALLOC_CONF` follow the existing benchmark conventions.

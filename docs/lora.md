@@ -117,7 +117,7 @@ whole-application peak VRAM. The model card declares Apache-2.0; its pinned
 `README.md` is retained in the cache. Weights are downloaded on first use and
 are not baked into images or Git.
 
-Run `task lora:zoom-check REFERENCE=/data/outputs/your-reference.png` for two
+Run `task lora:zoom-check REFERENCE=/app/persistent/outputs/your-reference.png` for two
 regions, an iterative zoom, repeat and removal controls. Review the local HTML
 and recipes in `outputs/lora-zoom/<timestamp>/`. This is a functional visual
 pilot with allocator diagnostics, separate from the benchmark suites.
@@ -187,7 +187,7 @@ For a local 1024 comparison of green borders, interior marks, custom instruction
 repeatability and adapter removal, provide a local reference file:
 
 ```shell
-task lora:outpaint-check REFERENCE=/data/outputs/my-reference.png
+task lora:outpaint-check REFERENCE=/app/persistent/outputs/my-reference.png
 ```
 
 Results and HTML comparisons appear under `outputs/lora-outpaint/`. This is a

@@ -3,9 +3,9 @@ FROM python:3.13-slim@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    HF_HOME=/data/huggingface \
-    XDG_CACHE_HOME=/data/cache \
-    TORCH_HOME=/data/torch \
+    HF_HOME=/app/persistent/huggingface \
+    XDG_CACHE_HOME=/app/persistent/cache \
+    TORCH_HOME=/app/persistent/torch \
     DIFFUSERS_TRUST_REMOTE_KERNELS=true \
     HF_HUB_DISABLE_TELEMETRY=1 \
     DO_NOT_TRACK=1 \
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirem
 RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 COPY requirements-ui.lock ./requirements-ui.lock
 RUN --mount=type=cache,target=/root/.cache/pip python -m pip install -r requirements-ui.lock && python -m pip check
-ENV TRITON_CACHE_DIR=/data/triton \
+ENV TRITON_CACHE_DIR=/app/persistent/triton \
     PYTORCH_ALLOC_CONF=expandable_segments:True
 FROM dependencies AS runtime-base
 ARG VCS_REF=unknown
@@ -35,7 +35,7 @@ LABEL org.opencontainers.image.title="FLUX.2 Klein Studio" \
 COPY VERSION NOTICE README.md LICENSE* ./
 COPY src/ ./src/
 COPY assets/ ./assets/
-COPY tools/probe_agent_api.py tools/probe_queue.py tools/probe_refine.py tools/probe_lora.py tools/probe_outpaint.py tools/probe_zoom.py ./tools/
+COPY tools/probe_agent_api.py tools/probe_queue.py tools/probe_refine.py tools/probe_lora.py tools/probe_outpaint.py tools/probe_zoom.py tools/probe_multiref.py ./tools/
 COPY THIRD_PARTY.md ./THIRD_PARTY.md
 COPY licenses/ ./licenses/
 COPY tools/collect_runtime_licenses.py ./tools/collect_runtime_licenses.py
@@ -89,7 +89,7 @@ COPY --from=runtime /app /app
 ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 ARG IMAGE_VERSION=dev
-ENV HF_HOME=/data/huggingface STUDIO_DEFAULT_OFFLINE=1 STUDIO_IMAGE_FLAVOR=full \
+ENV HF_HOME=/app/persistent/huggingface STUDIO_DEFAULT_OFFLINE=1 STUDIO_IMAGE_FLAVOR=full \
     STUDIO_BUILD_ID=$VCS_REF STUDIO_BUILD_DATE=$BUILD_DATE STUDIO_IMAGE_VERSION=$IMAGE_VERSION
 LABEL org.opencontainers.image.title="FLUX.2 Klein Studio" \
       org.opencontainers.image.source="https://github.com/hangry-labs/flux2-klein-studio" \

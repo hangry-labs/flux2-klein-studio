@@ -4,7 +4,7 @@ import asyncio
 import json
 from functools import partial
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Query
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from starlette.datastructures import UploadFile
@@ -46,26 +46,27 @@ async def read_input(request):
         form = await MultiPartParser(
             request.headers,
             chunks(),
-            max_files=1,
+            max_files=4,
             max_fields=24,
             max_part_size=MAX_IMAGE_BYTES,
         ).parse()
     except (MultiPartException, ValueError) as exc:
         raise HTTPException(
-            400, "Upload exactly one reference image with valid multipart fields"
+            400, "Upload one to four reference images with valid multipart fields"
         ) from exc
     try:
-        values, image = {}, None
+        values, uploads = {}, []
         for key, value in form.multi_items():
             if isinstance(value, UploadFile):
-                if key not in {"image", "image[]"} or image is not None:
+                if key not in {"image", "image[]"}:
                     raise HTTPException(
                         400,
-                        "Only one reference image is supported; masks are not supported",
+                        "Use image or image[] reference files; separate masks are not supported",
                     )
                 image = await value.read(MAX_IMAGE_BYTES + 1)
                 if len(image) > MAX_IMAGE_BYTES:
                     raise HTTPException(413, "Reference images must be at most 16 MiB")
+                uploads.append(image)
             else:
                 if key in values:
                     raise HTTPException(400, "Duplicate image request field: " + key)
@@ -88,7 +89,7 @@ async def read_input(request):
                 raise HTTPException(
                     400, "zoom_region must be a JSON rectangle"
                 ) from exc
-        return values, image
+        return values, uploads[0] if len(uploads) == 1 else uploads or None
     finally:
         await form.close()
 
@@ -131,8 +132,58 @@ async def prepare_reference(
             **({"zoom_region": zoom_region} if zoom_region is not None else {}),
         )
 
-    result = await asyncio.get_running_loop().run_in_executor(jobs.output_pool, prepare)
+    future = asyncio.get_running_loop().run_in_executor(jobs.output_pool, prepare)
+    try:
+        result = await asyncio.shield(future)
+    except asyncio.CancelledError:
+        result = await future
+        jobs.references.delete(result["id"])
+        raise
     return result["id"], True
+
+
+async def prepare_references(
+    jobs, *, reference_ids=None, image_data=None, adapter=None, **single
+):
+    """Prepare an ordered group atomically; return all owned handles for cleanup."""
+    plural = reference_ids is not None or isinstance(image_data, list)
+    if not plural:
+        identifier, owned = await prepare_reference(
+            jobs, image_data=image_data, **single
+        )
+        return [identifier], [identifier] if owned else []
+    if any(
+        single.get(key) is not None for key in ("reference_id", "source_job_id")
+    ) or (reference_ids is not None and image_data is not None):
+        raise HTTPException(400, "Choose one image source family")
+    values = reference_ids if reference_ids is not None else image_data
+    if not 1 <= len(values) <= 4:
+        raise HTTPException(400, "Supply one to four references")
+    if adapter and len(values) > 1:
+        raise HTTPException(
+            400, "Multiple references currently support base-model Refine only"
+        )
+    identifiers, owned = [], []
+    try:
+        for value in values:
+            identifier, created = await prepare_reference(
+                jobs,
+                **(
+                    {"reference_id": value}
+                    if reference_ids is not None
+                    else {"image_data": value}
+                ),
+                preserve_green=single.get("preserve_green", False),
+                zoom_region=single.get("zoom_region"),
+            )
+            identifiers.append(identifier)
+            if created:
+                owned.append(identifier)
+        return identifiers, owned
+    except BaseException:
+        for identifier in owned:
+            jobs.references.delete(identifier)
+        raise
 
 
 def attach_reference_api(app, jobs):
@@ -154,6 +205,8 @@ def attach_reference_api(app, jobs):
         if not isinstance(preserve_green, bool):
             raise HTTPException(400, "preserve_green must be true or false")
         if image is not None:
+            if isinstance(image, list):
+                raise HTTPException(400, "Upload one image per reference handle")
             if values:
                 raise HTTPException(400, "Upload one image without additional fields")
             return await asyncio.get_running_loop().run_in_executor(
@@ -200,9 +253,11 @@ def attach_reference_api(app, jobs):
         return {"id": identifier, "deleted": True}
 
     @app.get("/api/jobs/{identifier}/reference")
-    def saved_reference(identifier: str):
+    def saved_reference(identifier: str, index: int = Query(default=0, ge=0, le=3)):
         item = jobs.get(identifier)
-        path = jobs.folder(item) / "reference.png"
+        path = jobs.folder(item) / (
+            "reference.png" if index == 0 else f"reference-{index + 1}.png"
+        )
         if not item["settings"].get("reference") or not path.is_file():
             raise HTTPException(404, "This job has no retained reference image")
         return FileResponse(path, media_type="image/png", filename="reference.png")

@@ -55,14 +55,17 @@ See [validation](docs/validation.md) for measured settings and memory use.
 Start the published full image, then open **http://localhost:7860**:
 
 ```shell
-docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2-klein-studio-data,target=/data hangrylabs/flux2-klein-studio:latest
+docker run --rm --gpus all --init -p 127.0.0.1:7860:7860 --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent hangrylabs/flux2-klein-studio:latest
 ```
 
 Use `hangrylabs/flux2-klein-studio:latest_tiny` to download the pinned model on
 first use instead. Both variants are also available from
 `ghcr.io/hangry-labs/flux2-klein-studio` with the same tags. Keep the named volume
-for model caches, settings and saved images. These rolling tags follow development;
-see the [container guide](docs/dockerhub.md) for verified image identities.
+mounted at `/app/persistent` for either image variant. It holds model caches,
+settings and saved results. Compose uses the same default volume name;
+`STUDIO_DATA_VOLUME` can select an existing volume in a local `.env` file.
+These rolling tags follow development;
+see the [container guide](docs/dockerhub.md) for image variants and storage details.
 
 To build from source, clone the repository and run the following commands in
 PowerShell or Bash from its root.
@@ -90,7 +93,7 @@ docker compose run --rm studio generate --prompt "A glass robot tending orchids 
 ```
 
 Images and JSON reports appear under `outputs/<timestamp>/`. Model and kernel
-caches live in the `flux2-klein-studio-data` Docker volume and survive container
+caches live in the `flux2_klein_studio_data` Docker volume and survive container
 removal. Keep that volume to avoid downloading the assets again. Removing it,
 including with `docker compose down --volumes`, deletes the cached assets.
 Compose builds the source checkout as `flux2-klein-studio:dev`; published
@@ -117,6 +120,12 @@ including how to select an adapter and supply only the image description.
 
 Refine also offers **Green Fill · Outpaint (experimental)**: paint areas in
 `#00FF00`, or expand the canvas to add green borders, then generate a fill.
+Base-model Refine also accepts up to **four reference pictures**: combine views
+of a person, or use separate subject, outfit and setting references. Explain each
+image's role in the instruction. More references use more VRAM and do not
+guarantee an exact likeness. UI, HTTP edits and MCP support the same workflow.
+See the separate [reference-count measurements](benchmarks/multiref/README.md)
+and [VRAM summary chart](benchmarks/multiref-memory.svg).
 Brush/restore, undo and picture positioning are available. The fixed fill instruction
 is always included; an optional field lets you describe extra content such as a
 brick wall. Unpainted areas
@@ -302,7 +311,7 @@ Run the GPU numerical tests, including padded shapes and comparison against a
 float64 reference, after building the test image:
 
 ```shell
-docker run --rm --gpus all --mount type=volume,source=flux2-klein-studio-data,target=/data --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
+docker run --rm --gpus all --mount type=volume,source=flux2_klein_studio_data,target=/app/persistent --entrypoint python flux2-klein-studio:test -m unittest discover -s tests -v
 ```
 
 Application code is licensed under [Apache-2.0](LICENSE). Models, dependencies,

@@ -147,6 +147,8 @@ textarea::placeholder {color: #a0a2ab;}
 .result-actions>div {min-width: 0;}
 .result-actions p {font-size: 12px; color: var(--muted); max-width: 500px; line-height: 1.5;}
 .actions {display: flex; flex-wrap: wrap; gap: 7px; align-items: center;}
+.reference-list>div {display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+.reference-list img {width:64px;height:64px;object-fit:contain;border:1px solid var(--line);border-radius:4px;}
 .paint-tools {display: grid; gap: 12px; padding: 16px; margin-bottom: 20px; border: 1px solid var(--line); border-radius: 8px;}
 .paint-tools label {display: block; margin-bottom: 8px;}
 .paint-tools .help {margin: 0;}

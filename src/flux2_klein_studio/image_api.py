@@ -27,7 +27,7 @@ from .generation_service import MODEL_ALIAS, MAX_BATCH, generate_images
 from .presets import catalog, resolve_size
 from .schemas import Generation
 from .transport import client_disconnected
-from .reference_api import prepare_reference, read_input
+from .reference_api import prepare_references, read_input
 from .references import MAX_REQUEST_BYTES, ZoomRegion
 
 
@@ -99,7 +99,8 @@ class EditRequest(ImageRequest):
     )
     adapter: EditAdapter | None = None
     image: str | None = Field(default=None, max_length=MAX_REQUEST_BYTES)
-    images: list[ImageURL] | None = Field(default=None, min_length=1, max_length=1)
+    images: list[ImageURL] | None = Field(default=None, min_length=1, max_length=4)
+    reference_ids: list[str] | None = Field(default=None, min_length=1, max_length=4)
     reference_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
     source_job_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
 
@@ -256,9 +257,18 @@ def attach_image_api(app, jobs):
                     "multipart/form-data": {
                         "schema": {
                             "type": "object",
-                            "required": ["image"],
+                            "anyOf": [
+                                {"required": ["image"]},
+                                {"required": ["image[]"]},
+                            ],
                             "properties": {
                                 "image": {"type": "string", "format": "binary"},
+                                "image[]": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 4,
+                                    "items": {"type": "string", "format": "binary"},
+                                },
                                 **ImageRequest.model_json_schema()["properties"],
                                 "prompt": EditRequest.model_json_schema()["properties"][
                                     "prompt"
@@ -291,11 +301,13 @@ def attach_image_api(app, jobs):
         if options.images is not None:
             if upload is not None:
                 raise HTTPException(400, "Send one reference image")
-            image_data = options.images[0].image_url
+            image_data = [item.image_url for item in options.images]
         if upload is not None and options.image is not None:
             raise HTTPException(400, "Send one reference image")
-        reference_id, owned = await prepare_reference(
+        identifiers, owned = await prepare_references(
             jobs,
+            reference_ids=options.reference_ids,
+            adapter=options.adapter,
             reference_id=options.reference_id,
             source_job_id=options.source_job_id,
             image_data=image_data,
@@ -318,10 +330,14 @@ def attach_image_api(app, jobs):
                 save_gallery=options.save_gallery,
                 count=options.n,
                 disconnected=lambda: client_disconnected(request),
-                reference_id=reference_id,
+                **(
+                    {"reference_id": identifiers[0]}
+                    if len(identifiers) == 1
+                    else {"reference_ids": identifiers}
+                ),
                 **({"adapter": options.adapter} if options.adapter else {}),
             )
             return await image_response(images, options.output_format)
         finally:
-            if owned:
-                jobs.references.delete(reference_id)
+            for identifier in owned:
+                jobs.references.delete(identifier)

@@ -18,7 +18,7 @@ GPU memory limits still need their own validation.
 | Candidate | What it enables | Evidence and work remaining |
 | --- | --- | --- |
 | Single-reference editing | Upload a picture or reuse a generated image, then describe a change: lighting, background, clothing or artistic style. | Implemented in Refine, HTTP edits and MCP refine_image. See the separate 1024×1024 editing benchmarks. |
-| Multiple reference images | Combine a subject from one image with a setting or visual style from another. | Upstream capability; the pipeline accepts a list of references. Establish a measured limit rather than borrowing hosted API limits. |
+| Multiple reference images | Combine subject/outfit/setting references, or several views of one person. | Up to four ordered references implemented in base-model Refine, HTTP edits and MCP. Fixed-1024 memory and synthetic-person quality trials are recorded in the [multi-reference reports](../benchmarks/multiref/README.md). Likeness is not guaranteed. |
 | Multiple outputs / prompt batches | Produce several alternatives in one workflow. | Sequential queue and n=1..16 outputs are implemented for HTTP/MCP generation and edits. GPU tensor batching and prompt-list requests remain unqualified. |
 | LoRA adapters | Small additional weights that specialize a model's appearance or subject. | Curated [Pixel Art, Koni Anime and NASA concept art adapters](lora.md) are available in Generate, HTTP/MCP generation and CLI, using pinned exports and adapter-specific browser/API prompt templates. Other adapters remain unqualified. Rank 32 describes quantization correction, not a user adapter. |
 
@@ -58,8 +58,8 @@ and gallery reuse, before/after viewing and iterative refinement. HTTP
 Reference hashes and preprocessing settings accompany recipes; gallery storage
 remains opt-in. See the separate [editing measurements](../benchmarks/refine/README.md).
 
-Refine uses 1024×1024 as its benchmark baseline. Next, investigate two references
-at that baseline and measure memory, speed, seed controls and
-subject/style adherence before raising the count. The [curated LoRA adapters](lora.md)
+Refine uses 1024×1024 as its benchmark baseline. Multi-reference trials keep that
+output size and vary reference count and input detail. Real-photo identity quality
+and broader prompt coverage remain future evaluation. The [curated LoRA adapters](lora.md)
 provide initial compatibility evidence with UI/API selection; broader adapter
 support needs its own validation.

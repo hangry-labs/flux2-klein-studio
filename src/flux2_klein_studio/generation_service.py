@@ -18,7 +18,15 @@ MAX_BATCH = 16
 
 
 def _admit(
-    jobs, prompt, resolution, seed, save_gallery, count, reference_id=None, adapter=None
+    jobs,
+    prompt,
+    resolution,
+    seed,
+    save_gallery,
+    count,
+    reference_id=None,
+    adapter=None,
+    reference_ids=None,
 ):
     with jobs.lock:
         resolution = jobs.resolutions.choose(resolution)
@@ -31,6 +39,7 @@ def _admit(
                 seed=secrets.randbits(53) if seed is None else (seed + index) % 2**53,
                 save_gallery=save_gallery,
                 reference_id=reference_id,
+                reference_ids=reference_ids,
                 adapter=adapter,
             )
             for index in range(count)
@@ -96,6 +105,7 @@ async def generate_images(
     count=1,
     reference_id=None,
     adapter=None,
+    reference_ids=None,
 ):
     if not 1 <= count <= MAX_BATCH:
         raise HTTPException(400, f"Request between 1 and {MAX_BATCH} images")
@@ -110,6 +120,7 @@ async def generate_images(
             count,
             reference_id,
             adapter,
+            reference_ids,
         )
     )
     items, tasks = [], []
