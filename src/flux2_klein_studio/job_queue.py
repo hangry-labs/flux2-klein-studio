@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
+import logging
 import os
 import threading
 import time
@@ -18,6 +19,7 @@ from .adapters import ensure_available
 from .build_info import offline_default
 
 TERMINAL = {"completed", "failed", "cancelled"}
+logger = logging.getLogger(__name__)
 
 
 class GenerationQueue:
@@ -169,6 +171,7 @@ class GenerationQueue:
         try:
             self.save(self.items[identifier])
         except OSError:
+            logger.exception("Could not save metadata for job %s", identifier)
             self.items[identifier].update(
                 status="failed",
                 error="Could not save job metadata. Check free disk space and file permissions.",
@@ -212,6 +215,8 @@ class GenerationQueue:
                 self.output_pool.submit(self.finish, identifier, result)
                 handed_off = True
             except Exception:
+                if not event.is_set():
+                    logger.exception("Generation failed for job %s", identifier)
                 with self.lock:
                     self.items[identifier].update(
                         status="cancelled" if event.is_set() else "failed",
@@ -256,6 +261,7 @@ class GenerationQueue:
                     image=f"/api/jobs/{identifier}/image",
                 )
         except Exception:
+            logger.exception("Output preparation failed for job %s", identifier)
             with self.lock:
                 self.items[identifier].update(
                     status="failed",
@@ -290,33 +296,30 @@ class GenerationQueue:
             self._prune()
 
     def _prune(self):
-        for saved in (False, True):
-            cohort = [
+        # Saved entries stay discoverable until explicitly deleted. Only the
+        # disposable preview working set has an automatic retention limit.
+        cohort = [
+            key
+            for key, item in self.items.items()
+            if not item["settings"].get("save_gallery", True)
+        ]
+        candidates = sorted(
+            (
                 key
-                for key, item in self.items.items()
-                if item["settings"].get("save_gallery", True) == saved
-            ]
-            candidates = sorted(
-                (
-                    key
-                    for key in cohort
-                    if key not in self.protected
-                    and key not in self.finishing
-                    and self.items[key]["status"] in TERMINAL
-                    and key != self.active
-                ),
-                key=lambda key: self.items[key]["created"],
-            )
-            for key in candidates[: max(0, len(cohort) - 100)]:
-                if saved:
-                    del self.items[key]
-                else:
-                    try:
-                        self.delete(key)
-                    except (HTTPException, OSError):
-                        # An open old preview must not break a newly admitted job.
-                        continue
-                self.events.pop(key, None)
+                for key in cohort
+                if key not in self.protected
+                and key not in self.finishing
+                and self.items[key]["status"] in TERMINAL
+                and key != self.active
+            ),
+            key=lambda key: self.items[key]["created"],
+        )
+        for key in candidates[: max(0, len(cohort) - 100)]:
+            try:
+                self.delete(key)
+            except (HTTPException, OSError):
+                # An open old preview must not break a newly admitted job.
+                continue
 
     def close(self):
         with self.lock:

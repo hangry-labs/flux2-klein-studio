@@ -167,6 +167,9 @@ def attach_image_api(app, jobs):
         schema["components"]["schemas"]["EditRequest"]["properties"]["size"] = dict(
             field
         )
+        schema["paths"]["/v1/images/edits"]["post"]["requestBody"]["content"][
+            "multipart/form-data"
+        ]["schema"]["properties"]["size"] = dict(field)
         return schema
 
     app.openapi = openapi

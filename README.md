@@ -106,8 +106,8 @@ generations, while model and adapter weights remain loaded. System also offers
 **Release unused VRAM** for immediate cleanup.
 Random seed starts enabled and chooses a new seed per generation; switch it off
 to repeat a fixed seed. Downloads offer original PNG, lossless WebP and JPEG.
-See the [capability review](docs/model-capabilities.md) for model features we could
-investigate next, including multiple references and adapter compatibility.
+See the [capability review](docs/model-capabilities.md) for supported workflows,
+local qualification and features that still need investigation.
 Generate also offers curated [Pixel Art, Koni Anime and NASA concept art adapters](docs/lora.md): choose one from
 the style dropdown and describe your image. The selected style's trigger text is added
 automatically. Pixel Art requests a green screen; Koni keeps the scene and
@@ -152,7 +152,7 @@ loading the model; `task api:smoke` checks real 1024 generation through both API
 Use **Send to Refine** on a generated result, **Refine** on a gallery card, or
 upload a picture in the **Refine** tab. Describe the change, generate a new version,
 then choose **Use this result** for another pass. Save-to-gallery is opt-in and
-retains the prepared reference with the result. Single-reference editing is also
+retains the prepared references with the result. Editing is also
 available through `POST /v1/images/edits` and MCP `refine_image`.
 Start at 1024×1024; editing has separate [reports](benchmarks/refine/README.md)
 and summary charts: [VRAM](benchmarks/refine-memory.svg),

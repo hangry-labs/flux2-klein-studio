@@ -16,7 +16,10 @@ function message(text = '') {$('notice').textContent = text; $('notice').hidden 
 async function request(path, options = {}) {
   const response = await fetch(path, {cache: 'no-store', ...options});
   const data = await response.json();
-  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Please check the prompt, dimensions, seed and steps.');
+  if (!response.ok) {
+    const error = new Error(typeof data.detail === 'string' ? data.detail : 'Please check the prompt, dimensions, seed and steps.');
+    error.status = response.status; throw error;
+  }
   return data;
 }
 function switchView(next) {
@@ -173,7 +176,10 @@ async function pollJob() {
   if (!active || terminal.has(active.status) || polling || document.hidden) return;
   polling = true;
   try {const job = await request(`/api/jobs/${active.id}`); busy(job); if (job.status === 'completed') {showResult(job); await refreshGallery();} else if (job.status === 'failed') message(job.error); else if (job.status === 'cancelled') message('Generation cancelled. Your previous images are still available.');}
-  catch (error) {message(`Connection interrupted. Your job may still be running. ${error.message}`);}
+  catch (error) {
+    if (error.status === 404) {busy(null); message('This job is no longer available. Choose a saved image or generate another.');}
+    else message(`Connection interrupted. Your job may still be running. ${error.message}`);
+  }
   finally {polling = false;}
 }
 setInterval(pollJob, 900);

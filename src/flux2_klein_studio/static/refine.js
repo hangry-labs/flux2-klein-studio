@@ -28,7 +28,7 @@ async function uploadFiles(files, append=false) {
   uploading=true;note();controls();const prepared=[];
   try {
     for(const file of files){const body=new FormData();body.append('image',file);if(outpaint())body.append('preserve_green','true');prepared.push(await api.request('/api/references',{method:'POST',body}));}
-    if(append)additional.push(...prepared);else {await choose(prepared[0]);additional=prepared.slice(1);}
+    if(append)additional.push(...prepared);else {await choose(prepared.shift());additional=[...prepared];}
     prepared.length=0;
   } catch(error){note(error.message);} finally {for(const item of prepared)await api.request(`/api/references/${item.id}`,{method:'DELETE'}).catch(()=>{});uploading=false;controls();}
 }
@@ -92,16 +92,21 @@ function clearResult() {
   if (recipeURL) URL.revokeObjectURL(recipeURL); recipeURL = null;
 }
 async function choose(next, dimensions = null, markedZoom = false) {
+  const [width, height] = dimensions || [next.width, next.height];
+  const scale = Math.min(1, 1920 / Math.max(width, height));
+  const outputWidth = Math.max(64, Math.floor(width * scale / 16) * 16);
+  const outputHeight = Math.max(64, Math.floor(height * scale / 16) * 16);
+  // Decode before replacing the current reference and its result. A failed
+  // preview must leave the previous selection usable, without orphaning a handle.
+  try {await painter.setSource(next.image,outputWidth,outputHeight);}
+  catch (error) {await api.request(`/api/references/${next.id}`,{method:'DELETE'}).catch(()=>{});throw error;}
   await discardAdditional();
   const old = reference; reference = next; clearResult();
   $('refine-source-image').src = next.image; $('refine-source-image').hidden = false;
   $('refine-source-empty').hidden = true;
   $('refine-reference-meta').textContent = `${next.original_width} × ${next.original_height} source · ${next.width} × ${next.height} prepared reference. Temporary until saved with a refinement.`;
-  const [width, height] = dimensions || [next.width, next.height];
-  const scale = Math.min(1, 1920 / Math.max(width, height));
-  $('refine-width').value = Math.max(64, Math.floor(width * scale / 16) * 16);
-  $('refine-height').value = Math.max(64, Math.floor(height * scale / 16) * 16);
-  await painter.setSource(next.image,Number($('refine-width').value),Number($('refine-height').value));
+  $('refine-width').value = outputWidth;
+  $('refine-height').value = outputHeight;
   zoomer.setSource(painter.source,markedZoom,Number($('refine-width').value),Number($('refine-height').value));
   $('refine-prompt').value = ''; sizeChanged(); adapterChanged();
   if (old && old.id !== next.id) await api.request(`/api/references/${old.id}`, {method: 'DELETE'}).catch(() => {});
@@ -169,7 +174,10 @@ async function poll() {
     else if (active.status === 'failed') note(active.error);
     else if (active.status === 'cancelled') note('Refinement cancelled. Your reference is still available.');
     controls();
-  } catch (error) {note(error.message);} finally {polling = false;}
+  } catch (error) {
+    if (error.status === 404) {active = null; controls(); note('This job is no longer available. Your reference is still ready for another refinement.');}
+    else note(error.message);
+  } finally {polling = false;}
 }
 export function configureRefine(config) {
   api.config = config; formats = config.download_formats;

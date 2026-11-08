@@ -220,12 +220,17 @@ class AgentAPITests(unittest.TestCase):
         self.assertEqual(
             schema["$defs"]["Resolution"]["enum"], ["square_small", "portrait_medium"]
         )
-        advertised = self.client.get("/openapi.json").json()["components"]["schemas"][
-            "ImageRequest"
-        ]["properties"]["size"]
+        openapi = self.client.get("/openapi.json").json()
+        advertised = openapi["components"]["schemas"]["ImageRequest"]["properties"][
+            "size"
+        ]
         self.assertNotIn("square_big", advertised["enum"])
         self.assertNotIn("1024x1024", advertised["enum"])
         self.assertIn(None, advertised["enum"])
+        multipart = openapi["paths"]["/v1/images/edits"]["post"]["requestBody"][
+            "content"
+        ]["multipart/form-data"]["schema"]["properties"]["size"]
+        self.assertEqual(multipart["enum"], advertised["enum"])
         for value in ("square_big", "1024x1024"):
             response = self.client.post(
                 "/v1/images/generations", json={"prompt": "test", "size": value}

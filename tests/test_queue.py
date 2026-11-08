@@ -311,6 +311,7 @@ class QueueTests(unittest.TestCase):
         with (
             patch.object(self.jobs.model, "generate", side_effect=render),
             ThreadPoolExecutor(max_workers=2) as pool,
+            self.assertLogs("flux2_klein_studio.job_queue", level="ERROR") as logs,
         ):
             first = pool.submit(self.post, 1)
             try:
@@ -321,6 +322,21 @@ class QueueTests(unittest.TestCase):
                 release.set()
             self.assertEqual(first.result(timeout=3).status_code, 502)
             self.assertEqual(second.result(timeout=3).status_code, 200)
+        self.assertIn("fixture failure", "\n".join(logs.output))
+        self.assertEqual(self.jobs.protected, set())
+
+    def test_output_failure_is_logged_and_next_job_still_completes(self):
+        with (
+            patch(
+                "PIL.Image.Image.save", side_effect=OSError("output fixture failure")
+            ),
+            self.assertLogs("flux2_klein_studio.job_queue", level="ERROR") as logs,
+        ):
+            response = self.post(1)
+        self.assertEqual(response.status_code, 502)
+        self.assertIn("output fixture failure", "\n".join(logs.output))
+        self.assertNotIn("output fixture failure", response.text)
+        self.assertEqual(self.post(2).status_code, 200)
         self.assertEqual(self.jobs.protected, set())
 
     def test_locked_old_preview_does_not_fail_a_new_admission_or_response(self):

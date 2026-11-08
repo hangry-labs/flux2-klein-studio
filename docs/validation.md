@@ -332,3 +332,39 @@ and sunset edit. Their RGB hashes matched the existing text and editing goldens
 recorded above. These workflow timings are not new benchmark measurements. The
 95-test CPU container suite passed with its two CUDA numerical checks explicitly
 skipped. JavaScript syntax, Ruff, release validation and whitespace checks passed.
+
+## Queue, persistence and UI review, 2026-11-08
+
+Reviewed queue admission, cancellation, CPU output overlap, model residency,
+reference preparation, adapter loading, HTTP/MCP discovery, gallery recovery and
+browser state. This was a source and failure-recovery review, not a new performance
+benchmark or qualification of additional GPUs.
+
+The review fixed saved gallery entries disappearing after 100 jobs, startup
+failure on malformed saved records, missing parent-process failure tracebacks,
+disabled sizes remaining advertised for multipart edits, and unhandled residency
+settings write failures. Saved entries now remain accessible until deleted;
+invalid records are logged and left on disk. Existing saved records without an
+explicit gallery flag remain readable. Temporary previews retain their separate
+100-entry working set.
+
+Browser failure checks reproduced and fixed replacement references becoming
+unusable after a preview-load failure, and Generate/Refine remaining busy when a
+watched job disappeared. A failed replacement now preserves the previous usable
+reference; missing-job polling restores the controls. Four-reference upload,
+removal and clearing also passed. Deliberately interrupted requests produced the
+expected browser network errors; a subsequent normal reload reported none.
+
+The rebuilt test image ran **134 tests**, with **two CUDA-only numerical tests
+explicitly skipped**. Regression coverage includes 101 saved jobs surviving
+restart and deletion, malformed records, early saved records, output failure
+recovery, failed settings writes and multipart discovery. Ruff, formatting,
+release/publication checks, JavaScript syntax and local documentation links passed.
+
+The rebuilt development container completed a real 1024×1024 NASA-adapter request
+at seed 12345 and its configured strength 0.5. RGB hash
+`01941c055afcabb994f4ca3a67c8e38c252def261f303d937d6ebc12fefbbded`
+matched the established local result. Existing gallery records, residency settings
+and resolution policy matched the pre-review snapshot; only the review's own
+temporary generation was deleted. See the separate [multi-reference evidence](../benchmarks/multiref/README.md)
+for reference-count memory and quality trials.

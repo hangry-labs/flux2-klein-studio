@@ -1,6 +1,7 @@
 """Local studio: bounded jobs around the qualified CLI, without importing torch."""
 
 import json
+import logging
 from .adapters import catalog as adapter_catalog
 import hmac
 import os
@@ -20,7 +21,7 @@ from fastapi.responses import FileResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .cli import MODEL_ID, MODEL_REVISION
 from .residency import ModelWorker
@@ -48,6 +49,42 @@ PRESETS = [
     (1088, 1920),
     (1536, 1536),
 ]
+logger = logging.getLogger(__name__)
+
+
+class StoredGeneration(Generation):
+    """Validate core settings while retaining reference and adapter snapshots."""
+
+    model_config = ConfigDict(extra="allow", strict=True)
+    # A job.json under the saved root predates opt-in storage in early builds.
+    # Absence of the flag means saved, matching folder() and gallery listing.
+    save_gallery: bool = True
+
+
+class StoredJob(BaseModel):
+    model_config = ConfigDict(extra="allow", strict=True, allow_inf_nan=False)
+    id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    status: Literal[
+        "queued",
+        "loading",
+        "generating",
+        "processing",
+        "cancelling",
+        "completed",
+        "failed",
+        "cancelled",
+    ]
+    created: float = Field(ge=0)
+    settings: StoredGeneration
+    seconds: float | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def saved_result(self):
+        if not self.settings.save_gallery:
+            raise ValueError("Only saved jobs can be restored")
+        if self.status == "completed" and self.seconds is None:
+            raise ValueError("Completed jobs need generation timing")
+        return self
 
 
 class Settings(BaseModel):
@@ -77,23 +114,24 @@ class Jobs(GenerationQueue):
                 options = Settings(**json.loads(settings_path.read_text()))
                 self.model.idle_seconds = options.idle_seconds
                 self.model.keep_loaded = options.keep_loaded
-        for path in sorted(
-            root.glob("*/job.json"), key=lambda path: path.stat().st_mtime, reverse=True
-        )[:100]:
+        for path in root.glob("*/job.json"):
             try:
-                item = json.loads(path.read_text(encoding="utf-8"))
-                if item["id"] != path.parent.name or not re.fullmatch(
-                    r"[a-f0-9]{32}", item["id"]
-                ):
-                    continue
+                stored = StoredJob.model_validate_json(path.read_text(encoding="utf-8"))
+                if stored.id != path.parent.name:
+                    raise ValueError("Job ID does not match its folder")
+                item = stored.model_dump(exclude_unset=True)
+                if stored.status == "completed":
+                    item["image"] = f"/api/jobs/{stored.id}/image"
                 if item["status"] not in TERMINAL:
                     item.update(
                         status="failed",
                         error="Generation was interrupted by a studio restart.",
                     )
                 self.items[item["id"]] = item
-            except (OSError, ValueError, KeyError):
-                continue
+            except (OSError, ValueError):
+                logger.warning(
+                    "Skipping invalid saved job record %s", path, exc_info=True
+                )
 
     def folder(self, item):
         return (
@@ -393,8 +431,14 @@ def create_app(root=Path("/app/persistent/outputs/studio")):
         with jobs.lock:
             path = root / "settings.json"
             temporary = path.with_suffix(".tmp")
-            temporary.write_text(options.model_dump_json(), encoding="utf-8")
-            temporary.replace(path)
+            try:
+                temporary.write_text(options.model_dump_json(), encoding="utf-8")
+                temporary.replace(path)
+            except OSError as exc:
+                raise HTTPException(
+                    409,
+                    "Could not save model settings. Check free disk space and permissions.",
+                ) from exc
             with jobs.model.lock:
                 jobs.model.idle_seconds = options.idle_seconds
                 jobs.model.keep_loaded = options.keep_loaded

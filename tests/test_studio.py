@@ -167,6 +167,65 @@ class StudioTests(unittest.TestCase):
         finally:
             recovered.close()
 
+    def test_saved_gallery_remains_accessible_past_100_jobs_and_restart(self):
+        oldest, folder = self.completed()
+        for _ in range(100):
+            self.completed()
+        jobs = self.app.state.jobs
+        jobs._prune()
+        self.assertEqual(len(self.client.get("/api/jobs").json()), 101)
+        self.assertEqual(
+            self.client.get(f"/api/jobs/{oldest['id']}/image").status_code, 200
+        )
+        recovered = Jobs(Path(self.directory.name))
+        try:
+            self.assertEqual(len(recovered.items), 101)
+            recovered.delete(oldest["id"])
+            self.assertFalse(folder.exists())
+        finally:
+            recovered.close()
+
+    def test_restart_skips_malformed_records_and_keeps_valid_gallery(self):
+        valid, _ = self.completed()
+        root = Path(self.directory.name)
+        for index, bad in enumerate(
+            (
+                None,
+                [],
+                {"id": None},
+                {"settings": None},
+                {"created": "yesterday"},
+                {"created": float("nan")},
+                {"status": "unknown"},
+                {"seconds": None},
+            )
+        ):
+            folder = root / f"{index:032x}"
+            folder.mkdir()
+            item = (
+                {**self.app.state.jobs.get(valid["id"]), "id": folder.name, **bad}
+                if isinstance(bad, dict)
+                else bad
+            )
+            (folder / "job.json").write_text(json.dumps(item), encoding="utf-8")
+        recovered = Jobs(root)
+        try:
+            self.assertEqual(set(recovered.items), {valid["id"]})
+            self.assertEqual(recovered.get(valid["id"])["status"], "completed")
+        finally:
+            recovered.close()
+
+    def test_restart_keeps_saved_records_without_explicit_gallery_flag(self):
+        item, _ = self.completed()
+        jobs = self.app.state.jobs
+        del jobs.items[item["id"]]["settings"]["save_gallery"]
+        jobs.save(jobs.items[item["id"]])
+        recovered = Jobs(jobs.root)
+        try:
+            self.assertEqual(recovered.get(item["id"]), jobs.get(item["id"]))
+        finally:
+            recovered.close()
+
     def test_delete_rejects_active_foreign_and_failed_filesystem_operations(self):
         item, folder = self.completed()
         jobs = self.app.state.jobs
@@ -209,6 +268,20 @@ class StudioTests(unittest.TestCase):
             self.assertEqual(recovered.model.idle_seconds, 42)
         finally:
             recovered.close()
+
+    def test_settings_write_failure_preserves_saved_and_live_policy(self):
+        jobs = self.app.state.jobs
+        self.client.put("/api/settings", json={"idle_seconds": 42})
+        path = jobs.root / "settings.json"
+        before = path.read_bytes()
+        with patch("pathlib.Path.replace", side_effect=PermissionError("locked")):
+            response = self.client.put(
+                "/api/settings", json={"idle_seconds": 99, "keep_loaded": True}
+            )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(jobs.model.idle_seconds, 42)
+        self.assertFalse(jobs.model.keep_loaded)
 
     def test_download_formats_preserve_recipe_without_creating_files(self):
         for saved in (True, False):

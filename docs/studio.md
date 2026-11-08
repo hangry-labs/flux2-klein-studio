@@ -119,7 +119,8 @@ Describe your picture, select a canvas size and generate. Examples fill the prom
 without altering other settings. Four steps and **Random seed on** are the initial
 browser defaults. Each Generate request chooses a fresh seed; the seed field and
 completed result show the actual value used. Turn Random seed off to enter or keep
-a fixed seed. The CLI and HTTP API retain their explicit seed default of 12345.
+a fixed seed. The CLI defaults to seed 12345; HTTP and MCP choose a random seed
+when it is omitted and return the actual seed in the recipe.
 The seed controls starting randomness: keep prompt, size, seed and steps to repeat
 an image on the qualified GPU and stack. More steps are not automatically better.
 Custom dimensions must be 64–1920 pixels and divisible by 16. This first UI bounds
@@ -179,10 +180,11 @@ downloads portable settings and the pinned model revision. Browser prompts are n
 in browser storage. Reusing a gallery recipe does not silently opt the next image
 into saving; the checkbox remains under your control.
 
-The latest 100 saved job records are kept in memory and rediscovered after a
-restart, independently of temporary previews. Older saved files remain on disk;
-saved results are never automatically deleted. Interrupted saved jobs are shown
-as failed. Existing CLI and benchmark output folders are not imported.
+All valid saved job records remain accessible in Gallery and are rediscovered
+after a restart, independently of temporary previews. Saved results are never
+automatically deleted. Interrupted saved jobs are shown as failed. Invalid job
+records are skipped with a warning in the service logs; their files remain on
+disk. Existing CLI and benchmark output folders are not imported.
 
 Use a card's **Delete** button, or select multiple cards and **Delete selected**.
 The confirmation describes permanent removal; **Keep files** or Escape cancels

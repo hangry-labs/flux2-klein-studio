@@ -1,6 +1,6 @@
 # Model capability review
 
-Reviewed 2026-11-06 for the pinned Nunchaku Lite NVFP4 rank-32 checkpoint,
+Reviewed 2026-11-08 for the pinned Nunchaku Lite NVFP4 rank-32 checkpoint,
 NF4 Qwen3 encoder and Diffusers 0.42.1. Text-to-image is qualified locally;
 single-reference editing is now qualified at 1024×1024. Other additional model
 modes below still need their own validation.
@@ -52,7 +52,7 @@ not add those model capabilities.
 
 ## Implemented milestone and next investigation
 
-**Refine** now supports one reference plus an instruction, uploads, generated-result
+**Refine** now supports one to four ordered references plus an instruction, uploads, generated-result
 and gallery reuse, before/after viewing and iterative refinement. HTTP
 `/v1/images/edits` and MCP `refine_image` use the shared sequential GPU queue.
 Reference hashes and preprocessing settings accompany recipes; gallery storage
