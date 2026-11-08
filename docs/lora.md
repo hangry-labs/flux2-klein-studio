@@ -20,8 +20,12 @@ Source: [fal/flux-2-klein-4B-zoom-lora](https://huggingface.co/fal/flux-2-klein-
 In **Refine**, choose **Red Zoom · Detail focus (experimental)**, then upload a
 picture or send a generated result. Drag a red rectangle around the target, or
 set its position and size with the percentage inputs. The hollow outline leaves
-the target visible. **Centre selection** restores the central half of the image.
-Output size is independent of the selected source area.
+the target visible. Its aspect ratio follows **Output canvas**, including when
+the source has a different shape. Drag inside to move the rectangle without
+resizing it. Click outside to clear it, or drag outside to replace it with a new
+selection. Width/height percentage controls stay linked to the output ratio.
+**Centre selection** restores a centred rectangle with that ratio. After clearing,
+select an area before generating. Output dimensions set the generated image size.
 
 The server always includes `Zoom into the red highlighted area` at strength 1.1.
 The text box accepts optional extra focus details. After generation, click

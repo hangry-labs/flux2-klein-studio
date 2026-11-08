@@ -35,7 +35,7 @@ export function refineRunning() {return active && !terminal.has(active.status);}
 function note(text = '') {$('refine-message').textContent = text;}
 function controls() {
   const running = refineRunning();
-  $('refine-submit').disabled = !reference || running || uploading;
+  $('refine-submit').disabled = !reference || running || uploading || (zoom() && !zoomer?.hasSelection());
   $('refine-upload').disabled = Boolean(running || uploading);
   $('refine-clear').disabled = !reference || running || uploading;
   $('refine-use-result').disabled = Boolean(running || uploading);
@@ -53,6 +53,7 @@ function sizeChanged() {
   const size = `${$('refine-width').value}x${$('refine-height').value}`;
   $('refine-resolution').value = [...$('refine-resolution').options].some(option => option.value === size) ? size : 'custom';
   painter?.resize(Number($('refine-width').value),Number($('refine-height').value));
+  zoomer?.setOutputSize(Number($('refine-width').value),Number($('refine-height').value));
 }
 function clearResult() {
   result = null; $('refine-result-image').hidden = true;
@@ -70,7 +71,7 @@ async function choose(next, dimensions = null, markedZoom = false) {
   $('refine-width').value = Math.max(64, Math.floor(width * scale / 16) * 16);
   $('refine-height').value = Math.max(64, Math.floor(height * scale / 16) * 16);
   await painter.setSource(next.image,Number($('refine-width').value),Number($('refine-height').value));
-  zoomer.setSource(painter.source,markedZoom);
+  zoomer.setSource(painter.source,markedZoom,Number($('refine-width').value),Number($('refine-height').value));
   $('refine-prompt').value = ''; sizeChanged(); adapterChanged();
   if (old && old.id !== next.id) await api.request(`/api/references/${old.id}`, {method: 'DELETE'}).catch(() => {});
 }
@@ -138,7 +139,7 @@ export function configureRefine(config) {
 export function initializeRefine(options) {
   api = options;
   painter = new GreenPainter();
-  zoomer = new ZoomSelector();
+  zoomer = new ZoomSelector(controls);
   $('refine-adapter').onchange = adapterChanged;
   $('refine-gallery').onclick = () => api.switchView('gallery');
   $('refine-upload').onchange = async () => {
@@ -161,6 +162,7 @@ export function initializeRefine(options) {
   $('refine-cancel').onclick = async () => {try {active = await api.request(`/api/jobs/${active.id}/cancel`, {method: 'POST'}); controls();} catch (error) {note(error.message);}};
   $('refine-form').onsubmit = async event => {
     event.preventDefault(); if (!reference || refineRunning()) return; note();
+    if (zoom() && !zoomer.hasSelection()) return note('Select a red zoom area first.');
     if ($('refine-random-seed').checked) $('refine-seed').value = api.randomSeed();
     const payload = {prompt: $('refine-prompt').value, reference_id: reference.id, save_gallery: $('refine-save-gallery').checked,
       ...Object.fromEntries(['width', 'height', 'seed', 'steps'].map(key => [key, Number($(`refine-${key}`).value)]))};

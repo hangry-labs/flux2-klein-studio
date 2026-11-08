@@ -59,7 +59,10 @@ saved-reference behaviour and limitations.
 
 For a generated close-up, choose **Red Zoom · Detail focus (experimental)**.
 Drag a hollow red rectangle on the source, or use the percentage controls to
-choose its position and size. The zoom instruction is always included; extra
+choose its position and size. The rectangle keeps the selected output aspect
+ratio. Drag inside to move it; click outside to clear it and draw a new area.
+Width and height stay linked, including when the output ratio changes.
+The zoom instruction is always included; extra
 focus text is optional. After generation, **Zoom again from this result** makes
 the result the new reference with a fresh selection. Repeat to move closer.
 Output dimensions control the result canvas, independently of the source region.
